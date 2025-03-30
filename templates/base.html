@@ -1,0 +1,39 @@
+{% load static %}
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+  <title> {% block title %} {% endblock %}</title>
+
+  {% block css_files %}
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+  {% endblock %}
+
+  {% block js_files %}
+    <script src="{% static 'js/script.js' %}"></script>
+  {% endblock %}
+
+  {% block extra_head %}
+  {% endblock %}
+
+  {% block extra_body %}
+  {% endblock %}
+
+</head>
+<body>
+
+  {% include 'includes/navbar.html' %}
+  
+    {% block content %}
+
+    {% endblock %}
+
+  {% include 'includes/footer.html' %}
+
+</body>
+</html>
