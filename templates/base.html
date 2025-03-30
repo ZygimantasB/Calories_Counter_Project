@@ -8,32 +8,36 @@
         content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="ie=edge">
 
-  <title> {% block title %} {% endblock %}</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
 
-  {% block css_files %}
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
-  {% endblock %}
-
-  {% block js_files %}
-    <script src="{% static 'js/script.js' %}"></script>
-  {% endblock %}
+  <title> {% block title %} My Site {% endblock %}</title> {% block css_files %}
+  <link rel="stylesheet" href="{% static 'css/style.css' %}">
+{% endblock %}
 
   {% block extra_head %}
-  {% endblock %}
-
-  {% block extra_body %}
   {% endblock %}
 
 </head>
 <body>
 
-  {% include 'includes/navbar.html' %}
-  
-    {% block content %}
+{% include 'includes/navbar.html' %}
 
-    {% endblock %}
+<div class="container mt-4">
+  {% block content %}
 
-  {% include 'includes/footer.html' %}
+  {% endblock %}
+</div>
+
+{% include 'includes/footer.html' %}
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
+
+{% block js_files %}
+  <script src="{% static 'js/script.js' %}"></script>
+{% endblock %}
+
+{% block extra_body %}
+{% endblock %}
 
 </body>
 </html>
