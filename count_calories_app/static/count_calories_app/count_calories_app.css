@@ -1,0 +1,60 @@
+/* F:\Python GitHub ZygimantasB\Calories_Counter_Project\count_calories_app\static\count_calories_app\count_calories_app.css */
+
+/* Add some padding and ensure cards have a nice look */
+.card {
+    margin-bottom: 1.5rem; /* Add space below cards */
+    border: none; /* Remove default border if using shadow */
+}
+
+.card-header {
+    font-weight: bold;
+}
+
+/* Style the totals section */
+.totals-summary .stat {
+    padding: 10px;
+    border-radius: 5px;
+    background-color: #f8f9fa; /* Light background for stats */
+    margin-bottom: 10px;
+}
+
+.totals-summary .stat-value {
+    font-size: 1.2em;
+    font-weight: bold;
+    display: block; /* Ensure value is on its own line */
+}
+
+.totals-summary .stat-label {
+    font-size: 0.9em;
+    color: #6c757d; /* Muted text color */
+}
+
+/* Style the list items */
+.list-group-item {
+    border-left: 0;
+    border-right: 0;
+}
+
+.list-group-item:first-child {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+}
+
+.list-group-item:last-child {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+/* Make form labels slightly bolder */
+.form-label {
+    font-weight: 500;
+}
+
+/* Ensure invalid feedback is visible */
+.invalid-feedback.d-block {
+    display: block !important; /* Override Bootstrap if needed */
+    width: 100%;
+    margin-top: .25rem;
+    font-size: .875em;
+    color: #dc3545; /* Bootstrap's danger color */
+}

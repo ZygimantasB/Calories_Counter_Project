@@ -1,13 +1,126 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 {% load static %}
 
-{% block title %}Home{% endblock %}
+{% block title %}Calorie Counter{% endblock %}
+
+{% block css_files %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'count_calories_app/count_calories_app.css' %}">
+{% endblock %}
 
 {% block content %}
   <div class="row">
-    <div class="col-12">
-      <h1 class="text-center mb-4">Welcome to the Calorie Counter App</h1>
-      <p class="lead text-center">Track your daily calories and maintain a healthy lifestyle</p>
+
+    <div class="col-md-4 mb-4">
+      <div class="card shadow-sm rounded">
+        <div class="card-header bg-primary text-white">
+          <h2 class="h5 mb-0">Add Food Item</h2>
+        </div>
+        <div class="card-body">
+
+          <form method="post" action="{% url 'home' %}?range={{ selected_range }}">
+            {% csrf_token %}
+
+            {# *** ADDED LINE BELOW *** #}
+            {% if form.non_field_errors %}
+              <div class="alert alert-danger">
+                {% for error in form.non_field_errors %}
+                  {{ error }}
+                {% endfor %}
+              </div>
+            {% endif %} {# Now this endif matches the if above #}
+
+            {% for field in form %}
+              <div class="mb-3">
+                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}
+                  <small class="form-text text-muted">{{ field.help_text }}</small>
+                {% endif %}
+                {% if field.errors %}
+                  <div class="invalid-feedback d-block">
+                    {% for error in field.errors %}
+                      {{ error }}
+                    {% endfor %}
+                  </div>
+                {% endif %}
+              </div>
+            {% endfor %}
+
+            <button type="submit" class="btn btn-primary w-100">Add Item</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+
+    <div class="col-md-8">
+
+      <div class="mb-3 d-flex justify-content-center justify-content-md-start">
+        <a href="?range=today" class="btn btn-sm {% if selected_range == 'today' %}btn-info{% else %}btn-outline-info{% endif %} me-2">Today</a>
+        <a href="?range=week" class="btn btn-sm {% if selected_range == 'week' %}btn-info{% else %}btn-outline-info{% endif %} me-2">This Week</a>
+        <a href="?range=month" class="btn btn-sm {% if selected_range == 'month' %}btn-info{% else %}btn-outline-info{% endif %}">This Month</a>
+      </div>
+
+
+      <div class="card shadow-sm rounded mb-4">
+        <div class="card-header bg-success text-white">
+          <h2 class="h5 mb-0">Totals for {{ selected_range|title }}</h2>
+        </div>
+        <div class="card-body">
+          <div class="row text-center">
+            <div class="col-6 col-sm-3 mb-2">
+              <div class="fw-bold">{{ totals.total_calories|floatformat:0 }}</div>
+              <small class="text-muted">Calories (kcal)</small>
+            </div>
+            <div class="col-6 col-sm-3 mb-2">
+              <div class="fw-bold">{{ totals.total_fat|floatformat:1 }} g</div>
+              <small class="text-muted">Fat</small>
+            </div>
+            <div class="col-6 col-sm-3 mb-2">
+              <div class="fw-bold">{{ totals.total_carbohydrates|floatformat:1 }} g</div>
+              <small class="text-muted">Carbs</small>
+            </div>
+            <div class="col-6 col-sm-3 mb-2">
+              <div class="fw-bold">{{ totals.total_protein|floatformat:1 }} g</div>
+              <small class="text-muted">Protein</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+
+      <div class="card shadow-sm rounded">
+        <div class="card-header">
+          <h2 class="h5 mb-0">Consumed Items ({{ selected_range|title }})</h2>
+        </div>
+        {% if food_items %}
+          <ul class="list-group list-group-flush">
+            {% for item in food_items %}
+              <li class="list-group-item d-flex justify-content-between align-items-center">
+                <div>
+                  <strong>{{ item.product_name }}</strong><br>
+                  <small class="text-muted">
+                    {{ item.calories }} kcal |
+                    F: {{ item.fat|floatformat:1 }}g |
+                    C: {{ item.carbohydrates|floatformat:1 }}g |
+                    P: {{ item.protein|floatformat:1 }}g
+                  </small>
+                </div>
+                <span class="badge bg-secondary rounded-pill">{{ item.consumed_at|date:"Y-m-d H:i" }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <div class="card-body text-center text-muted">
+            No items recorded for this period.
+          </div>
+        {% endif %}
+      </div>
     </div>
   </div>
+{% endblock %}
+
+{% block js_files %}
+  {{ block.super }}
 {% endblock %}
