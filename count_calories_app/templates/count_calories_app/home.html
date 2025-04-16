@@ -160,7 +160,17 @@
                     P: {{ item.protein|floatformat:1 }}g
                   </small>
                 </div>
-                <span class="badge bg-secondary rounded-pill">{{ item.consumed_at|date:"Y-m-d H:i" }}</span>
+                <div class="d-flex align-items-center">
+                  <span class="badge bg-secondary rounded-pill me-2">{{ item.consumed_at|date:"Y-m-d H:i" }}</span>
+                  <div class="btn-group btn-group-sm ms-2">
+                    <a href="{% url 'edit_food_item' item.id %}" class="btn btn-outline-primary" title="Edit">
+                      <i class="fas fa-edit"></i>
+                    </a>
+                    <a href="{% url 'delete_food_item' item.id %}" class="btn btn-outline-danger" title="Delete">
+                      <i class="fas fa-trash"></i>
+                    </a>
+                  </div>
+                </div>
               </li>
             {% endfor %}
           </ul>

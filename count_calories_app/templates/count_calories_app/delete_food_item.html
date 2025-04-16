@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Delete Food Item{% endblock %}
+
+{% block css_files %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'count_calories_app/count_calories_app.css' %}">
+{% endblock %}
+
+{% block content %}
+  <div class="row justify-content-center">
+    <div class="col-md-6">
+      <div class="card shadow-sm rounded mb-4">
+        <div class="card-header bg-danger text-white">
+          <h2 class="h5 mb-0">Delete Food Item</h2>
+        </div>
+        <div class="card-body">
+          <p class="alert alert-warning">
+            Are you sure you want to delete the following food item?
+          </p>
+          
+          <div class="card mb-3">
+            <div class="card-body">
+              <h5 class="card-title">{{ food_item.product_name }}</h5>
+              <p class="card-text">
+                <strong>Calories:</strong> {{ food_item.calories }} kcal<br>
+                <strong>Fat:</strong> {{ food_item.fat|floatformat:1 }}g<br>
+                <strong>Carbs:</strong> {{ food_item.carbohydrates|floatformat:1 }}g<br>
+                <strong>Protein:</strong> {{ food_item.protein|floatformat:1 }}g<br>
+                <strong>Consumed at:</strong> {{ food_item.consumed_at|date:"Y-m-d H:i" }}
+              </p>
+            </div>
+          </div>
+          
+          <form method="post">
+            {% csrf_token %}
+            <div class="d-flex justify-content-between">
+              <a href="{% url 'home' %}" class="btn btn-secondary">Cancel</a>
+              <button type="submit" class="btn btn-danger">Delete</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}

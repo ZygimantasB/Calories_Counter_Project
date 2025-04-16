@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils import timezone
+import json
 
 class FoodItem(models.Model):
     """
@@ -18,6 +19,22 @@ class FoodItem(models.Model):
 
     class Meta:
         ordering = ['-consumed_at'] # Show newest items first
+
+class RunningSession(models.Model):
+    """
+    Represents a running session recorded by the user.
+    """
+    date = models.DateTimeField(default=timezone.now, help_text="Date and time of the run")
+    distance = models.DecimalField(max_digits=5, decimal_places=2, help_text="Distance in kilometers")
+    duration = models.DurationField(help_text="Duration of the run (HH:MM:SS)")
+    notes = models.TextField(blank=True, null=True, help_text="Optional notes about this run")
+
+    def __str__(self):
+        """String representation of the running session."""
+        return f"{self.distance} km on {self.date.strftime('%Y-%m-%d')}"
+
+    class Meta:
+        ordering = ['-date'] # Show newest runs first
 
 class Weight(models.Model):
     """
@@ -84,3 +101,19 @@ class WorkoutExercise(models.Model):
 
     class Meta:
         ordering = ['id'] # Preserve the order exercises were added
+
+class WorkoutTable(models.Model):
+    """
+    Represents a workout table with exercises and workout data.
+    """
+    name = models.CharField(max_length=200, help_text="Name of the workout table")
+    created_at = models.DateTimeField(default=timezone.now, help_text="Date and time the table was created")
+    # Store the table data as JSON
+    table_data = models.JSONField(help_text="JSON representation of the table data")
+
+    def __str__(self):
+        """String representation of the workout table."""
+        return f"{self.name} (created on {self.created_at.strftime('%Y-%m-%d')})"
+
+    class Meta:
+        ordering = ['-created_at'] # Show newest tables first

@@ -1,6 +1,6 @@
 # F:\Python GitHub ZygimantasB\Calories_Counter_Project\count_calories_app\forms.py
 from django import forms
-from .models import FoodItem, Weight, Exercise, WorkoutSession, WorkoutExercise
+from .models import FoodItem, Weight, Exercise, WorkoutSession, WorkoutExercise, RunningSession
 
 class FoodItemForm(forms.ModelForm):
     """
@@ -98,5 +98,25 @@ class WorkoutExerciseForm(forms.ModelForm):
             'sets': 'Sets',
             'reps': 'Reps',
             'weight': 'Weight (kg)',
+            'notes': 'Notes',
+        }
+
+class RunningSessionForm(forms.ModelForm):
+    """
+    Form for users to input running session details.
+    """
+    class Meta:
+        model = RunningSession
+        fields = ['date', 'distance', 'duration', 'notes']
+        widgets = {
+            'date': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
+            'distance': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'step': '0.01'}),
+            'duration': forms.TimeInput(attrs={'class': 'form-control', 'type': 'time', 'step': '1'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Optional notes about this run'}),
+        }
+        labels = {
+            'date': 'Date and Time',
+            'distance': 'Distance (km)',
+            'duration': 'Duration (HH:MM:SS)',
             'notes': 'Notes',
         }

@@ -4,8 +4,14 @@ from django.utils import timezone
 from datetime import timedelta
 from django.db.models import Sum, Count, Avg, Max, Min # Import additional aggregation functions
 from django.http import JsonResponse
-from .models import FoodItem, Weight, Exercise, WorkoutSession, WorkoutExercise
-from .forms import FoodItemForm, WeightForm, ExerciseForm, WorkoutSessionForm, WorkoutExerciseForm
+from django.contrib import messages
+from .models import FoodItem, Weight, Exercise, WorkoutSession, WorkoutExercise, RunningSession, WorkoutTable
+from .forms import FoodItemForm, WeightForm, ExerciseForm, WorkoutSessionForm, WorkoutExerciseForm, RunningSessionForm
+import logging
+import json
+
+# Get a logger for this file
+logger = logging.getLogger('count_calories_app')
 
 def get_nutrition_data(request):
     """
@@ -96,12 +102,22 @@ def home(request):
 
     if request.method == 'POST':
         # Handle form submission
+        logger.info(f"Processing food item form submission: {request.POST}")
         form = FoodItemForm(request.POST)
         if form.is_valid():
-            form.save()
-            # Redirect to the same page (using GET) to prevent form resubmission
-            # Keep the current time range selection
-            return redirect(f"{request.path}?range={time_range}")
+            try:
+                food_item = form.save()
+                logger.info(f"Food item saved successfully: {food_item.id} - {food_item.product_name}")
+                messages.success(request, f"Food item '{food_item.product_name}' added successfully!")
+                # Redirect to the same page (using GET) to prevent form resubmission
+                # Keep the current time range selection
+                return redirect(f"{request.path}?range={time_range}")
+            except Exception as e:
+                logger.error(f"Error saving food item: {str(e)}")
+                messages.error(request, f"Error saving food item: {str(e)}")
+        else:
+            logger.warning(f"Invalid food item form: {form.errors}")
+            messages.warning(request, "Please correct the errors in the form.")
         # If form is invalid, it will be re-rendered with errors below
     else:
         # Handle GET request (displaying the page)
@@ -224,7 +240,7 @@ def get_weight_data(request):
             # Avoid division by zero
             if time_diff > 0:
                 weight_change = newest_weight.weight - oldest_weight.weight
-                weight_change_rate = weight_change / time_diff
+                weight_change_rate = float(weight_change) / time_diff
                 weight_data['stats']['change_rate'] = float(weight_change_rate)
             else:
                 weight_data['stats']['change_rate'] = 0
@@ -257,11 +273,21 @@ def weight_tracker(request):
 
     if request.method == 'POST':
         # Handle form submission
+        logger.info(f"Processing weight form submission: {request.POST}")
         form = WeightForm(request.POST)
         if form.is_valid():
-            form.save()
-            # Redirect to the same page (using GET) to prevent form resubmission
-            return redirect('weight_tracker')
+            try:
+                weight = form.save()
+                logger.info(f"Weight measurement saved successfully: {weight.id} - {weight.weight} kg")
+                messages.success(request, f"Weight measurement of {weight.weight} kg added successfully!")
+                # Redirect to the same page (using GET) to prevent form resubmission
+                return redirect('weight_tracker')
+            except Exception as e:
+                logger.error(f"Error saving weight measurement: {str(e)}")
+                messages.error(request, f"Error saving weight measurement: {str(e)}")
+        else:
+            logger.warning(f"Invalid weight form: {form.errors}")
+            messages.warning(request, "Please correct the errors in the form.")
         # If form is invalid, it will be re-rendered with errors below
     else:
         # Handle GET request (displaying the page)
@@ -386,6 +412,203 @@ def get_exercise_progress_data(request, exercise_id=None):
 
     return JsonResponse(progress_data)
 
+def edit_food_item(request, food_item_id):
+    """
+    View for editing a food item.
+    """
+    # Get the food item or return 404 if not found
+    food_item = get_object_or_404(FoodItem, id=food_item_id)
+
+    if request.method == 'POST':
+        # Handle form submission
+        form = FoodItemForm(request.POST, instance=food_item)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Food item updated successfully!')
+            # Redirect to the home page
+            return redirect('home')
+        # If form is invalid, it will be re-rendered with errors below
+    else:
+        # Handle GET request (displaying the page)
+        form = FoodItemForm(instance=food_item)
+
+    context = {
+        'form': form,
+        'food_item': food_item,
+        'edit_mode': True,
+    }
+    return render(request, 'count_calories_app/edit_food_item.html', context)
+
+def delete_food_item(request, food_item_id):
+    """
+    View for deleting a food item.
+    """
+    # Get the food item or return 404 if not found
+    food_item = get_object_or_404(FoodItem, id=food_item_id)
+
+    if request.method == 'POST':
+        # Delete the food item
+        food_item.delete()
+        messages.success(request, 'Food item deleted successfully!')
+        # Redirect to the home page
+        return redirect('home')
+
+    context = {
+        'food_item': food_item,
+    }
+    return render(request, 'count_calories_app/delete_food_item.html', context)
+
+def edit_weight(request, weight_id):
+    """
+    View for editing a weight measurement.
+    """
+    # Get the weight measurement or return 404 if not found
+    weight = get_object_or_404(Weight, id=weight_id)
+
+    if request.method == 'POST':
+        # Handle form submission
+        form = WeightForm(request.POST, instance=weight)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Weight measurement updated successfully!')
+            # Redirect to the weight tracker page
+            return redirect('weight_tracker')
+        # If form is invalid, it will be re-rendered with errors below
+    else:
+        # Handle GET request (displaying the page)
+        form = WeightForm(instance=weight)
+
+    context = {
+        'form': form,
+        'weight': weight,
+        'edit_mode': True,
+    }
+    return render(request, 'count_calories_app/edit_weight.html', context)
+
+def delete_weight(request, weight_id):
+    """
+    View for deleting a weight measurement.
+    """
+    # Get the weight measurement or return 404 if not found
+    weight = get_object_or_404(Weight, id=weight_id)
+
+    if request.method == 'POST':
+        # Delete the weight measurement
+        weight.delete()
+        messages.success(request, 'Weight measurement deleted successfully!')
+        # Redirect to the weight tracker page
+        return redirect('weight_tracker')
+
+    context = {
+        'weight': weight,
+    }
+    return render(request, 'count_calories_app/delete_weight.html', context)
+
+def workout_table(request):
+    """
+    View for the Excel-like workout table interface.
+    Allows users to create and manage workout tables with exercises and workout data.
+    """
+    # Get all workout tables, ordered by date (newest first)
+    workout_tables = WorkoutTable.objects.all().order_by('-created_at')
+
+    context = {
+        'workout_tables': workout_tables,
+    }
+    return render(request, 'count_calories_app/workout_table.html', context)
+
+def save_workout_table(request):
+    """
+    API endpoint to save a workout table.
+    """
+    if request.method == 'POST':
+        try:
+            logger.info(f"Processing workout table save request")
+            data = json.loads(request.body)
+
+            table_id = data.get('id')
+            table_name = data.get('name', 'Workout Table')
+            table_data = data.get('data', {})
+
+            if table_id:
+                # Update existing table
+                try:
+                    table = WorkoutTable.objects.get(id=table_id)
+                    table.name = table_name
+                    table.table_data = table_data
+                    table.save()
+                    logger.info(f"Workout table updated successfully: {table.id} - {table.name}")
+                    return JsonResponse({'success': True, 'message': 'Workout table updated successfully', 'id': table.id})
+                except WorkoutTable.DoesNotExist:
+                    logger.error(f"Workout table not found: {table_id}")
+                    return JsonResponse({'success': False, 'message': 'Workout table not found'}, status=404)
+            else:
+                # Create new table
+                table = WorkoutTable.objects.create(
+                    name=table_name,
+                    table_data=table_data
+                )
+                logger.info(f"Workout table created successfully: {table.id} - {table.name}")
+                return JsonResponse({'success': True, 'message': 'Workout table created successfully', 'id': table.id})
+
+        except Exception as e:
+            logger.error(f"Error saving workout table: {str(e)}")
+            return JsonResponse({'success': False, 'message': f"Error saving workout table: {str(e)}"}, status=500)
+
+    return JsonResponse({'success': False, 'message': 'Invalid request method'}, status=405)
+
+def get_workout_tables(request):
+    """
+    API endpoint to get all workout tables.
+    """
+    try:
+        workout_tables = WorkoutTable.objects.all().order_by('-created_at')
+        tables_data = []
+
+        for table in workout_tables:
+            # Ensure table_data is properly parsed as JSON
+            table_data = table.table_data
+            # If table_data is a string (which might happen if it wasn't properly parsed),
+            # try to parse it as JSON
+            if isinstance(table_data, str):
+                try:
+                    table_data = json.loads(table_data)
+                except json.JSONDecodeError:
+                    logger.error(f"Error parsing table_data as JSON for table {table.id}")
+                    # If parsing fails, use the original data
+                    pass
+
+            tables_data.append({
+                'id': table.id,
+                'name': table.name,
+                'date': table.created_at.strftime('%m/%d/%Y'),
+                'data': table_data
+            })
+
+        return JsonResponse({'success': True, 'tables': tables_data})
+    except Exception as e:
+        logger.error(f"Error getting workout tables: {str(e)}")
+        return JsonResponse({'success': False, 'message': f"Error getting workout tables: {str(e)}"}, status=500)
+
+def delete_workout_table(request, table_id):
+    """
+    API endpoint to delete a workout table.
+    """
+    if request.method == 'DELETE':
+        try:
+            table = WorkoutTable.objects.get(id=table_id)
+            table.delete()
+            logger.info(f"Workout table deleted successfully: {table_id}")
+            return JsonResponse({'success': True, 'message': 'Workout table deleted successfully'})
+        except WorkoutTable.DoesNotExist:
+            logger.error(f"Workout table not found: {table_id}")
+            return JsonResponse({'success': False, 'message': 'Workout table not found'}, status=404)
+        except Exception as e:
+            logger.error(f"Error deleting workout table: {str(e)}")
+            return JsonResponse({'success': False, 'message': f"Error deleting workout table: {str(e)}"}, status=500)
+
+    return JsonResponse({'success': False, 'message': 'Invalid request method'}, status=405)
+
 def workout_detail(request, workout_id):
     """
     View for a specific workout session.
@@ -420,3 +643,91 @@ def workout_detail(request, workout_id):
         'form': form,
     }
     return render(request, 'count_calories_app/workout_detail.html', context)
+
+def running_tracker(request):
+    """
+    View for the running tracking page.
+    Handles displaying the form, list of running sessions, and charts,
+    as well as processing form submissions.
+    """
+    # Get all running sessions, ordered by date (newest first)
+    running_sessions = RunningSession.objects.all().order_by('-date')
+
+    if request.method == 'POST':
+        # Handle form submission
+        logger.info(f"Processing running session form submission: {request.POST}")
+        form = RunningSessionForm(request.POST)
+        if form.is_valid():
+            try:
+                running_session = form.save()
+                logger.info(f"Running session saved successfully: {running_session.id} - {running_session.distance} km")
+                messages.success(request, f"Running session of {running_session.distance} km added successfully!")
+                # Redirect to the same page (using GET) to prevent form resubmission
+                return redirect('running_tracker')
+            except Exception as e:
+                logger.error(f"Error saving running session: {str(e)}")
+                messages.error(request, f"Error saving running session: {str(e)}")
+        else:
+            logger.warning(f"Invalid running session form: {form.errors}")
+            messages.warning(request, "Please correct the errors in the form.")
+        # If form is invalid, it will be re-rendered with errors below
+    else:
+        # Handle GET request (displaying the page)
+        form = RunningSessionForm(initial={'date': timezone.now()})  # Create an empty form with current date/time
+
+    context = {
+        'form': form,
+        'running_sessions': running_sessions,
+    }
+    return render(request, 'count_calories_app/running_tracker.html', context)
+
+def get_running_data(request):
+    """
+    API endpoint to get running data for charts
+    """
+    # Get the last 90 days of data
+    end_date = timezone.now()
+    start_date = end_date - timedelta(days=90)
+
+    # Get all running sessions in the date range
+    running_sessions = RunningSession.objects.filter(
+        date__gte=start_date,
+        date__lte=end_date
+    ).order_by('date')
+
+    # Calculate stats
+    stats = {
+        'total_distance': 0,
+        'total_sessions': 0,
+        'avg_distance': 0,
+        'avg_duration': 0,
+    }
+
+    # Prepare data for chart
+    labels = []
+    distances = []
+    durations = []
+
+    for session in running_sessions:
+        labels.append(session.date.strftime('%Y-%m-%d'))
+        distances.append(float(session.distance))
+        # Convert duration to minutes for the chart
+        duration_minutes = session.duration.total_seconds() / 60
+        durations.append(duration_minutes)
+
+    # Calculate stats if we have data
+    if running_sessions:
+        stats['total_distance'] = sum(distances)
+        stats['total_sessions'] = len(running_sessions)
+        stats['avg_distance'] = stats['total_distance'] / stats['total_sessions']
+        total_duration_minutes = sum(durations)
+        stats['avg_duration'] = total_duration_minutes / stats['total_sessions']
+
+    running_data = {
+        'labels': labels,
+        'distances': distances,
+        'durations': durations,
+        'stats': stats
+    }
+
+    return JsonResponse(running_data)

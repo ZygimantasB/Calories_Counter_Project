@@ -1,0 +1,251 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Running Tracker{% endblock %}
+
+{% block css_files %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'count_calories_app/count_calories_app.css' %}">
+  <style>
+    .chart-container {
+      position: relative;
+      height: 300px;
+      width: 100%;
+      margin-bottom: 20px;
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <div class="row">
+    <div class="col-md-4 mb-4">
+      <div class="card shadow-sm rounded mb-4">
+        <div class="card-header bg-primary text-white">
+          <h2 class="h5 mb-0">Add Running Session</h2>
+        </div>
+        <div class="card-body">
+          <form method="post" action="{% url 'running_tracker' %}">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+              <div class="alert alert-danger">
+                {% for error in form.non_field_errors %}
+                  {{ error }}
+                {% endfor %}
+              </div>
+            {% endif %}
+
+            {% for field in form %}
+              <div class="mb-3">
+                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}
+                  <small class="form-text text-muted">{{ field.help_text }}</small>
+                {% endif %}
+                {% if field.errors %}
+                  <div class="invalid-feedback d-block">
+                    {% for error in field.errors %}
+                      {{ error }}
+                    {% endfor %}
+                  </div>
+                {% endif %}
+              </div>
+            {% endfor %}
+
+            <button type="submit" class="btn btn-primary w-100">Add Run</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-8">
+      <div class="card shadow-sm rounded mb-4">
+        <div class="card-header bg-success text-white">
+          <h2 class="h5 mb-0">Running Statistics</h2>
+        </div>
+        <div class="card-body">
+          <div class="row text-center">
+            <div class="col-6 col-sm-3 mb-2">
+              <div class="fw-bold" id="total-distance">0 km</div>
+              <small class="text-muted">Total Distance</small>
+            </div>
+            <div class="col-6 col-sm-3 mb-2">
+              <div class="fw-bold" id="total-sessions">0</div>
+              <small class="text-muted">Total Sessions</small>
+            </div>
+            <div class="col-6 col-sm-3 mb-2">
+              <div class="fw-bold" id="avg-distance">0 km</div>
+              <small class="text-muted">Avg Distance</small>
+            </div>
+            <div class="col-6 col-sm-3 mb-2">
+              <div class="fw-bold" id="avg-duration">0 min</div>
+              <small class="text-muted">Avg Duration</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Distance Chart -->
+      <div class="card shadow-sm rounded mb-4">
+        <div class="card-header bg-info text-white">
+          <h2 class="h5 mb-0">Running Distance (Last 90 Days)</h2>
+        </div>
+        <div class="card-body">
+          <div class="chart-container">
+            <canvas id="distanceChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Duration Chart -->
+      <div class="card shadow-sm rounded mb-4">
+        <div class="card-header bg-warning text-dark">
+          <h2 class="h5 mb-0">Running Duration (Last 90 Days)</h2>
+        </div>
+        <div class="card-body">
+          <div class="chart-container">
+            <canvas id="durationChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <div class="card shadow-sm rounded">
+        <div class="card-header">
+          <h2 class="h5 mb-0">Running Sessions</h2>
+        </div>
+        {% if running_sessions %}
+          <ul class="list-group list-group-flush">
+            {% for session in running_sessions %}
+              <li class="list-group-item d-flex justify-content-between align-items-center">
+                <div>
+                  <strong>{{ session.distance }} km</strong> in {{ session.duration }}
+                  {% if session.notes %}
+                    <br>
+                    <small class="text-muted">{{ session.notes }}</small>
+                  {% endif %}
+                </div>
+                <div class="d-flex align-items-center">
+                  <span class="badge bg-secondary rounded-pill me-2">{{ session.date|date:"Y-m-d H:i" }}</span>
+                </div>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <div class="card-body text-center text-muted">
+            No running sessions recorded yet.
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block js_files %}
+  {{ block.super }}
+  <script>
+    // Chart.js for running visualization
+    document.addEventListener('DOMContentLoaded', function() {
+      fetch('{% url "running_data" %}')
+        .then(response => response.json())
+        .then(data => {
+          // Update stats
+          if (data.stats) {
+            document.getElementById('total-distance').textContent = data.stats.total_distance.toFixed(1) + ' km';
+            document.getElementById('total-sessions').textContent = data.stats.total_sessions;
+            document.getElementById('avg-distance').textContent = data.stats.avg_distance.toFixed(1) + ' km';
+            document.getElementById('avg-duration').textContent = data.stats.avg_duration.toFixed(0) + ' min';
+          }
+
+          // Create distance chart
+          const distanceCtx = document.getElementById('distanceChart').getContext('2d');
+          new Chart(distanceCtx, {
+            type: 'bar',
+            data: {
+              labels: data.labels,
+              datasets: [{
+                label: 'Distance (km)',
+                data: data.distances,
+                backgroundColor: 'rgba(75, 192, 192, 0.7)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  title: {
+                    display: true,
+                    text: 'Distance (km)'
+                  }
+                },
+                x: {
+                  title: {
+                    display: true,
+                    text: 'Date'
+                  }
+                }
+              },
+              plugins: {
+                legend: {
+                  position: 'top',
+                },
+                title: {
+                  display: true,
+                  text: 'Running Distance Over Time'
+                }
+              }
+            }
+          });
+
+          // Create duration chart
+          const durationCtx = document.getElementById('durationChart').getContext('2d');
+          new Chart(durationCtx, {
+            type: 'line',
+            data: {
+              labels: data.labels,
+              datasets: [{
+                label: 'Duration (minutes)',
+                data: data.durations,
+                backgroundColor: 'rgba(255, 159, 64, 0.2)',
+                borderColor: 'rgba(255, 159, 64, 1)',
+                borderWidth: 2,
+                tension: 0.1
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  title: {
+                    display: true,
+                    text: 'Duration (minutes)'
+                  }
+                },
+                x: {
+                  title: {
+                    display: true,
+                    text: 'Date'
+                  }
+                }
+              },
+              plugins: {
+                legend: {
+                  position: 'top',
+                },
+                title: {
+                  display: true,
+                  text: 'Running Duration Over Time'
+                }
+              }
+            }
+          });
+        })
+        .catch(error => console.error('Error fetching running data:', error));
+    });
+  </script>
+{% endblock %}

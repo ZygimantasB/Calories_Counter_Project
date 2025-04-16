@@ -133,7 +133,17 @@
                     <small class="text-muted">{{ weight.notes }}</small>
                   {% endif %}
                 </div>
-                <span class="badge bg-secondary rounded-pill">{{ weight.recorded_at|date:"Y-m-d H:i" }}</span>
+                <div class="d-flex align-items-center">
+                  <span class="badge bg-secondary rounded-pill me-2">{{ weight.recorded_at|date:"Y-m-d H:i" }}</span>
+                  <div class="btn-group btn-group-sm ms-2">
+                    <a href="{% url 'edit_weight' weight.id %}" class="btn btn-outline-primary" title="Edit">
+                      <i class="fas fa-edit"></i>
+                    </a>
+                    <a href="{% url 'delete_weight' weight.id %}" class="btn btn-outline-danger" title="Delete">
+                      <i class="fas fa-trash"></i>
+                    </a>
+                  </div>
+                </div>
               </li>
             {% endfor %}
           </ul>

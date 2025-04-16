@@ -1,0 +1,718 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Workout Table{% endblock %}
+
+{% block css_files %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'count_calories_app/count_calories_app.css' %}">
+  <style>
+    .workout-table {
+      width: 100%;
+      overflow-x: auto;
+    }
+    .workout-table table {
+      min-width: 100%;
+      border-collapse: collapse;
+    }
+    .workout-table th, .workout-table td {
+      border: 1px solid #dee2e6;
+      padding: 8px;
+      position: relative;
+    }
+    .workout-table th {
+      background-color: #f8f9fa;
+      font-weight: bold;
+      text-align: center;
+    }
+    .workout-table .exercise-name {
+      min-width: 200px;
+      background-color: #f8f9fa;
+      font-weight: bold;
+    }
+    .workout-table .editable {
+      min-width: 100px;
+      cursor: pointer;
+    }
+    .workout-table .editable:hover {
+      background-color: #f0f0f0;
+    }
+    .workout-table .editable:focus {
+      outline: 2px solid #007bff;
+      background-color: #fff;
+    }
+    .workout-table .add-row, .workout-table .add-column {
+      cursor: pointer;
+      background-color: #e9ecef;
+      text-align: center;
+      font-weight: bold;
+    }
+    .workout-table .add-row:hover, .workout-table .add-column:hover {
+      background-color: #dee2e6;
+    }
+    .workout-table .delete-btn {
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      cursor: pointer;
+      color: #dc3545;
+      font-size: 12px;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .workout-table th:hover .delete-btn, .workout-table .exercise-name:hover .delete-btn {
+      opacity: 1;
+    }
+    .save-table-btn {
+      margin-top: 20px;
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+  {% csrf_token %}
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="d-flex justify-content-between align-items-center">
+        <h1 class="h3">Workout Table</h1>
+        <div>
+          <button id="save-table" class="btn btn-primary">
+            <i class="fas fa-save me-1"></i>Save Workout Table
+          </button>
+          <button id="new-table" class="btn btn-outline-secondary ms-2">
+            <i class="fas fa-plus me-1"></i>New Table
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-12">
+      <div class="card shadow-sm rounded">
+        <div class="card-header bg-primary text-white">
+          <div class="d-flex justify-content-between align-items-center">
+            <h2 class="h5 mb-0">Workout Progress Table</h2>
+            <div class="input-group input-group-sm" style="max-width: 300px;">
+              <input type="text" id="table-name" class="form-control" placeholder="Table Name (e.g., Upper Body Workout)">
+            </div>
+          </div>
+        </div>
+        <div class="card-body p-0">
+          <div class="workout-table">
+            <table id="workout-table" class="table table-bordered mb-0">
+              <thead>
+                <tr id="header-row">
+                  <th class="exercise-name">Exercise</th>
+                  <th class="editable" contenteditable="true">Workout 1
+                    <span class="delete-btn"><i class="fas fa-times"></i></span>
+                  </th>
+                  <th class="add-column" id="add-column">+ Add Workout</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="exercise-name" contenteditable="true">
+                    Exercise 1
+                    <span class="delete-btn"><i class="fas fa-times"></i></span>
+                  </td>
+                  <td class="editable" contenteditable="true"></td>
+                  <td rowspan="2" class="add-column"></td>
+                </tr>
+                <tr>
+                  <td class="exercise-name" contenteditable="true">
+                    Exercise 2
+                    <span class="delete-btn"><i class="fas fa-times"></i></span>
+                  </td>
+                  <td class="editable" contenteditable="true"></td>
+                </tr>
+                <tr id="add-row-row">
+                  <td class="add-row" id="add-row" colspan="3">+ Add Exercise</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Saved Tables Section -->
+  <div class="row mt-4">
+    <div class="col-12">
+      <div class="card shadow-sm rounded">
+        <div class="card-header bg-success text-white">
+          <h2 class="h5 mb-0">Saved Workout Tables</h2>
+        </div>
+        <div class="card-body p-0">
+          <div id="saved-tables-container">
+            <!-- Saved tables will be loaded here -->
+            <div class="text-center py-4 text-muted">
+              No saved workout tables yet. Create and save your first table above.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block js_files %}
+  {{ block.super }}
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const workoutTable = document.getElementById('workout-table');
+      const addRowBtn = document.getElementById('add-row');
+      const addColumnBtn = document.getElementById('add-column');
+      const saveTableBtn = document.getElementById('save-table');
+      const newTableBtn = document.getElementById('new-table');
+      const tableNameInput = document.getElementById('table-name');
+      const savedTablesContainer = document.getElementById('saved-tables-container');
+
+      // Track the currently loaded table index (-1 means creating a new table)
+      let currentTableIndex = -1;
+
+      // Add a new row (exercise)
+      addRowBtn.addEventListener('click', function() {
+        const newRow = document.createElement('tr');
+        const exerciseCell = document.createElement('td');
+        exerciseCell.className = 'exercise-name';
+        exerciseCell.contentEditable = true;
+        exerciseCell.innerHTML = 'New Exercise <span class="delete-btn"><i class="fas fa-times"></i></span>';
+
+        newRow.appendChild(exerciseCell);
+
+        // Add cells for each workout column
+        const headerRow = document.getElementById('header-row');
+        const workoutCount = headerRow.cells.length - 2; // Subtract Exercise and Add Column cells
+
+        for (let i = 0; i < workoutCount; i++) {
+          const workoutCell = document.createElement('td');
+          workoutCell.className = 'editable';
+          workoutCell.contentEditable = true;
+          newRow.appendChild(workoutCell);
+        }
+
+        // Add empty cell for the add column button
+        const emptyCell = document.createElement('td');
+        emptyCell.className = 'add-column';
+        newRow.appendChild(emptyCell);
+
+        // Insert the new row before the add row button
+        const addRowRow = document.getElementById('add-row-row');
+        workoutTable.tBodies[0].insertBefore(newRow, addRowRow);
+
+        // Add event listeners for the delete button
+        setupDeleteButtons();
+      });
+
+      // Add a new column (workout)
+      addColumnBtn.addEventListener('click', function() {
+        // Add header cell
+        const headerRow = document.getElementById('header-row');
+        const newHeaderCell = document.createElement('th');
+        newHeaderCell.className = 'editable';
+        newHeaderCell.contentEditable = true;
+        newHeaderCell.innerHTML = 'New Workout <span class="delete-btn"><i class="fas fa-times"></i></span>';
+
+        // Insert before the add column button
+        headerRow.insertBefore(newHeaderCell, headerRow.lastElementChild);
+
+        // Add cells to each row
+        const rows = workoutTable.tBodies[0].rows;
+        for (let i = 0; i < rows.length - 1; i++) { // Skip the add row button
+          if (rows[i].id !== 'add-row-row') {
+            const newCell = document.createElement('td');
+            newCell.className = 'editable';
+            newCell.contentEditable = true;
+            rows[i].insertBefore(newCell, rows[i].lastElementChild);
+          }
+        }
+
+        // Update the colspan of the add row button
+        const addRowCell = document.getElementById('add-row');
+        addRowCell.colSpan = headerRow.cells.length;
+
+        // Add event listeners for the delete button
+        setupDeleteButtons();
+      });
+
+      // Setup delete buttons for rows and columns
+      function setupDeleteButtons() {
+        // Delete row buttons
+        const deleteRowBtns = document.querySelectorAll('.exercise-name .delete-btn');
+        deleteRowBtns.forEach(btn => {
+          btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const row = this.closest('tr');
+            row.remove();
+          });
+        });
+
+        // Delete column buttons
+        const deleteColumnBtns = document.querySelectorAll('#header-row th:not(:first-child):not(:last-child) .delete-btn');
+        deleteColumnBtns.forEach((btn, index) => {
+          btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const columnIndex = this.closest('th').cellIndex;
+
+            // Remove the header cell
+            const headerRow = document.getElementById('header-row');
+            headerRow.deleteCell(columnIndex);
+
+            // Remove the corresponding cell in each row
+            const rows = workoutTable.tBodies[0].rows;
+            for (let i = 0; i < rows.length - 1; i++) { // Skip the add row button
+              if (rows[i].id !== 'add-row-row') {
+                rows[i].deleteCell(columnIndex);
+              }
+            }
+
+            // Update the colspan of the add row button
+            const addRowCell = document.getElementById('add-row');
+            addRowCell.colSpan = headerRow.cells.length;
+          });
+        });
+      }
+
+      // Initialize delete buttons
+      setupDeleteButtons();
+
+      // Save the table
+      saveTableBtn.addEventListener('click', function() {
+        try {
+          console.log('Save button clicked. Current table index:', currentTableIndex);
+
+          const tableName = tableNameInput.value.trim() || 'Workout Table';
+          console.log('Table name:', tableName);
+
+          // Get table data
+          const tableData = {
+            workouts: [],
+            exercises: []
+          };
+
+          // Get workout names (column headers)
+          const headerRow = document.getElementById('header-row');
+          for (let i = 1; i < headerRow.cells.length - 1; i++) {
+            tableData.workouts.push(headerRow.cells[i].textContent.trim());
+          }
+          console.log('Workouts collected:', tableData.workouts);
+
+          // Get exercise data
+          const rows = workoutTable.tBodies[0].rows;
+          for (let i = 0; i < rows.length - 1; i++) { // Skip the add row button
+            if (rows[i].id !== 'add-row-row') {
+              const exerciseName = rows[i].cells[0].textContent.trim();
+              const exerciseData = {
+                name: exerciseName,
+                workouts: []
+              };
+
+              // Get workout data for this exercise
+              for (let j = 1; j < rows[i].cells.length - 1; j++) {
+                exerciseData.workouts.push(rows[i].cells[j].textContent.trim());
+              }
+
+              tableData.exercises.push(exerciseData);
+            }
+          }
+          console.log('Exercises collected:', tableData.exercises);
+
+          // Prepare data for API request
+          const requestData = {
+            name: tableName,
+            data: tableData
+          };
+
+          // If we're editing an existing table, include the ID
+          if (currentTableIndex > 0) {
+            requestData.id = currentTableIndex;
+          }
+
+          // Send data to server
+          fetch('{% url "save_workout_table" %}', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify(requestData)
+          })
+          .then(response => response.json())
+          .then(data => {
+            console.log('Server response:', data);
+
+            if (data.success) {
+              // Update current table index if this was a new table
+              if (currentTableIndex <= 0) {
+                currentTableIndex = data.id;
+                // Update save button text to indicate we're editing
+                saveTableBtn.innerHTML = `<i class="fas fa-save me-1"></i>Update Table`;
+              }
+
+              alert(data.message);
+
+              // Update the saved tables display
+              loadSavedTables();
+            } else {
+              alert('Error: ' + data.message);
+            }
+          })
+          .catch(error => {
+            console.error('Error saving workout table:', error);
+            alert('Error saving workout table: ' + error.message);
+          });
+
+          console.log('Save request sent');
+        } catch (error) {
+          console.error('Error preparing workout table data:', error);
+          alert('Error preparing workout table data: ' + error.message);
+        }
+      });
+
+      // Load saved tables
+      function loadSavedTables() {
+        try {
+          console.log('Loading saved tables from server');
+
+          fetch('{% url "get_workout_tables" %}')
+            .then(response => response.json())
+            .then(data => {
+              console.log('Server response:', data);
+
+              if (!data.success) {
+                console.error('Error from server:', data.message);
+                alert('Error loading tables: ' + data.message);
+                return;
+              }
+
+              const savedTables = data.tables;
+              console.log('Parsed saved tables:', savedTables);
+
+              if (savedTables.length === 0) {
+                console.log('No saved tables found');
+                savedTablesContainer.innerHTML = `
+                  <div class="text-center py-4 text-muted">
+                    No saved workout tables yet. Create and save your first table above.
+                  </div>
+                `;
+                return;
+              }
+
+              console.log('Building HTML for saved tables list');
+              let html = '<div class="list-group list-group-flush">';
+
+              savedTables.forEach((table) => {
+                console.log(`Processing table ${table.id}:`, table);
+                html += `
+                  <div class="list-group-item">
+                    <div class="d-flex justify-content-between align-items-center">
+                      <div>
+                        <h5 class="mb-1">${table.name}</h5>
+                        <small class="text-muted">Created: ${table.date}</small>
+                      </div>
+                      <div>
+                        <button class="btn btn-sm btn-outline-primary load-table-btn" data-id="${table.id}">
+                          <i class="fas fa-edit me-1"></i>Load
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger delete-table-btn ms-2" data-id="${table.id}">
+                          <i class="fas fa-trash me-1"></i>Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                `;
+              });
+
+              html += '</div>';
+              savedTablesContainer.innerHTML = html;
+              console.log('Updated saved tables container HTML');
+
+              // Add event listeners for load and delete buttons
+              console.log('Adding event listeners to load buttons');
+              document.querySelectorAll('.load-table-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                  const id = this.getAttribute('data-id');
+                  console.log('Load button clicked for table id:', id);
+                  loadTable(id);
+                });
+              });
+
+              console.log('Adding event listeners to delete buttons');
+              document.querySelectorAll('.delete-table-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                  const id = this.getAttribute('data-id');
+                  console.log('Delete button clicked for table id:', id);
+                  deleteTable(id);
+                });
+              });
+
+              console.log('Saved tables loaded successfully');
+            })
+            .catch(error => {
+              console.error('Error fetching saved tables:', error);
+              alert('Error loading saved tables: ' + error.message);
+            });
+        } catch (error) {
+          console.error('Error in loadSavedTables function:', error);
+          alert('Error loading saved tables: ' + error.message);
+        }
+      }
+
+      // Load a saved table
+      function loadTable(tableId) {
+        try {
+          console.log('Loading table with ID:', tableId);
+
+          // Fetch the specific table from the server
+          fetch('{% url "get_workout_tables" %}')
+            .then(response => response.json())
+            .then(data => {
+              console.log('Server response:', data);
+
+              if (!data.success) {
+                console.error('Error from server:', data.message);
+                alert('Error loading tables: ' + data.message);
+                return;
+              }
+
+              // Find the table with the matching ID
+              const tableData = data.tables.find(table => table.id == tableId);
+
+              if (!tableData) {
+                console.error('Table data not found for ID:', tableId);
+                alert('Error: Table not found');
+                return;
+              }
+
+              console.log('Table data to load:', tableData);
+
+              // Set the current table index to the table ID
+              currentTableIndex = parseInt(tableId);
+              console.log('Set currentTableIndex to:', currentTableIndex);
+
+              // Update save button text to indicate we're editing
+              saveTableBtn.innerHTML = `<i class="fas fa-save me-1"></i>Update Table`;
+              console.log('Updated save button text to "Update Table"');
+
+              // Set table name
+              tableNameInput.value = tableData.name;
+              console.log('Set table name to:', tableData.name);
+
+              // Clear current table (pass true to indicate we're loading a table)
+              clearTable(true);
+              console.log('Cleared current table');
+
+              // Get the table data from the JSON
+              const workouts = tableData.data.workouts || [];
+              const exercises = tableData.data.exercises || [];
+
+              // Add workout columns
+              console.log('Adding workout columns:', workouts);
+              workouts.forEach((workout, idx) => {
+                console.log(`Adding workout column ${idx}:`, workout);
+                const headerRow = document.getElementById('header-row');
+                const newHeaderCell = document.createElement('th');
+                newHeaderCell.className = 'editable';
+                newHeaderCell.contentEditable = true;
+                newHeaderCell.innerHTML = workout + ' <span class="delete-btn"><i class="fas fa-times"></i></span>';
+
+                // Insert before the add column button
+                headerRow.insertBefore(newHeaderCell, headerRow.lastElementChild);
+              });
+
+              // Add exercise rows
+              console.log('Adding exercise rows:', exercises);
+              exercises.forEach((exercise, idx) => {
+                console.log(`Adding exercise row ${idx}:`, exercise);
+                const newRow = document.createElement('tr');
+                const exerciseCell = document.createElement('td');
+                exerciseCell.className = 'exercise-name';
+                exerciseCell.contentEditable = true;
+                exerciseCell.innerHTML = exercise.name + ' <span class="delete-btn"><i class="fas fa-times"></i></span>';
+
+                newRow.appendChild(exerciseCell);
+
+                // Add workout data cells
+                exercise.workouts.forEach((workout, wIdx) => {
+                  console.log(`Adding workout data cell ${wIdx} for exercise ${idx}:`, workout);
+                  const workoutCell = document.createElement('td');
+                  workoutCell.className = 'editable';
+                  workoutCell.contentEditable = true;
+                  workoutCell.textContent = workout;
+                  newRow.appendChild(workoutCell);
+                });
+
+                // Add empty cell for the add column button
+                const emptyCell = document.createElement('td');
+                emptyCell.className = 'add-column';
+                newRow.appendChild(emptyCell);
+
+                // Insert the new row before the add row button
+                const addRowRow = document.getElementById('add-row-row');
+                workoutTable.tBodies[0].insertBefore(newRow, addRowRow);
+              });
+
+              // Update the colspan of the add row button
+              const headerRow = document.getElementById('header-row');
+              const addRowCell = document.getElementById('add-row');
+              addRowCell.colSpan = headerRow.cells.length;
+              console.log('Updated add row button colspan to:', headerRow.cells.length);
+
+              // Setup delete buttons
+              setupDeleteButtons();
+              console.log('Setup delete buttons');
+
+              console.log('Table loaded successfully');
+            })
+            .catch(error => {
+              console.error('Error fetching table data:', error);
+              alert('Error loading table: ' + error.message);
+            });
+        } catch (error) {
+          console.error('Error in loadTable function:', error);
+          alert('Error loading workout table: ' + error.message);
+        }
+      }
+
+      // Delete a saved table
+      function deleteTable(tableId) {
+        try {
+          console.log('Delete table function called with ID:', tableId);
+
+          if (confirm('Are you sure you want to delete this workout table?')) {
+            console.log('User confirmed deletion');
+
+            // Send delete request to server
+            fetch(`{% url "delete_workout_table" table_id=0 %}`.replace('0', tableId), {
+              method: 'DELETE',
+              headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+              }
+            })
+            .then(response => response.json())
+            .then(data => {
+              console.log('Server response:', data);
+
+              if (data.success) {
+                console.log('Table deleted successfully, updating display');
+                // Update the saved tables display
+                loadSavedTables();
+
+                // If we deleted the currently loaded table, reset to new table mode
+                if (currentTableIndex === parseInt(tableId)) {
+                  console.log('Deleted the currently loaded table, resetting to new table mode');
+                  currentTableIndex = -1;
+                  saveTableBtn.innerHTML = `<i class="fas fa-save me-1"></i>Save Workout Table`;
+
+                  // Clear the table
+                  clearTable();
+                }
+
+                alert('Workout table deleted successfully!');
+              } else {
+                console.error('Error from server:', data.message);
+                alert('Error: ' + data.message);
+              }
+            })
+            .catch(error => {
+              console.error('Error sending delete request:', error);
+              alert('Error deleting workout table: ' + error.message);
+            });
+
+            console.log('Delete request sent');
+          } else {
+            console.log('User cancelled deletion');
+          }
+        } catch (error) {
+          console.error('Error in deleteTable function:', error);
+          alert('Error deleting workout table: ' + error.message);
+        }
+      }
+
+      // Clear the current table
+      function clearTable() {
+        // Reset current table index if not called from loadTable
+        if (arguments.length === 0) {
+          currentTableIndex = -1;
+          saveTableBtn.innerHTML = `<i class="fas fa-save me-1"></i>Save Workout Table`;
+        }
+
+        // Clear all rows except the header and add row button
+        const rows = workoutTable.tBodies[0].rows;
+        while (rows.length > 1) {
+          if (rows[0].id !== 'add-row-row') {
+            rows[0].remove();
+          } else {
+            break;
+          }
+        }
+
+        // Clear all columns except the first (Exercise) and last (Add Column)
+        const headerRow = document.getElementById('header-row');
+        while (headerRow.cells.length > 2) {
+          headerRow.deleteCell(1);
+        }
+
+        // Add a default workout column
+        const newHeaderCell = document.createElement('th');
+        newHeaderCell.className = 'editable';
+        newHeaderCell.contentEditable = true;
+        newHeaderCell.innerHTML = 'Workout 1 <span class="delete-btn"><i class="fas fa-times"></i></span>';
+
+        // Insert before the add column button
+        headerRow.insertBefore(newHeaderCell, headerRow.lastElementChild);
+
+        // Add a default exercise row
+        const newRow = document.createElement('tr');
+        const exerciseCell = document.createElement('td');
+        exerciseCell.className = 'exercise-name';
+        exerciseCell.contentEditable = true;
+        exerciseCell.innerHTML = 'Exercise 1 <span class="delete-btn"><i class="fas fa-times"></i></span>';
+
+        newRow.appendChild(exerciseCell);
+
+        // Add workout data cell
+        const workoutCell = document.createElement('td');
+        workoutCell.className = 'editable';
+        workoutCell.contentEditable = true;
+        newRow.appendChild(workoutCell);
+
+        // Add empty cell for the add column button
+        const emptyCell = document.createElement('td');
+        emptyCell.className = 'add-column';
+        newRow.appendChild(emptyCell);
+
+        // Insert the new row before the add row button
+        const addRowRow = document.getElementById('add-row-row');
+        workoutTable.tBodies[0].insertBefore(newRow, addRowRow);
+
+        // Update the colspan of the add row button
+        addRowCell.colSpan = headerRow.cells.length;
+
+        // Reset table name
+        tableNameInput.value = '';
+
+        // Setup delete buttons
+        setupDeleteButtons();
+      }
+
+      // New table button
+      newTableBtn.addEventListener('click', function() {
+        if (confirm('Are you sure you want to create a new table? Any unsaved changes will be lost.')) {
+          // Reset current table index
+          currentTableIndex = -1;
+
+          // Update save button text
+          saveTableBtn.innerHTML = `<i class="fas fa-save me-1"></i>Save Workout Table`;
+
+          clearTable();
+        }
+      });
+
+      // Load saved tables on page load
+      loadSavedTables();
+    });
+  </script>
+{% endblock %}
