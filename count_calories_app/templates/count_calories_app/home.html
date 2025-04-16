@@ -119,6 +119,30 @@
         </div>
       </div>
 
+      <!-- Calorie Trend Chart -->
+      <div class="card shadow-sm rounded mb-4">
+        <div class="card-header bg-info text-white">
+          <h2 class="h5 mb-0">Calorie Intake Trend (Last 30 Days)</h2>
+        </div>
+        <div class="card-body">
+          <div class="chart-container">
+            <canvas id="caloriesTrendChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Macronutrient Trend Chart -->
+      <div class="card shadow-sm rounded mb-4">
+        <div class="card-header bg-warning text-dark">
+          <h2 class="h5 mb-0">Macronutrient Trends (Last 30 Days)</h2>
+        </div>
+        <div class="card-body">
+          <div class="chart-container">
+            <canvas id="macrosTrendChart"></canvas>
+          </div>
+        </div>
+      </div>
+
       <div class="card shadow-sm rounded">
         <div class="card-header">
           <h2 class="h5 mb-0">Consumed Items ({{ selected_range|title }})</h2>
@@ -235,6 +259,7 @@
   <script>
     // Chart.js for nutrition visualization
     document.addEventListener('DOMContentLoaded', function() {
+      // Macronutrient Distribution Chart
       fetch('{% url "nutrition_data" %}?range={{ selected_range }}')
         .then(response => response.json())
         .then(data => {
@@ -274,6 +299,130 @@
           });
         })
         .catch(error => console.error('Error fetching nutrition data:', error));
+
+      // Calorie Trend Chart
+      fetch('{% url "calories_trend_data" %}')
+        .then(response => response.json())
+        .then(data => {
+          const ctx = document.getElementById('caloriesTrendChart').getContext('2d');
+          new Chart(ctx, {
+            type: 'bar',
+            data: {
+              labels: data.labels,
+              datasets: [{
+                label: 'Calories (kcal)',
+                data: data.data,
+                backgroundColor: 'rgba(75, 192, 192, 0.7)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 1
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  title: {
+                    display: true,
+                    text: 'Calories (kcal)'
+                  }
+                },
+                x: {
+                  title: {
+                    display: true,
+                    text: 'Date'
+                  }
+                }
+              },
+              plugins: {
+                legend: {
+                  display: false
+                },
+                title: {
+                  display: true,
+                  text: 'Daily Calorie Intake'
+                },
+                tooltip: {
+                  callbacks: {
+                    title: function(tooltipItems) {
+                      return tooltipItems[0].label;
+                    },
+                    label: function(context) {
+                      return context.parsed.y + ' kcal';
+                    }
+                  }
+                }
+              }
+            }
+          });
+        })
+        .catch(error => console.error('Error fetching calorie trend data:', error));
+
+      // Macronutrient Trend Chart
+      fetch('{% url "macros_trend_data" %}')
+        .then(response => response.json())
+        .then(data => {
+          const ctx = document.getElementById('macrosTrendChart').getContext('2d');
+          new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels: data.labels,
+              datasets: [
+                {
+                  label: 'Protein (g)',
+                  data: data.protein,
+                  backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                  borderColor: 'rgba(255, 99, 132, 1)',
+                  borderWidth: 2,
+                  tension: 0.1
+                },
+                {
+                  label: 'Carbs (g)',
+                  data: data.carbs,
+                  backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                  borderColor: 'rgba(54, 162, 235, 1)',
+                  borderWidth: 2,
+                  tension: 0.1
+                },
+                {
+                  label: 'Fat (g)',
+                  data: data.fat,
+                  backgroundColor: 'rgba(255, 206, 86, 0.2)',
+                  borderColor: 'rgba(255, 206, 86, 1)',
+                  borderWidth: 2,
+                  tension: 0.1
+                }
+              ]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  title: {
+                    display: true,
+                    text: 'Grams (g)'
+                  }
+                },
+                x: {
+                  title: {
+                    display: true,
+                    text: 'Date'
+                  }
+                }
+              },
+              plugins: {
+                title: {
+                  display: true,
+                  text: 'Macronutrient Intake Over Time'
+                }
+              }
+            }
+          });
+        })
+        .catch(error => console.error('Error fetching macronutrient trend data:', error));
     });
   </script>
 {% endblock %}

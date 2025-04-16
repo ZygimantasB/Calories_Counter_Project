@@ -116,6 +116,70 @@ def home(request):
     }
     return render(request, 'count_calories_app/home.html', context)
 
+def get_calories_trend_data(request):
+    """
+    API endpoint to get calorie intake trend data for charts
+    """
+    # Get the last 30 days of data
+    end_date = timezone.now()
+    start_date = end_date - timedelta(days=30)
+
+    # Get all food items in the date range
+    food_items = FoodItem.objects.filter(
+        consumed_at__gte=start_date,
+        consumed_at__lte=end_date
+    ).order_by('consumed_at')
+
+    # Group by day and sum calories
+    from django.db.models.functions import TruncDate
+    daily_calories = food_items.annotate(
+        day=TruncDate('consumed_at')
+    ).values('day').annotate(
+        total_calories=Sum('calories')
+    ).order_by('day')
+
+    # Prepare data for chart
+    calories_data = {
+        'labels': [item['day'].strftime('%Y-%m-%d') for item in daily_calories],
+        'data': [float(item['total_calories']) for item in daily_calories]
+    }
+
+    return JsonResponse(calories_data)
+
+def get_macros_trend_data(request):
+    """
+    API endpoint to get macronutrient trend data for charts
+    """
+    # Get the last 30 days of data
+    end_date = timezone.now()
+    start_date = end_date - timedelta(days=30)
+
+    # Get all food items in the date range
+    food_items = FoodItem.objects.filter(
+        consumed_at__gte=start_date,
+        consumed_at__lte=end_date
+    ).order_by('consumed_at')
+
+    # Group by day and sum macros
+    from django.db.models.functions import TruncDate
+    daily_macros = food_items.annotate(
+        day=TruncDate('consumed_at')
+    ).values('day').annotate(
+        total_protein=Sum('protein'),
+        total_carbs=Sum('carbohydrates'),
+        total_fat=Sum('fat')
+    ).order_by('day')
+
+    # Prepare data for chart
+    macros_data = {
+        'labels': [item['day'].strftime('%Y-%m-%d') for item in daily_macros],
+        'protein': [float(item['total_protein']) for item in daily_macros],
+        'carbs': [float(item['total_carbs']) for item in daily_macros],
+        'fat': [float(item['total_fat']) for item in daily_macros]
+    }
+
+    return JsonResponse(macros_data)
+
 def get_weight_data(request):
     """
     API endpoint to get weight data for charts
@@ -147,12 +211,37 @@ def get_weight_data(request):
             'min': float(stats['min_weight']),
             'latest': float(latest_weight.weight) if latest_weight else 0
         }
+
+        # Calculate weight change rate (kg per week)
+        if len(weights) >= 2:
+            # Get oldest and newest weights
+            oldest_weight = weights.first()
+            newest_weight = weights.last()
+
+            # Calculate time difference in weeks
+            time_diff = (newest_weight.recorded_at - oldest_weight.recorded_at).total_seconds() / (60 * 60 * 24 * 7)
+
+            # Avoid division by zero
+            if time_diff > 0:
+                weight_change = newest_weight.weight - oldest_weight.weight
+                weight_change_rate = weight_change / time_diff
+                weight_data['stats']['change_rate'] = float(weight_change_rate)
+            else:
+                weight_data['stats']['change_rate'] = 0
+        else:
+            weight_data['stats']['change_rate'] = 0
+
+        # Calculate BMI if height is available (for future implementation)
+        # For now, we'll just add a placeholder
+        weight_data['stats']['bmi'] = 0
     else:
         weight_data['stats'] = {
             'avg': 0,
             'max': 0,
             'min': 0,
-            'latest': 0
+            'latest': 0,
+            'change_rate': 0,
+            'bmi': 0
         }
 
     return JsonResponse(weight_data)
@@ -235,6 +324,67 @@ def exercise_list(request):
         'exercises': exercises,
     }
     return render(request, 'count_calories_app/exercise_list.html', context)
+
+def get_workout_frequency_data(request):
+    """
+    API endpoint to get workout frequency data for charts
+    """
+    # Get the last 90 days of data
+    end_date = timezone.now()
+    start_date = end_date - timedelta(days=90)
+
+    # Get all workouts in the date range
+    workouts = WorkoutSession.objects.filter(
+        date__gte=start_date,
+        date__lte=end_date
+    ).order_by('date')
+
+    # Group by day and count workouts
+    from django.db.models.functions import TruncDate
+    daily_workouts = workouts.annotate(
+        day=TruncDate('date')
+    ).values('day').annotate(
+        count=Count('id')
+    ).order_by('day')
+
+    # Prepare data for chart
+    workout_data = {
+        'labels': [item['day'].strftime('%Y-%m-%d') for item in daily_workouts],
+        'data': [item['count'] for item in daily_workouts]
+    }
+
+    return JsonResponse(workout_data)
+
+def get_exercise_progress_data(request, exercise_id=None):
+    """
+    API endpoint to get progress data for a specific exercise
+    """
+    if exercise_id is None:
+        exercise_id = request.GET.get('exercise_id')
+
+    if not exercise_id:
+        return JsonResponse({'error': 'No exercise ID provided'}, status=400)
+
+    # Get the exercise or return 404
+    exercise = get_object_or_404(Exercise, id=exercise_id)
+
+    # Get all workout exercises for this exercise
+    workout_exercises = WorkoutExercise.objects.filter(
+        exercise_id=exercise_id
+    ).order_by('workout__date')
+
+    # Prepare data for chart
+    progress_data = {
+        'exercise_name': exercise.name,
+        'labels': [we.workout.date.strftime('%Y-%m-%d') for we in workout_exercises],
+        'weight': [float(we.weight) if we.weight else 0 for we in workout_exercises],
+        'sets': [we.sets for we in workout_exercises],
+        'reps': [we.reps for we in workout_exercises],
+        # Calculate volume (weight * sets * reps)
+        'volume': [float(we.weight) * we.sets * we.reps if we.weight else 0 for we in workout_exercises]
+    }
+
+    return JsonResponse(progress_data)
 
 def workout_detail(request, workout_id):
     """

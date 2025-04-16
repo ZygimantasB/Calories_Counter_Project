@@ -88,6 +88,36 @@
         </div>
       </div>
 
+      <!-- Weight Change Rate Chart -->
+      <div class="card shadow-sm rounded mb-4">
+        <div class="card-header bg-info text-white">
+          <h2 class="h5 mb-0">Weight Change Analysis</h2>
+        </div>
+        <div class="card-body">
+          <div class="row text-center mb-3">
+            <div class="col-12 col-md-6 mb-2">
+              <div class="card bg-light">
+                <div class="card-body py-2">
+                  <div class="fw-bold" id="weight-change-rate">0 kg/week</div>
+                  <small class="text-muted">Change Rate</small>
+                </div>
+              </div>
+            </div>
+            <div class="col-12 col-md-6 mb-2">
+              <div class="card bg-light">
+                <div class="card-body py-2">
+                  <div class="fw-bold" id="weight-trend-direction">-</div>
+                  <small class="text-muted">Trend</small>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="chart-container">
+            <canvas id="weightChangeChart"></canvas>
+          </div>
+        </div>
+      </div>
+
       <div class="card shadow-sm rounded">
         <div class="card-header">
           <h2 class="h5 mb-0">Weight Measurements</h2>
@@ -131,9 +161,29 @@
             document.getElementById('avg-weight').textContent = data.stats.avg.toFixed(1) + ' kg';
             document.getElementById('min-weight').textContent = data.stats.min + ' kg';
             document.getElementById('max-weight').textContent = data.stats.max + ' kg';
+
+            // Update weight change rate
+            const changeRate = data.stats.change_rate.toFixed(2);
+            document.getElementById('weight-change-rate').textContent = changeRate + ' kg/week';
+
+            // Update trend direction
+            let trendText = 'Stable';
+            let trendClass = 'text-secondary';
+
+            if (changeRate > 0.1) {
+              trendText = 'Gaining';
+              trendClass = 'text-danger';
+            } else if (changeRate < -0.1) {
+              trendText = 'Losing';
+              trendClass = 'text-success';
+            }
+
+            const trendElement = document.getElementById('weight-trend-direction');
+            trendElement.textContent = trendText;
+            trendElement.className = 'fw-bold ' + trendClass;
           }
 
-          // Create chart
+          // Create weight history chart
           const ctx = document.getElementById('weightChart').getContext('2d');
           new Chart(ctx, {
             type: 'line',
@@ -171,6 +221,73 @@
               }
             }
           });
+
+          // Create weight change chart (if we have enough data points)
+          if (data.labels.length >= 2) {
+            // Calculate weight changes between consecutive measurements
+            const weightChanges = [];
+            const changeLabels = [];
+
+            for (let i = 1; i < data.data.length; i++) {
+              const change = data.data[i] - data.data[i-1];
+              weightChanges.push(change);
+              changeLabels.push(data.labels[i]);
+            }
+
+            const changeCtx = document.getElementById('weightChangeChart').getContext('2d');
+            new Chart(changeCtx, {
+              type: 'bar',
+              data: {
+                labels: changeLabels,
+                datasets: [{
+                  label: 'Weight Change (kg)',
+                  data: weightChanges,
+                  backgroundColor: weightChanges.map(change => 
+                    change > 0 ? 'rgba(255, 99, 132, 0.7)' : 'rgba(75, 192, 192, 0.7)'
+                  ),
+                  borderColor: weightChanges.map(change => 
+                    change > 0 ? 'rgba(255, 99, 132, 1)' : 'rgba(75, 192, 192, 1)'
+                  ),
+                  borderWidth: 1
+                }]
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                  y: {
+                    title: {
+                      display: true,
+                      text: 'Weight Change (kg)'
+                    }
+                  },
+                  x: {
+                    title: {
+                      display: true,
+                      text: 'Date'
+                    }
+                  }
+                },
+                plugins: {
+                  legend: {
+                    display: false
+                  },
+                  title: {
+                    display: true,
+                    text: 'Weight Changes Between Measurements'
+                  },
+                  tooltip: {
+                    callbacks: {
+                      label: function(context) {
+                        const change = context.parsed.y;
+                        return (change > 0 ? '+' : '') + change.toFixed(2) + ' kg';
+                      }
+                    }
+                  }
+                }
+              }
+            });
+          }
         })
         .catch(error => console.error('Error fetching weight data:', error));
     });

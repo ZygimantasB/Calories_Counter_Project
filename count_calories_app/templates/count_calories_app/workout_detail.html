@@ -62,7 +62,7 @@
         <div class="card-body">
           <h3 class="h5">{% if workout.name %}{{ workout.name }}{% else %}Workout{% endif %}</h3>
           <p class="text-muted mb-2">{{ workout.date|date:"F j, Y, g:i a" }}</p>
-          
+
           {% if workout.notes %}
             <div class="mb-3">
               <strong>Notes:</strong>
@@ -74,6 +74,18 @@
     </div>
 
     <div class="col-md-8">
+      <!-- Exercise Progress Chart (will be shown when an exercise is selected) -->
+      <div class="card shadow-sm rounded mb-4" id="exercise-progress-card" style="display: none;">
+        <div class="card-header bg-info text-white">
+          <h2 class="h5 mb-0">Exercise Progress: <span id="selected-exercise-name"></span></h2>
+        </div>
+        <div class="card-body">
+          <div class="chart-container" style="height: 250px;">
+            <canvas id="exerciseProgressChart"></canvas>
+          </div>
+        </div>
+      </div>
+
       <div class="card shadow-sm rounded">
         <div class="card-header bg-success text-white">
           <h2 class="h5 mb-0">Exercises in this Workout</h2>
@@ -92,7 +104,7 @@
                 </thead>
                 <tbody>
                   {% for workout_exercise in workout_exercises %}
-                    <tr>
+                    <tr class="exercise-row" data-exercise-id="{{ workout_exercise.exercise.id }}" style="cursor: pointer;">
                       <td>
                         <strong>{{ workout_exercise.exercise.name }}</strong>
                         {% if workout_exercise.exercise.muscle_group %}
@@ -129,4 +141,126 @@
       </div>
     </div>
   </div>
+{% endblock %}
+
+{% block js_files %}
+  {{ block.super }}
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Get all exercise rows
+      const exerciseRows = document.querySelectorAll('.exercise-row');
+      let exerciseProgressChart = null;
+
+      // Add click event listener to each row
+      exerciseRows.forEach(row => {
+        row.addEventListener('click', function() {
+          // Get the exercise ID from the data attribute
+          const exerciseId = this.getAttribute('data-exercise-id');
+
+          // Highlight the selected row and remove highlight from others
+          exerciseRows.forEach(r => r.classList.remove('table-primary'));
+          this.classList.add('table-primary');
+
+          // Show the progress card
+          document.getElementById('exercise-progress-card').style.display = 'block';
+
+          // Fetch the exercise progress data
+          fetch(`{% url 'exercise_progress_data' %}?exercise_id=${exerciseId}`)
+            .then(response => response.json())
+            .then(data => {
+              // Update the exercise name
+              document.getElementById('selected-exercise-name').textContent = data.exercise_name;
+
+              // Destroy the previous chart if it exists
+              if (exerciseProgressChart) {
+                exerciseProgressChart.destroy();
+              }
+
+              // Create the chart
+              const ctx = document.getElementById('exerciseProgressChart').getContext('2d');
+              exerciseProgressChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                  labels: data.labels,
+                  datasets: [
+                    {
+                      label: 'Weight (kg)',
+                      data: data.weight,
+                      backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                      borderColor: 'rgba(255, 99, 132, 1)',
+                      borderWidth: 2,
+                      yAxisID: 'y',
+                      tension: 0.1
+                    },
+                    {
+                      label: 'Volume (kg)',
+                      data: data.volume,
+                      backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                      borderColor: 'rgba(54, 162, 235, 1)',
+                      borderWidth: 2,
+                      yAxisID: 'y1',
+                      tension: 0.1
+                    }
+                  ]
+                },
+                options: {
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  scales: {
+                    y: {
+                      type: 'linear',
+                      display: true,
+                      position: 'left',
+                      title: {
+                        display: true,
+                        text: 'Weight (kg)'
+                      }
+                    },
+                    y1: {
+                      type: 'linear',
+                      display: true,
+                      position: 'right',
+                      title: {
+                        display: true,
+                        text: 'Volume (kg)'
+                      },
+                      grid: {
+                        drawOnChartArea: false
+                      }
+                    },
+                    x: {
+                      title: {
+                        display: true,
+                        text: 'Date'
+                      }
+                    }
+                  },
+                  plugins: {
+                    title: {
+                      display: true,
+                      text: 'Exercise Progress Over Time'
+                    },
+                    tooltip: {
+                      callbacks: {
+                        label: function(context) {
+                          let label = context.dataset.label || '';
+                          if (label) {
+                            label += ': ';
+                          }
+                          if (context.parsed.y !== null) {
+                            label += context.parsed.y.toFixed(1);
+                          }
+                          return label;
+                        }
+                      }
+                    }
+                  }
+                }
+              });
+            })
+            .catch(error => console.error('Error fetching exercise progress data:', error));
+        });
+      });
+    });
+  </script>
 {% endblock %}
