@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Workout Details{% endblock %}
+
+{% block css_files %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'count_calories_app/count_calories_app.css' %}">
+{% endblock %}
+
+{% block content %}
+  <div class="mb-3">
+    <a href="{% url 'workout_tracker' %}" class="btn btn-outline-secondary">
+      <i class="fas fa-arrow-left me-1"></i>Back to Workouts
+    </a>
+  </div>
+
+  <div class="row">
+    <div class="col-md-4 mb-4">
+      <div class="card shadow-sm rounded mb-4">
+        <div class="card-header bg-primary text-white">
+          <h2 class="h5 mb-0">Add Exercise to Workout</h2>
+        </div>
+        <div class="card-body">
+          <form method="post" action="{% url 'workout_detail' workout_id=workout.id %}">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+              <div class="alert alert-danger">
+                {% for error in form.non_field_errors %}
+                  {{ error }}
+                {% endfor %}
+              </div>
+            {% endif %}
+
+            {% for field in form %}
+              <div class="mb-3">
+                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}
+                  <small class="form-text text-muted">{{ field.help_text }}</small>
+                {% endif %}
+                {% if field.errors %}
+                  <div class="invalid-feedback d-block">
+                    {% for error in field.errors %}
+                      {{ error }}
+                    {% endfor %}
+                  </div>
+                {% endif %}
+              </div>
+            {% endfor %}
+
+            <button type="submit" class="btn btn-primary w-100">Add Exercise</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="card shadow-sm rounded">
+        <div class="card-header bg-info text-white">
+          <h2 class="h5 mb-0">Workout Details</h2>
+        </div>
+        <div class="card-body">
+          <h3 class="h5">{% if workout.name %}{{ workout.name }}{% else %}Workout{% endif %}</h3>
+          <p class="text-muted mb-2">{{ workout.date|date:"F j, Y, g:i a" }}</p>
+          
+          {% if workout.notes %}
+            <div class="mb-3">
+              <strong>Notes:</strong>
+              <p class="mb-0">{{ workout.notes }}</p>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-8">
+      <div class="card shadow-sm rounded">
+        <div class="card-header bg-success text-white">
+          <h2 class="h5 mb-0">Exercises in this Workout</h2>
+        </div>
+        {% if workout_exercises %}
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-hover mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>Exercise</th>
+                    <th>Sets</th>
+                    <th>Reps</th>
+                    <th>Weight</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for workout_exercise in workout_exercises %}
+                    <tr>
+                      <td>
+                        <strong>{{ workout_exercise.exercise.name }}</strong>
+                        {% if workout_exercise.exercise.muscle_group %}
+                          <br><small class="text-muted">{{ workout_exercise.exercise.muscle_group }}</small>
+                        {% endif %}
+                      </td>
+                      <td>{{ workout_exercise.sets }}</td>
+                      <td>{{ workout_exercise.reps }}</td>
+                      <td>
+                        {% if workout_exercise.weight %}
+                          {{ workout_exercise.weight }} kg
+                        {% else %}
+                          -
+                        {% endif %}
+                      </td>
+                    </tr>
+                    {% if workout_exercise.notes %}
+                      <tr class="table-light">
+                        <td colspan="4" class="text-muted small">
+                          <i class="fas fa-sticky-note me-1"></i>{{ workout_exercise.notes }}
+                        </td>
+                      </tr>
+                    {% endif %}
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        {% else %}
+          <div class="card-body text-center text-muted">
+            No exercises added to this workout yet. Use the form to add exercises.
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+{% endblock %}

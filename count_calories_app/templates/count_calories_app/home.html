@@ -6,13 +6,29 @@
 {% block css_files %}
   {{ block.super }}
   <link rel="stylesheet" href="{% static 'count_calories_app/count_calories_app.css' %}">
+  <style>
+    .quick-add-btn {
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .quick-add-btn:hover {
+      transform: scale(1.05);
+      background-color: #f8f9fa;
+    }
+    .chart-container {
+      position: relative;
+      height: 200px;
+      width: 100%;
+      margin-bottom: 20px;
+    }
+  </style>
 {% endblock %}
 
 {% block content %}
   <div class="row">
 
     <div class="col-md-4 mb-4">
-      <div class="card shadow-sm rounded">
+      <div class="card shadow-sm rounded mb-4">
         <div class="card-header bg-primary text-white">
           <h2 class="h5 mb-0">Add Food Item</h2>
         </div>
@@ -21,14 +37,13 @@
           <form method="post" action="{% url 'home' %}?range={{ selected_range }}">
             {% csrf_token %}
 
-            {# *** ADDED LINE BELOW *** #}
             {% if form.non_field_errors %}
               <div class="alert alert-danger">
                 {% for error in form.non_field_errors %}
                   {{ error }}
                 {% endfor %}
               </div>
-            {% endif %} {# Now this endif matches the if above #}
+            {% endif %}
 
             {% for field in form %}
               <div class="mb-3">
@@ -51,6 +66,18 @@
           </form>
         </div>
       </div>
+
+      <!-- Quick Add Section -->
+      {% if recent_items %}
+      <div class="card shadow-sm rounded">
+        <div class="card-header bg-info text-white">
+          <h2 class="h5 mb-0">Quick Add Recent Foods</h2>
+        </div>
+        <div class="card-body p-0">
+          <div id="quick-add-container"></div>
+        </div>
+      </div>
+      {% endif %}
     </div>
 
 
@@ -62,12 +89,15 @@
         <a href="?range=month" class="btn btn-sm {% if selected_range == 'month' %}btn-info{% else %}btn-outline-info{% endif %}">This Month</a>
       </div>
 
-
+      <!-- Nutrition Charts -->
       <div class="card shadow-sm rounded mb-4">
         <div class="card-header bg-success text-white">
-          <h2 class="h5 mb-0">Totals for {{ selected_range|title }}</h2>
+          <h2 class="h5 mb-0">Nutrition Overview</h2>
         </div>
         <div class="card-body">
+          <div class="chart-container">
+            <canvas id="macroChart"></canvas>
+          </div>
           <div class="row text-center">
             <div class="col-6 col-sm-3 mb-2">
               <div class="fw-bold">{{ totals.total_calories|floatformat:0 }}</div>
@@ -88,7 +118,6 @@
           </div>
         </div>
       </div>
-
 
       <div class="card shadow-sm rounded">
         <div class="card-header">
@@ -123,4 +152,128 @@
 
 {% block js_files %}
   {{ block.super }}
+  <script type="text/babel">
+    // React component for quick add food items
+    const QuickAddItem = ({ item, onQuickAdd }) => {
+      return (
+        <div className="quick-add-btn p-2 border-bottom d-flex justify-content-between align-items-center" onClick={() => onQuickAdd(item)}>
+          <div>
+            <strong>{item.product_name}</strong>
+            <div><small className="text-muted">{item.calories} kcal</small></div>
+          </div>
+          <div>
+            <i className="fas fa-plus-circle text-success"></i>
+          </div>
+        </div>
+      );
+    };
+
+    const QuickAddList = () => {
+      const [items, setItems] = React.useState([
+        {% for item in recent_items %}
+          {
+            id: {{ item.id }},
+            product_name: "{{ item.product_name }}",
+            calories: {{ item.calories }},
+            fat: {{ item.fat }},
+            carbohydrates: {{ item.carbohydrates }},
+            protein: {{ item.protein }}
+          }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+      ]);
+
+      const handleQuickAdd = (item) => {
+        // Create a form and submit it
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{% url "home" %}?range={{ selected_range }}';
+
+        // Add CSRF token
+        const csrfToken = document.createElement('input');
+        csrfToken.type = 'hidden';
+        csrfToken.name = 'csrfmiddlewaretoken';
+        csrfToken.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        form.appendChild(csrfToken);
+
+        // Add food item details
+        const fields = [
+          { name: 'product_name', value: item.product_name },
+          { name: 'calories', value: item.calories },
+          { name: 'fat', value: item.fat },
+          { name: 'carbohydrates', value: item.carbohydrates },
+          { name: 'protein', value: item.protein }
+        ];
+
+        fields.forEach(field => {
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = field.name;
+          input.value = field.value;
+          form.appendChild(input);
+        });
+
+        document.body.appendChild(form);
+        form.submit();
+      };
+
+      return (
+        <div>
+          {items.map(item => (
+            <QuickAddItem key={item.id} item={item} onQuickAdd={handleQuickAdd} />
+          ))}
+        </div>
+      );
+    };
+
+    // Render the React component
+    ReactDOM.render(
+      <QuickAddList />,
+      document.getElementById('quick-add-container')
+    );
+  </script>
+
+  <script>
+    // Chart.js for nutrition visualization
+    document.addEventListener('DOMContentLoaded', function() {
+      fetch('{% url "nutrition_data" %}?range={{ selected_range }}')
+        .then(response => response.json())
+        .then(data => {
+          const ctx = document.getElementById('macroChart').getContext('2d');
+          new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+              labels: data.labels,
+              datasets: [{
+                data: data.data,
+                backgroundColor: [
+                  'rgba(255, 99, 132, 0.7)',
+                  'rgba(54, 162, 235, 0.7)',
+                  'rgba(255, 206, 86, 0.7)'
+                ],
+                borderColor: [
+                  'rgba(255, 99, 132, 1)',
+                  'rgba(54, 162, 235, 1)',
+                  'rgba(255, 206, 86, 1)'
+                ],
+                borderWidth: 1
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: {
+                  position: 'bottom'
+                },
+                title: {
+                  display: true,
+                  text: 'Macronutrient Distribution'
+                }
+              }
+            }
+          });
+        })
+        .catch(error => console.error('Error fetching nutrition data:', error));
+    });
+  </script>
 {% endblock %}

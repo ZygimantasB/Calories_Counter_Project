@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Workout Tracker{% endblock %}
+
+{% block css_files %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'count_calories_app/count_calories_app.css' %}">
+{% endblock %}
+
+{% block content %}
+  <div class="row">
+    <div class="col-md-4 mb-4">
+      <div class="card shadow-sm rounded mb-4">
+        <div class="card-header bg-primary text-white">
+          <h2 class="h5 mb-0">Create New Workout</h2>
+        </div>
+        <div class="card-body">
+          <form method="post" action="{% url 'workout_tracker' %}">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+              <div class="alert alert-danger">
+                {% for error in form.non_field_errors %}
+                  {{ error }}
+                {% endfor %}
+              </div>
+            {% endif %}
+
+            {% for field in form %}
+              <div class="mb-3">
+                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}
+                  <small class="form-text text-muted">{{ field.help_text }}</small>
+                {% endif %}
+                {% if field.errors %}
+                  <div class="invalid-feedback d-block">
+                    {% for error in field.errors %}
+                      {{ error }}
+                    {% endfor %}
+                  </div>
+                {% endif %}
+              </div>
+            {% endfor %}
+
+            <button type="submit" class="btn btn-primary w-100">Create Workout</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="card shadow-sm rounded">
+        <div class="card-header bg-info text-white">
+          <h2 class="h5 mb-0">Quick Tips</h2>
+        </div>
+        <div class="card-body">
+          <ul class="list-unstyled">
+            <li class="mb-2">
+              <i class="fas fa-check-circle text-success me-2"></i>
+              Create a workout session first
+            </li>
+            <li class="mb-2">
+              <i class="fas fa-check-circle text-success me-2"></i>
+              Click on a workout to add exercises
+            </li>
+            <li class="mb-2">
+              <i class="fas fa-check-circle text-success me-2"></i>
+              Track sets, reps, and weight for each exercise
+            </li>
+            <li>
+              <i class="fas fa-check-circle text-success me-2"></i>
+              Add notes to remember your progress
+            </li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-8">
+      <div class="card shadow-sm rounded">
+        <div class="card-header bg-success text-white">
+          <h2 class="h5 mb-0">My Workouts</h2>
+        </div>
+        {% if workouts %}
+          <ul class="list-group list-group-flush">
+            {% for workout in workouts %}
+              <li class="list-group-item">
+                <div class="d-flex justify-content-between align-items-center">
+                  <div>
+                    <h5 class="mb-1">
+                      <a href="{% url 'workout_detail' workout_id=workout.id %}" class="text-decoration-none">
+                        {% if workout.name %}{{ workout.name }}{% else %}Workout{% endif %}
+                      </a>
+                    </h5>
+                    <small class="text-muted">{{ workout.date|date:"Y-m-d H:i" }}</small>
+                    {% if workout.notes %}
+                      <p class="mb-0 text-muted small">{{ workout.notes }}</p>
+                    {% endif %}
+                  </div>
+                  <a href="{% url 'workout_detail' workout_id=workout.id %}" class="btn btn-sm btn-outline-primary">
+                    <i class="fas fa-dumbbell me-1"></i>View Details
+                  </a>
+                </div>
+                
+                {% with exercises=workout.exercises.all %}
+                  {% if exercises %}
+                    <div class="mt-2">
+                      <small class="text-muted">Exercises: 
+                        {% for exercise in exercises %}
+                          {{ exercise.exercise.name }}{% if not forloop.last %}, {% endif %}
+                        {% endfor %}
+                      </small>
+                    </div>
+                  {% endif %}
+                {% endwith %}
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <div class="card-body text-center text-muted">
+            No workouts recorded yet. Create your first workout to get started!
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+{% endblock %}

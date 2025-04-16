@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Weight Tracker{% endblock %}
+
+{% block css_files %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'count_calories_app/count_calories_app.css' %}">
+  <style>
+    .chart-container {
+      position: relative;
+      height: 300px;
+      width: 100%;
+      margin-bottom: 20px;
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <div class="row">
+    <div class="col-md-4 mb-4">
+      <div class="card shadow-sm rounded mb-4">
+        <div class="card-header bg-primary text-white">
+          <h2 class="h5 mb-0">Add Weight Measurement</h2>
+        </div>
+        <div class="card-body">
+          <form method="post" action="{% url 'weight_tracker' %}">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+              <div class="alert alert-danger">
+                {% for error in form.non_field_errors %}
+                  {{ error }}
+                {% endfor %}
+              </div>
+            {% endif %}
+
+            {% for field in form %}
+              <div class="mb-3">
+                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}
+                  <small class="form-text text-muted">{{ field.help_text }}</small>
+                {% endif %}
+                {% if field.errors %}
+                  <div class="invalid-feedback d-block">
+                    {% for error in field.errors %}
+                      {{ error }}
+                    {% endfor %}
+                  </div>
+                {% endif %}
+              </div>
+            {% endfor %}
+
+            <button type="submit" class="btn btn-primary w-100">Add Weight</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-8">
+      <div class="card shadow-sm rounded mb-4">
+        <div class="card-header bg-success text-white">
+          <h2 class="h5 mb-0">Weight History</h2>
+        </div>
+        <div class="card-body">
+          <div class="chart-container">
+            <canvas id="weightChart"></canvas>
+          </div>
+          <div class="row text-center">
+            <div class="col-6 col-sm-3 mb-2">
+              <div class="fw-bold" id="latest-weight">0 kg</div>
+              <small class="text-muted">Latest Weight</small>
+            </div>
+            <div class="col-6 col-sm-3 mb-2">
+              <div class="fw-bold" id="avg-weight">0 kg</div>
+              <small class="text-muted">Average</small>
+            </div>
+            <div class="col-6 col-sm-3 mb-2">
+              <div class="fw-bold" id="min-weight">0 kg</div>
+              <small class="text-muted">Minimum</small>
+            </div>
+            <div class="col-6 col-sm-3 mb-2">
+              <div class="fw-bold" id="max-weight">0 kg</div>
+              <small class="text-muted">Maximum</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card shadow-sm rounded">
+        <div class="card-header">
+          <h2 class="h5 mb-0">Weight Measurements</h2>
+        </div>
+        {% if weights %}
+          <ul class="list-group list-group-flush">
+            {% for weight in weights %}
+              <li class="list-group-item d-flex justify-content-between align-items-center">
+                <div>
+                  <strong>{{ weight.weight }} kg</strong>
+                  {% if weight.notes %}
+                    <br>
+                    <small class="text-muted">{{ weight.notes }}</small>
+                  {% endif %}
+                </div>
+                <span class="badge bg-secondary rounded-pill">{{ weight.recorded_at|date:"Y-m-d H:i" }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <div class="card-body text-center text-muted">
+            No weight measurements recorded yet.
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block js_files %}
+  {{ block.super }}
+  <script>
+    // Chart.js for weight visualization
+    document.addEventListener('DOMContentLoaded', function() {
+      fetch('{% url "weight_data" %}')
+        .then(response => response.json())
+        .then(data => {
+          // Update stats
+          if (data.stats) {
+            document.getElementById('latest-weight').textContent = data.stats.latest + ' kg';
+            document.getElementById('avg-weight').textContent = data.stats.avg.toFixed(1) + ' kg';
+            document.getElementById('min-weight').textContent = data.stats.min + ' kg';
+            document.getElementById('max-weight').textContent = data.stats.max + ' kg';
+          }
+
+          // Create chart
+          const ctx = document.getElementById('weightChart').getContext('2d');
+          new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels: data.labels,
+              datasets: [{
+                label: 'Weight (kg)',
+                data: data.data,
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 2,
+                pointBackgroundColor: 'rgba(75, 192, 192, 1)',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 1,
+                pointRadius: 5,
+                tension: 0.1
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              scales: {
+                y: {
+                  beginAtZero: false
+                }
+              },
+              plugins: {
+                legend: {
+                  position: 'top',
+                },
+                title: {
+                  display: true,
+                  text: 'Weight Over Time'
+                }
+              }
+            }
+          });
+        })
+        .catch(error => console.error('Error fetching weight data:', error));
+    });
+  </script>
+{% endblock %}
