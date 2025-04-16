@@ -566,17 +566,44 @@ def get_workout_tables(request):
         tables_data = []
 
         for table in workout_tables:
+            # Log the raw table data for debugging
+            logger.info(f"Raw table_data for table {table.id}: {table.table_data}")
+
             # Ensure table_data is properly parsed as JSON
             table_data = table.table_data
+
             # If table_data is a string (which might happen if it wasn't properly parsed),
             # try to parse it as JSON
             if isinstance(table_data, str):
                 try:
                     table_data = json.loads(table_data)
+                    logger.info(f"Successfully parsed table_data as JSON for table {table.id}")
                 except json.JSONDecodeError:
                     logger.error(f"Error parsing table_data as JSON for table {table.id}")
                     # If parsing fails, use the original data
                     pass
+
+            # Check if the data might be double-encoded
+            if isinstance(table_data, dict) and 'workouts' in table_data and 'exercises' in table_data:
+                logger.info(f"Table {table.id} has proper structure with workouts and exercises")
+            else:
+                logger.warning(f"Table {table.id} data structure might be incorrect: {table_data}")
+                # Try to fix the data structure if possible
+                if isinstance(table_data, str):
+                    try:
+                        # Try parsing again in case it's double-encoded
+                        table_data = json.loads(table_data)
+                        logger.info(f"Fixed double-encoded JSON for table {table.id}")
+                    except json.JSONDecodeError:
+                        logger.error(f"Failed to fix double-encoded JSON for table {table.id}")
+
+                # If table_data is still not a dict with the expected structure, try to create a valid structure
+                if not isinstance(table_data, dict) or 'workouts' not in table_data or 'exercises' not in table_data:
+                    logger.warning(f"Creating default structure for table {table.id}")
+                    table_data = {
+                        'workouts': [],
+                        'exercises': []
+                    }
 
             tables_data.append({
                 'id': table.id,
@@ -585,6 +612,7 @@ def get_workout_tables(request):
                 'data': table_data
             })
 
+        logger.info(f"Returning {len(tables_data)} tables")
         return JsonResponse({'success': True, 'tables': tables_data})
     except Exception as e:
         logger.error(f"Error getting workout tables: {str(e)}")

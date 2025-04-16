@@ -295,7 +295,18 @@
           // Get workout names (column headers)
           const headerRow = document.getElementById('header-row');
           for (let i = 1; i < headerRow.cells.length - 1; i++) {
-            tableData.workouts.push(headerRow.cells[i].textContent.trim());
+            // Clone the cell to manipulate it safely
+            const cellClone = headerRow.cells[i].cloneNode(true);
+
+            // Remove the delete button from the clone
+            const deleteBtnInClone = cellClone.querySelector('.delete-btn');
+            if (deleteBtnInClone) {
+              deleteBtnInClone.remove();
+            }
+
+            // Now get the clean text content
+            const workoutName = cellClone.textContent.trim();
+            tableData.workouts.push(workoutName);
           }
           console.log('Workouts collected:', tableData.workouts);
 
@@ -303,7 +314,18 @@
           const rows = workoutTable.tBodies[0].rows;
           for (let i = 0; i < rows.length - 1; i++) { // Skip the add row button
             if (rows[i].id !== 'add-row-row') {
-              const exerciseName = rows[i].cells[0].textContent.trim();
+              // Clone the cell to manipulate it safely
+              const cellClone = rows[i].cells[0].cloneNode(true);
+
+              // Remove the delete button from the clone
+              const deleteBtnInClone = cellClone.querySelector('.delete-btn');
+              if (deleteBtnInClone) {
+                deleteBtnInClone.remove();
+              }
+
+              // Now get the clean text content
+              const exerciseName = cellClone.textContent.trim();
+
               const exerciseData = {
                 name: exerciseName,
                 workouts: []
@@ -516,7 +538,15 @@
                 const newHeaderCell = document.createElement('th');
                 newHeaderCell.className = 'editable';
                 newHeaderCell.contentEditable = true;
-                newHeaderCell.innerHTML = workout + ' <span class="delete-btn"><i class="fas fa-times"></i></span>';
+
+                // Set the text content first
+                newHeaderCell.textContent = workout;
+
+                // Then add the delete button as a separate element
+                const deleteBtn = document.createElement('span');
+                deleteBtn.className = 'delete-btn';
+                deleteBtn.innerHTML = '<i class="fas fa-times"></i>';
+                newHeaderCell.appendChild(deleteBtn);
 
                 // Insert before the add column button
                 headerRow.insertBefore(newHeaderCell, headerRow.lastElementChild);
@@ -530,7 +560,15 @@
                 const exerciseCell = document.createElement('td');
                 exerciseCell.className = 'exercise-name';
                 exerciseCell.contentEditable = true;
-                exerciseCell.innerHTML = exercise.name + ' <span class="delete-btn"><i class="fas fa-times"></i></span>';
+
+                // Set the text content first
+                exerciseCell.textContent = exercise.name;
+
+                // Then add the delete button as a separate element
+                const deleteBtn = document.createElement('span');
+                deleteBtn.className = 'delete-btn';
+                deleteBtn.innerHTML = '<i class="fas fa-times"></i>';
+                exerciseCell.appendChild(deleteBtn);
 
                 newRow.appendChild(exerciseCell);
 
@@ -689,7 +727,10 @@
         workoutTable.tBodies[0].insertBefore(newRow, addRowRow);
 
         // Update the colspan of the add row button
-        addRowCell.colSpan = headerRow.cells.length;
+        const addRowCell = document.getElementById('add-row');
+        if (addRowCell) {
+          addRowCell.colSpan = headerRow.cells.length;
+        }
 
         // Reset table name
         tableNameInput.value = '';
