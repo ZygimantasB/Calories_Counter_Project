@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Delete Running Session{% endblock %}
+
+{% block css_files %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'count_calories_app/count_calories_app.css' %}">
+{% endblock %}
+
+{% block content %}
+  <div class="row justify-content-center">
+    <div class="col-md-6">
+      <div class="card shadow-sm rounded mb-4">
+        <div class="card-header bg-danger text-white">
+          <h2 class="h5 mb-0">Delete Running Session</h2>
+        </div>
+        <div class="card-body">
+          <p class="alert alert-warning">
+            Are you sure you want to delete the following running session?
+          </p>
+          
+          <div class="card mb-3">
+            <div class="card-body">
+              <h5 class="card-title">Running Session on {{ running_session.date|date:"Y-m-d H:i" }}</h5>
+              <p class="card-text">
+                <strong>Distance:</strong> {{ running_session.distance|floatformat:2 }} km<br>
+                <strong>Duration:</strong> {{ running_session.duration }}<br>
+                {% if running_session.notes %}
+                <strong>Notes:</strong> {{ running_session.notes }}<br>
+                {% endif %}
+              </p>
+            </div>
+          </div>
+          
+          <form method="post">
+            {% csrf_token %}
+            <div class="d-flex justify-content-between">
+              <a href="{% url 'running_tracker' %}" class="btn btn-secondary">Cancel</a>
+              <button type="submit" class="btn btn-danger">Delete</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}

@@ -13,6 +13,13 @@ import json
 # Get a logger for this file
 logger = logging.getLogger('count_calories_app')
 
+def home(request):
+    """
+    View for the home page.
+    Displays general information about the application.
+    """
+    return render(request, 'count_calories_app/home.html')
+
 def get_nutrition_data(request):
     """
     API endpoint to get nutrition data for charts
@@ -45,34 +52,61 @@ def get_nutrition_data(request):
 
     return JsonResponse(nutrition_data)
 
-def home(request):
+def food_tracker(request):
     """
-    View for the main calorie counting page.
+    View for the food tracking page.
     Handles displaying the form, list of items, and totals,
     as well as processing form submissions.
     """
     time_range = request.GET.get('range', 'today') # Default to 'today'
+    selected_date_str = request.GET.get('date')
     now = timezone.now()
     start_date = now
+    end_date = None
+    selected_date = None
 
-    # Determine the date range for filtering
-    if time_range == 'today':
-        start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    elif time_range == 'week':
-        # Start from the beginning of the current week (assuming Monday is the first day)
-        start_date = now - timedelta(days=now.weekday())
-        start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
-    elif time_range == 'month':
-        # Start from the beginning of the current month
-        start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    # Check if a specific date was selected
+    if selected_date_str:
+        try:
+            # Parse the date string into a date object
+            from datetime import datetime
+            selected_date = datetime.strptime(selected_date_str, '%Y-%m-%d').date()
+            # Set start_date to the beginning of the selected date
+            start_date = timezone.make_aware(datetime.combine(selected_date, datetime.min.time()))
+            # Set end_date to the end of the selected date
+            end_date = timezone.make_aware(datetime.combine(selected_date, datetime.max.time()))
+            # Override time_range to indicate we're viewing a specific date
+            time_range = 'specific_date'
+        except (ValueError, TypeError):
+            # If date parsing fails, fall back to default behavior
+            selected_date = None
 
-    # Filter food items based on the selected time range
-    food_items = FoodItem.objects.filter(consumed_at__gte=start_date)
+    # If no specific date was selected, determine the date range based on time_range
+    if not selected_date:
+        if time_range == 'today':
+            start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        elif time_range == 'week':
+            # Start from the beginning of the current week (assuming Monday is the first day)
+            start_date = now - timedelta(days=now.weekday())
+            start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+        elif time_range == 'month':
+            # Start from the beginning of the current month
+            start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    # Filter food items based on the selected time range or specific date
+    if end_date:
+        # For a specific date, filter between start and end of that day
+        food_items = FoodItem.objects.filter(consumed_at__gte=start_date, consumed_at__lte=end_date)
+    else:
+        # For a time range, filter from start_date onwards
+        food_items = FoodItem.objects.filter(consumed_at__gte=start_date)
 
     # Get top 15 recently entered food items
     # Using a more SQLite-compatible approach
     from django.db.models import Max
-    product_names = FoodItem.objects.values('product_name').annotate(
+    product_names = FoodItem.objects.filter(
+        hide_from_quick_list=False
+    ).values('product_name').annotate(
         latest=Max('consumed_at')
     ).order_by('-latest')[:15]
 
@@ -81,7 +115,8 @@ def home(request):
         # Get the most recent entry for each product name
         food = FoodItem.objects.filter(
             product_name=item['product_name'],
-            consumed_at=item['latest']
+            consumed_at=item['latest'],
+            hide_from_quick_list=False
         ).first()
         if food:
             recent_items.append(food)
@@ -103,15 +138,28 @@ def home(request):
     if request.method == 'POST':
         # Handle form submission
         logger.info(f"Processing food item form submission: {request.POST}")
-        form = FoodItemForm(request.POST)
+
+        # Create a copy of POST data that we can modify
+        post_data = request.POST.copy()
+
+        # If a date is selected and consumed_at is not in the POST data, set it
+        if selected_date and 'consumed_at' not in post_data:
+            # Create a datetime at the beginning of the selected date
+            initial_datetime = timezone.make_aware(datetime.combine(selected_date, datetime.min.time()))
+            post_data['consumed_at'] = initial_datetime
+
+        form = FoodItemForm(post_data)
         if form.is_valid():
             try:
                 food_item = form.save()
                 logger.info(f"Food item saved successfully: {food_item.id} - {food_item.product_name}")
                 messages.success(request, f"Food item '{food_item.product_name}' added successfully!")
                 # Redirect to the same page (using GET) to prevent form resubmission
-                # Keep the current time range selection
-                return redirect(f"{request.path}?range={time_range}")
+                # Keep the current date or time range selection
+                if selected_date:
+                    return redirect(f"/food_tracker/?date={selected_date.strftime('%Y-%m-%d')}")
+                else:
+                    return redirect(f"/food_tracker/?range={time_range}")
             except Exception as e:
                 logger.error(f"Error saving food item: {str(e)}")
                 messages.error(request, f"Error saving food item: {str(e)}")
@@ -121,7 +169,13 @@ def home(request):
         # If form is invalid, it will be re-rendered with errors below
     else:
         # Handle GET request (displaying the page)
-        form = FoodItemForm() # Create an empty form
+        # Initialize form with selected date as consumed_at if a date is selected
+        if selected_date:
+            # Create a datetime at the beginning of the selected date
+            initial_datetime = timezone.make_aware(datetime.combine(selected_date, datetime.min.time()))
+            form = FoodItemForm(initial={'consumed_at': initial_datetime})
+        else:
+            form = FoodItemForm() # Create an empty form
 
     context = {
         'form': form,
@@ -129,8 +183,9 @@ def home(request):
         'recent_items': recent_items,
         'totals': totals,
         'selected_range': time_range, # Pass the selected range to the template
+        'selected_date': selected_date, # Pass the selected date to the template
     }
-    return render(request, 'count_calories_app/home.html', context)
+    return render(request, 'count_calories_app/food_tracker.html', context)
 
 def get_calories_trend_data(request):
     """
@@ -425,8 +480,8 @@ def edit_food_item(request, food_item_id):
         if form.is_valid():
             form.save()
             messages.success(request, 'Food item updated successfully!')
-            # Redirect to the home page
-            return redirect('home')
+            # Redirect to the food tracker page
+            return redirect('food_tracker')
         # If form is invalid, it will be re-rendered with errors below
     else:
         # Handle GET request (displaying the page)
@@ -450,8 +505,8 @@ def delete_food_item(request, food_item_id):
         # Delete the food item
         food_item.delete()
         messages.success(request, 'Food item deleted successfully!')
-        # Redirect to the home page
-        return redirect('home')
+        # Redirect to the food tracker page
+        return redirect('food_tracker')
 
     context = {
         'food_item': food_item,
@@ -708,6 +763,79 @@ def running_tracker(request):
         'running_sessions': running_sessions,
     }
     return render(request, 'count_calories_app/running_tracker.html', context)
+
+def edit_running_session(request, running_session_id):
+    """
+    View for editing a running session.
+    """
+    # Get the running session or return 404 if not found
+    running_session = get_object_or_404(RunningSession, id=running_session_id)
+
+    if request.method == 'POST':
+        # Handle form submission
+        form = RunningSessionForm(request.POST, instance=running_session)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Running session updated successfully!')
+            # Redirect to the running tracker page
+            return redirect('running_tracker')
+        # If form is invalid, it will be re-rendered with errors below
+    else:
+        # Handle GET request (displaying the page)
+        form = RunningSessionForm(instance=running_session)
+
+    context = {
+        'form': form,
+        'running_session': running_session,
+        'edit_mode': True,
+    }
+    return render(request, 'count_calories_app/edit_running_session.html', context)
+
+def delete_running_session(request, running_session_id):
+    """
+    View for deleting a running session.
+    """
+    # Get the running session or return 404 if not found
+    running_session = get_object_or_404(RunningSession, id=running_session_id)
+
+    if request.method == 'POST':
+        # Delete the running session
+        running_session.delete()
+        messages.success(request, 'Running session deleted successfully!')
+        # Redirect to the running tracker page
+        return redirect('running_tracker')
+
+    context = {
+        'running_session': running_session,
+    }
+    return render(request, 'count_calories_app/delete_running_session.html', context)
+
+def hide_from_quick_list(request, food_item_id):
+    """
+    View for hiding a food item from the quick list.
+    """
+    # Get the food item or return 404 if not found
+    food_item = get_object_or_404(FoodItem, id=food_item_id)
+
+    # Set hide_from_quick_list to True
+    food_item.hide_from_quick_list = True
+    food_item.save()
+
+    # Check if this is an AJAX request
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
+    if is_ajax:
+        # Return a JSON response for AJAX requests
+        return JsonResponse({
+            'success': True,
+            'message': f"'{food_item.product_name}' has been hidden from the quick list."
+        })
+    else:
+        # Return a success message for regular requests
+        messages.success(request, f"'{food_item.product_name}' has been hidden from the quick list.")
+
+        # Redirect back to the food tracker page
+        return redirect('food_tracker')
 
 def get_running_data(request):
     """

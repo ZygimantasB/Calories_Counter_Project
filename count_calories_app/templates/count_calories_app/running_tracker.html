@@ -126,6 +126,8 @@
                 </div>
                 <div class="d-flex align-items-center">
                   <span class="badge bg-secondary rounded-pill me-2">{{ session.date|date:"Y-m-d H:i" }}</span>
+                  <a href="{% url 'edit_running_session' session.id %}" class="btn btn-sm btn-outline-primary me-1">Edit</a>
+                  <a href="{% url 'delete_running_session' session.id %}" class="btn btn-sm btn-outline-danger">Delete</a>
                 </div>
               </li>
             {% endfor %}

@@ -1,438 +1,185 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Calorie Counter{% endblock %}
+{% block title %}Calories Counter - Home{% endblock %}
 
 {% block css_files %}
   {{ block.super }}
   <link rel="stylesheet" href="{% static 'count_calories_app/count_calories_app.css' %}">
   <style>
-    .quick-add-btn {
-      cursor: pointer;
-      transition: all 0.2s;
+    .feature-icon {
+      font-size: 2.5rem;
+      color: #28a745;
+      margin-bottom: 1rem;
     }
-    .quick-add-btn:hover {
-      transform: scale(1.05);
+    .feature-card {
+      transition: transform 0.3s ease;
+    }
+    .feature-card:hover {
+      transform: translateY(-5px);
+    }
+    .hero-section {
       background-color: #f8f9fa;
-    }
-    .chart-container {
-      position: relative;
-      height: 200px;
-      width: 100%;
-      margin-bottom: 20px;
+      padding: 3rem 0;
+      border-radius: 0.5rem;
     }
   </style>
 {% endblock %}
 
 {% block content %}
-  <div class="row">
-
-    <div class="col-md-4 mb-4">
-      <div class="card shadow-sm rounded mb-4">
-        <div class="card-header bg-primary text-white">
-          <h2 class="h5 mb-0">Add Food Item</h2>
-        </div>
-        <div class="card-body">
-
-          <form method="post" action="{% url 'home' %}?range={{ selected_range }}">
-            {% csrf_token %}
-
-            {% if form.non_field_errors %}
-              <div class="alert alert-danger">
-                {% for error in form.non_field_errors %}
-                  {{ error }}
-                {% endfor %}
-              </div>
-            {% endif %}
-
-            {% for field in form %}
-              <div class="mb-3">
-                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
-                {{ field }}
-                {% if field.help_text %}
-                  <small class="form-text text-muted">{{ field.help_text }}</small>
-                {% endif %}
-                {% if field.errors %}
-                  <div class="invalid-feedback d-block">
-                    {% for error in field.errors %}
-                      {{ error }}
-                    {% endfor %}
-                  </div>
-                {% endif %}
-              </div>
-            {% endfor %}
-
-            <button type="submit" class="btn btn-primary w-100">Add Item</button>
-          </form>
-        </div>
-      </div>
-
-      <!-- Quick Add Section -->
-      {% if recent_items %}
-      <div class="card shadow-sm rounded">
-        <div class="card-header bg-info text-white">
-          <h2 class="h5 mb-0">Quick Add Recent Foods</h2>
-        </div>
-        <div class="card-body p-0">
-          <div id="quick-add-container"></div>
-        </div>
-      </div>
-      {% endif %}
-    </div>
-
-
-    <div class="col-md-8">
-
-      <div class="mb-3 d-flex justify-content-center justify-content-md-start">
-        <a href="?range=today" class="btn btn-sm {% if selected_range == 'today' %}btn-info{% else %}btn-outline-info{% endif %} me-2">Today</a>
-        <a href="?range=week" class="btn btn-sm {% if selected_range == 'week' %}btn-info{% else %}btn-outline-info{% endif %} me-2">This Week</a>
-        <a href="?range=month" class="btn btn-sm {% if selected_range == 'month' %}btn-info{% else %}btn-outline-info{% endif %}">This Month</a>
-      </div>
-
-      <!-- Nutrition Charts -->
-      <div class="card shadow-sm rounded mb-4">
-        <div class="card-header bg-success text-white">
-          <h2 class="h5 mb-0">Nutrition Overview</h2>
-        </div>
-        <div class="card-body">
-          <div class="chart-container">
-            <canvas id="macroChart"></canvas>
-          </div>
-          <div class="row text-center">
-            <div class="col-6 col-sm-3 mb-2">
-              <div class="fw-bold">{{ totals.total_calories|floatformat:0 }}</div>
-              <small class="text-muted">Calories (kcal)</small>
-            </div>
-            <div class="col-6 col-sm-3 mb-2">
-              <div class="fw-bold">{{ totals.total_fat|floatformat:1 }} g</div>
-              <small class="text-muted">Fat</small>
-            </div>
-            <div class="col-6 col-sm-3 mb-2">
-              <div class="fw-bold">{{ totals.total_carbohydrates|floatformat:1 }} g</div>
-              <small class="text-muted">Carbs</small>
-            </div>
-            <div class="col-6 col-sm-3 mb-2">
-              <div class="fw-bold">{{ totals.total_protein|floatformat:1 }} g</div>
-              <small class="text-muted">Protein</small>
-            </div>
+  <!-- Hero Section -->
+  <div class="hero-section mb-5">
+    <div class="container">
+      <div class="row align-items-center">
+        <div class="col-lg-6">
+          <h1 class="display-4 fw-bold mb-3">Welcome to Calories Counter</h1>
+          <p class="lead mb-4">Your comprehensive health and fitness tracking solution to help you achieve your wellness goals.</p>
+          <div class="d-grid gap-2 d-md-flex justify-content-md-start">
+            <a href="{% url 'food_tracker' %}" class="btn btn-primary btn-lg px-4 me-md-2">Get Started with Food Tracking</a>
           </div>
         </div>
-      </div>
-
-      <!-- Calorie Trend Chart -->
-      <div class="card shadow-sm rounded mb-4">
-        <div class="card-header bg-info text-white">
-          <h2 class="h5 mb-0">Calorie Intake Trend (Last 30 Days)</h2>
-        </div>
-        <div class="card-body">
-          <div class="chart-container">
-            <canvas id="caloriesTrendChart"></canvas>
+        <div class="col-lg-6 d-flex justify-content-center">
+          <div class="text-center">
+            <i class="fas fa-heartbeat fa-7x text-success mb-3"></i>
+            <h3>Track. Analyze. Improve.</h3>
           </div>
         </div>
-      </div>
-
-      <!-- Macronutrient Trend Chart -->
-      <div class="card shadow-sm rounded mb-4">
-        <div class="card-header bg-warning text-dark">
-          <h2 class="h5 mb-0">Macronutrient Trends (Last 30 Days)</h2>
-        </div>
-        <div class="card-body">
-          <div class="chart-container">
-            <canvas id="macrosTrendChart"></canvas>
-          </div>
-        </div>
-      </div>
-
-      <div class="card shadow-sm rounded">
-        <div class="card-header">
-          <h2 class="h5 mb-0">Consumed Items ({{ selected_range|title }})</h2>
-        </div>
-        {% if food_items %}
-          <ul class="list-group list-group-flush">
-            {% for item in food_items %}
-              <li class="list-group-item d-flex justify-content-between align-items-center">
-                <div>
-                  <strong>{{ item.product_name }}</strong><br>
-                  <small class="text-muted">
-                    {{ item.calories }} kcal |
-                    F: {{ item.fat|floatformat:1 }}g |
-                    C: {{ item.carbohydrates|floatformat:1 }}g |
-                    P: {{ item.protein|floatformat:1 }}g
-                  </small>
-                </div>
-                <div class="d-flex align-items-center">
-                  <span class="badge bg-secondary rounded-pill me-2">{{ item.consumed_at|date:"Y-m-d H:i" }}</span>
-                  <div class="btn-group btn-group-sm ms-2">
-                    <a href="{% url 'edit_food_item' item.id %}" class="btn btn-outline-primary" title="Edit">
-                      <i class="fas fa-edit"></i>
-                    </a>
-                    <a href="{% url 'delete_food_item' item.id %}" class="btn btn-outline-danger" title="Delete">
-                      <i class="fas fa-trash"></i>
-                    </a>
-                  </div>
-                </div>
-              </li>
-            {% endfor %}
-          </ul>
-        {% else %}
-          <div class="card-body text-center text-muted">
-            No items recorded for this period.
-          </div>
-        {% endif %}
       </div>
     </div>
   </div>
-{% endblock %}
 
-{% block js_files %}
-  {{ block.super }}
-  <script type="text/babel">
-    // React component for quick add food items
-    const QuickAddItem = ({ item, onQuickAdd }) => {
-      return (
-        <div className="quick-add-btn p-2 border-bottom d-flex justify-content-between align-items-center" onClick={() => onQuickAdd(item)}>
-          <div>
-            <strong>{item.product_name}</strong>
-            <div><small className="text-muted">{item.calories} kcal</small></div>
-          </div>
-          <div>
-            <i className="fas fa-plus-circle text-success"></i>
+  <!-- Features Section -->
+  <div class="container mb-5">
+    <h2 class="text-center mb-4">What You Can Do</h2>
+    <div class="row g-4">
+      <div class="col-md-6 col-lg-3">
+        <div class="card h-100 shadow-sm feature-card">
+          <div class="card-body text-center">
+            <div class="feature-icon">
+              <i class="fas fa-utensils"></i>
+            </div>
+            <h3 class="h5">Food Tracker</h3>
+            <p>Log your meals, track calories and macronutrients, and monitor your daily intake.</p>
+            <a href="{% url 'food_tracker' %}" class="btn btn-outline-success">Track Food</a>
           </div>
         </div>
-      );
-    };
-
-    const QuickAddList = () => {
-      const [items, setItems] = React.useState([
-        {% for item in recent_items %}
-          {
-            id: {{ item.id }},
-            product_name: "{{ item.product_name }}",
-            calories: {{ item.calories }},
-            fat: {{ item.fat }},
-            carbohydrates: {{ item.carbohydrates }},
-            protein: {{ item.protein }}
-          }{% if not forloop.last %},{% endif %}
-        {% endfor %}
-      ]);
-
-      const handleQuickAdd = (item) => {
-        // Create a form and submit it
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '{% url "home" %}?range={{ selected_range }}';
-
-        // Add CSRF token
-        const csrfToken = document.createElement('input');
-        csrfToken.type = 'hidden';
-        csrfToken.name = 'csrfmiddlewaretoken';
-        csrfToken.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
-        form.appendChild(csrfToken);
-
-        // Add food item details
-        const fields = [
-          { name: 'product_name', value: item.product_name },
-          { name: 'calories', value: item.calories },
-          { name: 'fat', value: item.fat },
-          { name: 'carbohydrates', value: item.carbohydrates },
-          { name: 'protein', value: item.protein }
-        ];
-
-        fields.forEach(field => {
-          const input = document.createElement('input');
-          input.type = 'hidden';
-          input.name = field.name;
-          input.value = field.value;
-          form.appendChild(input);
-        });
-
-        document.body.appendChild(form);
-        form.submit();
-      };
-
-      return (
-        <div>
-          {items.map(item => (
-            <QuickAddItem key={item.id} item={item} onQuickAdd={handleQuickAdd} />
-          ))}
+      </div>
+      <div class="col-md-6 col-lg-3">
+        <div class="card h-100 shadow-sm feature-card">
+          <div class="card-body text-center">
+            <div class="feature-icon">
+              <i class="fas fa-weight"></i>
+            </div>
+            <h3 class="h5">Weight Tracker</h3>
+            <p>Record your weight measurements and visualize your progress over time.</p>
+            <a href="{% url 'weight_tracker' %}" class="btn btn-outline-success">Track Weight</a>
+          </div>
         </div>
-      );
-    };
+      </div>
+      <div class="col-md-6 col-lg-3">
+        <div class="card h-100 shadow-sm feature-card">
+          <div class="card-body text-center">
+            <div class="feature-icon">
+              <i class="fas fa-dumbbell"></i>
+            </div>
+            <h3 class="h5">Workout Tracker</h3>
+            <p>Log your workouts, track exercises, and monitor your strength progress.</p>
+            <a href="{% url 'workout_tracker' %}" class="btn btn-outline-success">Track Workouts</a>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-3">
+        <div class="card h-100 shadow-sm feature-card">
+          <div class="card-body text-center">
+            <div class="feature-icon">
+              <i class="fas fa-running"></i>
+            </div>
+            <h3 class="h5">Running Tracker</h3>
+            <p>Record your runs, track distance, time, and calories burned.</p>
+            <a href="{% url 'running_tracker' %}" class="btn btn-outline-success">Track Running</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-    // Render the React component
-    ReactDOM.render(
-      <QuickAddList />,
-      document.getElementById('quick-add-container')
-    );
-  </script>
+  <!-- About Section -->
+  <div class="container mb-5">
+    <div class="row">
+      <div class="col-lg-8 mx-auto">
+        <div class="card shadow-sm">
+          <div class="card-header bg-success text-white">
+            <h2 class="h4 mb-0">About Calories Counter</h2>
+          </div>
+          <div class="card-body">
+            <p>Calories Counter is a comprehensive health and fitness tracking application designed to help you monitor and improve your overall wellness. Whether you're looking to lose weight, gain muscle, or simply maintain a healthy lifestyle, our app provides the tools you need to track your progress and achieve your goals.</p>
+            
+            <h3 class="h5 mt-4">Why Use Calories Counter?</h3>
+            <ul>
+              <li><strong>All-in-One Solution:</strong> Track your food intake, weight, workouts, and running activities all in one place.</li>
+              <li><strong>Data Visualization:</strong> View your progress through intuitive charts and graphs.</li>
+              <li><strong>Personalized Tracking:</strong> Set your own goals and track your progress towards them.</li>
+              <li><strong>Easy to Use:</strong> Simple and intuitive interface makes tracking your health and fitness easy.</li>
+            </ul>
+            
+            <h3 class="h5 mt-4">How to Get Started</h3>
+            <p>Getting started with Calories Counter is easy! Simply click on one of the tracking features above to begin logging your data. You can start with food tracking to monitor your calorie intake, or jump straight to tracking your workouts or runs.</p>
+            
+            <div class="text-center mt-4">
+              <a href="{% url 'food_tracker' %}" class="btn btn-success">Start Tracking Now</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
-  <script>
-    // Chart.js for nutrition visualization
-    document.addEventListener('DOMContentLoaded', function() {
-      // Macronutrient Distribution Chart
-      fetch('{% url "nutrition_data" %}?range={{ selected_range }}')
-        .then(response => response.json())
-        .then(data => {
-          const ctx = document.getElementById('macroChart').getContext('2d');
-          new Chart(ctx, {
-            type: 'doughnut',
-            data: {
-              labels: data.labels,
-              datasets: [{
-                data: data.data,
-                backgroundColor: [
-                  'rgba(255, 99, 132, 0.7)',
-                  'rgba(54, 162, 235, 0.7)',
-                  'rgba(255, 206, 86, 0.7)'
-                ],
-                borderColor: [
-                  'rgba(255, 99, 132, 1)',
-                  'rgba(54, 162, 235, 1)',
-                  'rgba(255, 206, 86, 1)'
-                ],
-                borderWidth: 1
-              }]
-            },
-            options: {
-              responsive: true,
-              maintainAspectRatio: false,
-              plugins: {
-                legend: {
-                  position: 'bottom'
-                },
-                title: {
-                  display: true,
-                  text: 'Macronutrient Distribution'
-                }
-              }
-            }
-          });
-        })
-        .catch(error => console.error('Error fetching nutrition data:', error));
-
-      // Calorie Trend Chart
-      fetch('{% url "calories_trend_data" %}')
-        .then(response => response.json())
-        .then(data => {
-          const ctx = document.getElementById('caloriesTrendChart').getContext('2d');
-          new Chart(ctx, {
-            type: 'bar',
-            data: {
-              labels: data.labels,
-              datasets: [{
-                label: 'Calories (kcal)',
-                data: data.data,
-                backgroundColor: 'rgba(75, 192, 192, 0.7)',
-                borderColor: 'rgba(75, 192, 192, 1)',
-                borderWidth: 1
-              }]
-            },
-            options: {
-              responsive: true,
-              maintainAspectRatio: false,
-              scales: {
-                y: {
-                  beginAtZero: true,
-                  title: {
-                    display: true,
-                    text: 'Calories (kcal)'
-                  }
-                },
-                x: {
-                  title: {
-                    display: true,
-                    text: 'Date'
-                  }
-                }
-              },
-              plugins: {
-                legend: {
-                  display: false
-                },
-                title: {
-                  display: true,
-                  text: 'Daily Calorie Intake'
-                },
-                tooltip: {
-                  callbacks: {
-                    title: function(tooltipItems) {
-                      return tooltipItems[0].label;
-                    },
-                    label: function(context) {
-                      return context.parsed.y + ' kcal';
-                    }
-                  }
-                }
-              }
-            }
-          });
-        })
-        .catch(error => console.error('Error fetching calorie trend data:', error));
-
-      // Macronutrient Trend Chart
-      fetch('{% url "macros_trend_data" %}')
-        .then(response => response.json())
-        .then(data => {
-          const ctx = document.getElementById('macrosTrendChart').getContext('2d');
-          new Chart(ctx, {
-            type: 'line',
-            data: {
-              labels: data.labels,
-              datasets: [
-                {
-                  label: 'Protein (g)',
-                  data: data.protein,
-                  backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                  borderColor: 'rgba(255, 99, 132, 1)',
-                  borderWidth: 2,
-                  tension: 0.1
-                },
-                {
-                  label: 'Carbs (g)',
-                  data: data.carbs,
-                  backgroundColor: 'rgba(54, 162, 235, 0.2)',
-                  borderColor: 'rgba(54, 162, 235, 1)',
-                  borderWidth: 2,
-                  tension: 0.1
-                },
-                {
-                  label: 'Fat (g)',
-                  data: data.fat,
-                  backgroundColor: 'rgba(255, 206, 86, 0.2)',
-                  borderColor: 'rgba(255, 206, 86, 1)',
-                  borderWidth: 2,
-                  tension: 0.1
-                }
-              ]
-            },
-            options: {
-              responsive: true,
-              maintainAspectRatio: false,
-              scales: {
-                y: {
-                  beginAtZero: true,
-                  title: {
-                    display: true,
-                    text: 'Grams (g)'
-                  }
-                },
-                x: {
-                  title: {
-                    display: true,
-                    text: 'Date'
-                  }
-                }
-              },
-              plugins: {
-                title: {
-                  display: true,
-                  text: 'Macronutrient Intake Over Time'
-                }
-              }
-            }
-          });
-        })
-        .catch(error => console.error('Error fetching macronutrient trend data:', error));
-    });
-  </script>
+  <!-- Testimonials Section (Placeholder) -->
+  <div class="container mb-5">
+    <h2 class="text-center mb-4">What Our Users Say</h2>
+    <div class="row">
+      <div class="col-md-4 mb-4">
+        <div class="card h-100 shadow-sm">
+          <div class="card-body">
+            <div class="d-flex justify-content-center mb-3">
+              <i class="fas fa-quote-left fa-2x text-muted"></i>
+            </div>
+            <p class="card-text text-center">"Calories Counter has helped me lose 10 pounds in just 2 months! The food tracking feature is so easy to use, and I love being able to see my progress over time."</p>
+            <div class="text-center">
+              <h5 class="card-title mb-0">John D.</h5>
+              <small class="text-muted">User since 2023</small>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4 mb-4">
+        <div class="card h-100 shadow-sm">
+          <div class="card-body">
+            <div class="d-flex justify-content-center mb-3">
+              <i class="fas fa-quote-left fa-2x text-muted"></i>
+            </div>
+            <p class="card-text text-center">"I've tried many fitness apps, but Calories Counter is by far the most comprehensive. I can track everything in one place, which makes staying on top of my health goals so much easier."</p>
+            <div class="text-center">
+              <h5 class="card-title mb-0">Sarah M.</h5>
+              <small class="text-muted">User since 2022</small>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4 mb-4">
+        <div class="card h-100 shadow-sm">
+          <div class="card-body">
+            <div class="d-flex justify-content-center mb-3">
+              <i class="fas fa-quote-left fa-2x text-muted"></i>
+            </div>
+            <p class="card-text text-center">"The workout tracking feature has been a game-changer for my fitness routine. I can see my progress over time, which keeps me motivated to continue pushing myself."</p>
+            <div class="text-center">
+              <h5 class="card-title mb-0">Michael T.</h5>
+              <small class="text-muted">User since 2023</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 {% endblock %}

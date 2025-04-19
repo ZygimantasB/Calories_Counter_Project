@@ -3,6 +3,7 @@ from . import views
 
 urlpatterns = [
     path('', views.home, name='home'),
+    path('food_tracker/', views.food_tracker, name='food_tracker'),
     path('api/nutrition-data/', views.get_nutrition_data, name='nutrition_data'),
     path('api/calories-trend/', views.get_calories_trend_data, name='calories_trend_data'),
     path('api/macros-trend/', views.get_macros_trend_data, name='macros_trend_data'),
@@ -10,6 +11,7 @@ urlpatterns = [
     # Food item edit/delete URLs
     path('food/<int:food_item_id>/edit/', views.edit_food_item, name='edit_food_item'),
     path('food/<int:food_item_id>/delete/', views.delete_food_item, name='delete_food_item'),
+    path('food/<int:food_item_id>/hide-from-quick-list/', views.hide_from_quick_list, name='hide_from_quick_list'),
 
     # Weight tracking URLs
     path('weight/', views.weight_tracker, name='weight_tracker'),
@@ -28,6 +30,8 @@ urlpatterns = [
 
     # Running tracking URLs
     path('running/', views.running_tracker, name='running_tracker'),
+    path('running/<int:running_session_id>/edit/', views.edit_running_session, name='edit_running_session'),
+    path('running/<int:running_session_id>/delete/', views.delete_running_session, name='delete_running_session'),
     path('api/running-data/', views.get_running_data, name='running_data'),
 
     # Workout table API endpoints

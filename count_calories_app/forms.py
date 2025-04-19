@@ -8,14 +8,15 @@ class FoodItemForm(forms.ModelForm):
     """
     class Meta:
         model = FoodItem
-        fields = ['product_name', 'calories', 'fat', 'carbohydrates', 'protein']
+        fields = ['product_name', 'calories', 'fat', 'carbohydrates', 'protein', 'consumed_at']
         # You can customize widgets if needed, e.g., using NumberInput for numeric fields
         widgets = {
             'product_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g., Apple, Chicken Breast'}),
-            'calories': forms.NumberInput(attrs={'class': 'form-control', 'min': '0'}),
-            'fat': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'step': '0.1'}),
-            'carbohydrates': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'step': '0.1'}),
-            'protein': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'step': '0.1'}),
+            'calories': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'step': '0.01'}),
+            'fat': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'step': '0.01'}),
+            'carbohydrates': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'step': '0.01'}),
+            'protein': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'step': '0.01'}),
+            'consumed_at': forms.HiddenInput(),
         }
         labels = {
             'product_name': 'Product Name',
@@ -23,6 +24,7 @@ class FoodItemForm(forms.ModelForm):
             'fat': 'Fat (g)',
             'carbohydrates': 'Carbs (g)',
             'protein': 'Protein (g)',
+            'consumed_at': 'Consumed At',
         }
 
 class WeightForm(forms.ModelForm):

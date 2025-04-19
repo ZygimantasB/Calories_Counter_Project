@@ -51,6 +51,142 @@
           </form>
         </div>
       </div>
+
+      <!-- Calculator Card -->
+      <div class="card shadow-sm rounded mb-4">
+        <div class="card-header bg-info text-white">
+          <h2 class="h5 mb-0">Calculator</h2>
+        </div>
+        <div class="card-body">
+          <div class="calculator">
+            <div class="mb-3">
+              <input type="text" id="calculator-display" class="form-control form-control-lg text-end" readonly>
+            </div>
+            <div class="calculator-buttons">
+              <div class="row g-2 mb-2">
+                <div class="col-3"><button class="btn btn-outline-secondary w-100" onclick="clearCalculator()">C</button></div>
+                <div class="col-3"><button class="btn btn-outline-secondary w-100" onclick="appendToCalculator('(')">(</button></div>
+                <div class="col-3"><button class="btn btn-outline-secondary w-100" onclick="appendToCalculator(')')">)</button></div>
+                <div class="col-3"><button class="btn btn-outline-danger w-100" onclick="appendToCalculator('/')">/</button></div>
+              </div>
+              <div class="row g-2 mb-2">
+                <div class="col-3"><button class="btn btn-outline-dark w-100" onclick="appendToCalculator('7')">7</button></div>
+                <div class="col-3"><button class="btn btn-outline-dark w-100" onclick="appendToCalculator('8')">8</button></div>
+                <div class="col-3"><button class="btn btn-outline-dark w-100" onclick="appendToCalculator('9')">9</button></div>
+                <div class="col-3"><button class="btn btn-outline-danger w-100" onclick="appendToCalculator('*')">×</button></div>
+              </div>
+              <div class="row g-2 mb-2">
+                <div class="col-3"><button class="btn btn-outline-dark w-100" onclick="appendToCalculator('4')">4</button></div>
+                <div class="col-3"><button class="btn btn-outline-dark w-100" onclick="appendToCalculator('5')">5</button></div>
+                <div class="col-3"><button class="btn btn-outline-dark w-100" onclick="appendToCalculator('6')">6</button></div>
+                <div class="col-3"><button class="btn btn-outline-danger w-100" onclick="appendToCalculator('-')">-</button></div>
+              </div>
+              <div class="row g-2 mb-2">
+                <div class="col-3"><button class="btn btn-outline-dark w-100" onclick="appendToCalculator('1')">1</button></div>
+                <div class="col-3"><button class="btn btn-outline-dark w-100" onclick="appendToCalculator('2')">2</button></div>
+                <div class="col-3"><button class="btn btn-outline-dark w-100" onclick="appendToCalculator('3')">3</button></div>
+                <div class="col-3"><button class="btn btn-outline-danger w-100" onclick="appendToCalculator('+')">+</button></div>
+              </div>
+              <div class="row g-2">
+                <div class="col-3"><button class="btn btn-outline-dark w-100" onclick="appendToCalculator('0')">0</button></div>
+                <div class="col-3"><button class="btn btn-outline-dark w-100" onclick="appendToCalculator('.')">.</button></div>
+                <div class="col-6"><button class="btn btn-success w-100" onclick="calculateResult()">=</button></div>
+              </div>
+            </div>
+            <div class="mt-3">
+              <div class="row">
+                <div class="col-6">
+                  <button class="btn btn-primary w-100" onclick="copyToCalories()">Copy to Calories</button>
+                </div>
+                <div class="col-6">
+                  <div class="btn-group w-100">
+                    <button class="btn btn-outline-primary" onclick="copyToField('id_fat')">To Fat</button>
+                    <button class="btn btn-outline-primary" onclick="copyToField('id_carbohydrates')">To Carbs</button>
+                    <button class="btn btn-outline-primary" onclick="copyToField('id_protein')">To Protein</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
+{% endblock %}
+
+{% block js_files %}
+  {{ block.super }}
+  <script>
+    // Calculate calories based on macronutrients
+    document.addEventListener('DOMContentLoaded', function() {
+      const fatInput = document.getElementById('id_fat');
+      const carbsInput = document.getElementById('id_carbohydrates');
+      const proteinInput = document.getElementById('id_protein');
+      const caloriesInput = document.getElementById('id_calories');
+
+      // Function to calculate calories
+      function calculateCalories() {
+        // Get values, default to 0 if empty or not a number
+        const fat = parseFloat(fatInput.value) || 0;
+        const carbs = parseFloat(carbsInput.value) || 0;
+        const protein = parseFloat(proteinInput.value) || 0;
+
+        // Calculate calories: fat*9 + carbs*4 + protein*4
+        const calories = (fat * 9 + carbs * 4 + protein * 4).toFixed(2);
+
+        // Update calories input
+        caloriesInput.value = calories;
+      }
+
+      // Add event listeners to inputs
+      if (fatInput && carbsInput && proteinInput && caloriesInput) {
+        fatInput.addEventListener('input', calculateCalories);
+        carbsInput.addEventListener('input', calculateCalories);
+        proteinInput.addEventListener('input', calculateCalories);
+      }
+    });
+
+    // Calculator functionality
+    const calculatorDisplay = document.getElementById('calculator-display');
+
+    // Make calculator functions available globally
+    window.appendToCalculator = function(char) {
+      calculatorDisplay.value += char;
+    };
+
+    window.clearCalculator = function() {
+      calculatorDisplay.value = '';
+    };
+
+    window.calculateResult = function() {
+      try {
+        // Use Function constructor to safely evaluate the expression
+        const result = new Function('return ' + calculatorDisplay.value)();
+        calculatorDisplay.value = parseFloat(result.toFixed(2));
+      } catch (error) {
+        calculatorDisplay.value = 'Error';
+        setTimeout(() => {
+          calculatorDisplay.value = '';
+        }, 1500);
+      }
+    };
+
+    window.copyToCalories = function() {
+      const caloriesInput = document.getElementById('id_calories');
+      if (calculatorDisplay.value && calculatorDisplay.value !== 'Error') {
+        caloriesInput.value = calculatorDisplay.value;
+      }
+    };
+
+    window.copyToField = function(fieldId) {
+      const field = document.getElementById(fieldId);
+      if (calculatorDisplay.value && calculatorDisplay.value !== 'Error' && field) {
+        field.value = calculatorDisplay.value;
+
+        // Trigger the input event to recalculate calories if needed
+        const event = new Event('input', { bubbles: true });
+        field.dispatchEvent(event);
+      }
+    };
+  </script>
 {% endblock %}
