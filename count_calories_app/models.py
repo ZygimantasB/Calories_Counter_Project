@@ -118,3 +118,31 @@ class WorkoutTable(models.Model):
 
     class Meta:
         ordering = ['-created_at'] # Show newest tables first
+
+class BodyMeasurement(models.Model):
+    """
+    Represents body measurements recorded by the user.
+    """
+    date = models.DateTimeField(default=timezone.now, help_text="Date and time the measurements were recorded")
+    neck = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True, help_text="Neck circumference in cm")
+    chest = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True, help_text="Chest circumference in cm")
+    belly = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True, help_text="Belly/waist circumference in cm")
+    left_biceps = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True, help_text="Left biceps circumference in cm")
+    right_biceps = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True, help_text="Right biceps circumference in cm")
+    left_triceps = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True, help_text="Left triceps circumference in cm")
+    right_triceps = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True, help_text="Right triceps circumference in cm")
+    left_forearm = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True, help_text="Left forearm circumference in cm")
+    right_forearm = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True, help_text="Right forearm circumference in cm")
+    left_thigh = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True, help_text="Left thigh circumference in cm")
+    right_thigh = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True, help_text="Right thigh circumference in cm")
+    left_lower_leg = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True, help_text="Left lower leg/calf circumference in cm")
+    right_lower_leg = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True, help_text="Right lower leg/calf circumference in cm")
+    butt = models.DecimalField(max_digits=5, decimal_places=2, blank=True, null=True, help_text="Butt/glutes circumference in cm")
+    notes = models.TextField(blank=True, null=True, help_text="Optional notes about these measurements")
+
+    def __str__(self):
+        """String representation of the body measurements."""
+        return f"Body measurements on {self.date.strftime('%Y-%m-%d')}"
+
+    class Meta:
+        ordering = ['-date'] # Show newest measurements first

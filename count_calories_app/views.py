@@ -5,8 +5,8 @@ from datetime import timedelta
 from django.db.models import Sum, Count, Avg, Max, Min # Import additional aggregation functions
 from django.http import JsonResponse
 from django.contrib import messages
-from .models import FoodItem, Weight, Exercise, WorkoutSession, WorkoutExercise, RunningSession, WorkoutTable
-from .forms import FoodItemForm, WeightForm, ExerciseForm, WorkoutSessionForm, WorkoutExerciseForm, RunningSessionForm
+from .models import FoodItem, Weight, Exercise, WorkoutSession, WorkoutExercise, RunningSession, WorkoutTable, BodyMeasurement
+from .forms import FoodItemForm, WeightForm, ExerciseForm, WorkoutSessionForm, WorkoutExerciseForm, RunningSessionForm, BodyMeasurementForm
 import logging
 import json
 
@@ -887,3 +887,194 @@ def get_running_data(request):
     }
 
     return JsonResponse(running_data)
+
+def body_measurements_tracker(request):
+    """
+    View for the body measurements tracker page.
+    """
+    try:
+        # Get all body measurements ordered by date (newest first)
+        measurements = BodyMeasurement.objects.all().order_by('-date')
+
+        # Handle form submission for adding new measurements
+        if request.method == 'POST':
+            form = BodyMeasurementForm(request.POST)
+            if form.is_valid():
+                form.save()
+                messages.success(request, 'Body measurements added successfully!')
+                return redirect('body_measurements_tracker')
+        else:
+            # Pre-populate the date field with the current date and time
+            form = BodyMeasurementForm(initial={'date': timezone.now()})
+
+        # Get all weight measurements
+        weights = Weight.objects.all()
+
+        # Calculate comparison data for arrows
+        measurements_with_arrows = []
+        for i, measurement in enumerate(measurements):
+            measurement_data = {
+                'measurement': measurement,
+                'arrows': {},
+                'weight': None
+            }
+
+            # Find weight for the same date
+            measurement_date = measurement.date.date()  # Get just the date part
+            matching_weight = weights.filter(recorded_at__date=measurement_date).first()
+            if matching_weight:
+                measurement_data['weight'] = matching_weight.weight
+
+            # If there's a next measurement (chronologically previous), compare values
+            if i < len(measurements) - 1:
+                next_measurement = measurements[i + 1]
+
+                # Compare each field
+                for field in ['neck', 'chest', 'belly', 'left_biceps', 'right_biceps', 
+                             'left_triceps', 'right_triceps', 'left_forearm', 'right_forearm',
+                             'left_thigh', 'right_thigh', 'left_lower_leg', 'right_lower_leg', 'butt']:
+                    current_value = getattr(measurement, field)
+                    next_value = getattr(next_measurement, field)
+
+                    if current_value is not None and next_value is not None:
+                        if current_value > next_value:
+                            measurement_data['arrows'][field] = 'up'
+                        elif current_value < next_value:
+                            measurement_data['arrows'][field] = 'down'
+
+            # Compare weight if available
+            if i < len(measurements) - 1 and measurement_data['weight'] is not None:
+                next_measurement_date = measurements[i + 1].date.date()
+                next_matching_weight = weights.filter(recorded_at__date=next_measurement_date).first()
+                if next_matching_weight:
+                    if measurement_data['weight'] > next_matching_weight.weight:
+                        measurement_data['arrows']['weight'] = 'up'
+                    elif measurement_data['weight'] < next_matching_weight.weight:
+                        measurement_data['arrows']['weight'] = 'down'
+
+            measurements_with_arrows.append(measurement_data)
+
+        # Render the template with the form and measurements
+        return render(request, 'count_calories_app/body_measurements_tracker.html', {
+            'form': form,
+            'measurements_with_arrows': measurements_with_arrows,
+            'page_title': 'Body Measurements Tracker',
+        })
+    except Exception as e:
+        logger.error(f"Error in body_measurements_tracker: {str(e)}")
+        messages.error(request, f"An error occurred: {str(e)}")
+        return redirect('home')
+
+def edit_body_measurement(request, measurement_id):
+    """
+    View for editing an existing body measurement.
+    """
+    try:
+        # Get the measurement to edit
+        measurement = get_object_or_404(BodyMeasurement, id=measurement_id)
+
+        # Handle form submission
+        if request.method == 'POST':
+            form = BodyMeasurementForm(request.POST, instance=measurement)
+            if form.is_valid():
+                form.save()
+                messages.success(request, 'Body measurements updated successfully!')
+                return redirect('body_measurements_tracker')
+        else:
+            form = BodyMeasurementForm(instance=measurement)
+
+        # Render the template with the form
+        return render(request, 'count_calories_app/edit_body_measurement.html', {
+            'form': form,
+            'measurement': measurement,
+            'page_title': 'Edit Body Measurements',
+        })
+    except Exception as e:
+        logger.error(f"Error in edit_body_measurement: {str(e)}")
+        messages.error(request, f"An error occurred: {str(e)}")
+        return redirect('body_measurements_tracker')
+
+def delete_body_measurement(request, measurement_id):
+    """
+    View for deleting a body measurement.
+    """
+    try:
+        # Get the measurement to delete
+        measurement = get_object_or_404(BodyMeasurement, id=measurement_id)
+
+        # Handle form submission
+        if request.method == 'POST':
+            measurement.delete()
+            messages.success(request, 'Body measurements deleted successfully!')
+            return redirect('body_measurements_tracker')
+
+        # Render the confirmation template
+        return render(request, 'count_calories_app/delete_body_measurement.html', {
+            'measurement': measurement,
+            'page_title': 'Delete Body Measurements',
+        })
+    except Exception as e:
+        logger.error(f"Error in delete_body_measurement: {str(e)}")
+        messages.error(request, f"An error occurred: {str(e)}")
+        return redirect('body_measurements_tracker')
+
+def get_body_measurements_data(request):
+    """
+    API endpoint to get body measurements data for charts.
+    """
+    try:
+        # Get all body measurements ordered by date
+        measurements = BodyMeasurement.objects.all().order_by('date')
+
+        # Get all weight measurements
+        weights = Weight.objects.all()
+
+        # Prepare data for charts
+        dates = [m.date.strftime('%Y-%m-%d') for m in measurements]
+        neck_data = [float(m.neck) if m.neck else None for m in measurements]
+        chest_data = [float(m.chest) if m.chest else None for m in measurements]
+        belly_data = [float(m.belly) if m.belly else None for m in measurements]
+        left_biceps_data = [float(m.left_biceps) if m.left_biceps else None for m in measurements]
+        right_biceps_data = [float(m.right_biceps) if m.right_biceps else None for m in measurements]
+        left_triceps_data = [float(m.left_triceps) if m.left_triceps else None for m in measurements]
+        right_triceps_data = [float(m.right_triceps) if m.right_triceps else None for m in measurements]
+        left_forearm_data = [float(m.left_forearm) if m.left_forearm else None for m in measurements]
+        right_forearm_data = [float(m.right_forearm) if m.right_forearm else None for m in measurements]
+        left_thigh_data = [float(m.left_thigh) if m.left_thigh else None for m in measurements]
+        right_thigh_data = [float(m.right_thigh) if m.right_thigh else None for m in measurements]
+        left_lower_leg_data = [float(m.left_lower_leg) if m.left_lower_leg else None for m in measurements]
+        right_lower_leg_data = [float(m.right_lower_leg) if m.right_lower_leg else None for m in measurements]
+        butt_data = [float(m.butt) if m.butt else None for m in measurements]
+
+        # Get weight data for each measurement date
+        weight_data = []
+        for m in measurements:
+            measurement_date = m.date.date()
+            matching_weight = weights.filter(recorded_at__date=measurement_date).first()
+            if matching_weight:
+                weight_data.append(float(matching_weight.weight))
+            else:
+                weight_data.append(None)
+
+        # Return the data as JSON
+        return JsonResponse({
+            'dates': dates,
+            'weight': weight_data,
+            'neck': neck_data,
+            'chest': chest_data,
+            'belly': belly_data,
+            'left_biceps': left_biceps_data,
+            'right_biceps': right_biceps_data,
+            'left_triceps': left_triceps_data,
+            'right_triceps': right_triceps_data,
+            'left_forearm': left_forearm_data,
+            'right_forearm': right_forearm_data,
+            'left_thigh': left_thigh_data,
+            'right_thigh': right_thigh_data,
+            'left_lower_leg': left_lower_leg_data,
+            'right_lower_leg': right_lower_leg_data,
+            'butt': butt_data,
+        })
+    except Exception as e:
+        logger.error(f"Error in get_body_measurements_data: {str(e)}")
+        return JsonResponse({'error': str(e)}, status=500)

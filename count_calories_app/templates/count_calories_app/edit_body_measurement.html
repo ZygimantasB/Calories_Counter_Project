@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Edit Body Measurements{% endblock %}
+
+{% block css_files %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'count_calories_app/count_calories_app.css' %}">
+  <style>
+    .edit-form-container {
+      background-color: #f8f9fa;
+      padding: 1.5rem;
+      border-radius: 0.5rem;
+      margin-bottom: 2rem;
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <div class="container mt-4">
+    <div class="row">
+      <div class="col-lg-10 mx-auto">
+        <div class="card shadow-sm">
+          <div class="card-header bg-primary text-white">
+            <h1 class="h3 mb-0">Edit Body Measurements</h1>
+          </div>
+          <div class="card-body edit-form-container">
+            <form method="post">
+              {% csrf_token %}
+
+              <div class="row">
+                <div class="col-md-4 mb-3">
+                  <label for="{{ form.date.id_for_label }}" class="form-label">{{ form.date.label }}</label>
+                  {{ form.date }}
+                </div>
+              </div>
+
+              <div class="row">
+                <div class="col-md-4 mb-3">
+                  <label for="{{ form.neck.id_for_label }}" class="form-label">{{ form.neck.label }}</label>
+                  {{ form.neck }}
+                </div>
+                <div class="col-md-4 mb-3">
+                  <label for="{{ form.chest.id_for_label }}" class="form-label">{{ form.chest.label }}</label>
+                  {{ form.chest }}
+                </div>
+                <div class="col-md-4 mb-3">
+                  <label for="{{ form.belly.id_for_label }}" class="form-label">{{ form.belly.label }}</label>
+                  {{ form.belly }}
+                </div>
+              </div>
+
+              <!-- Arms Measurements -->
+              <h4 class="mt-3 mb-2">Arms</h4>
+              <div class="row">
+                <div class="col-md-3 mb-3">
+                  <label for="{{ form.left_biceps.id_for_label }}" class="form-label">{{ form.left_biceps.label }}</label>
+                  {{ form.left_biceps }}
+                </div>
+                <div class="col-md-3 mb-3">
+                  <label for="{{ form.right_biceps.id_for_label }}" class="form-label">{{ form.right_biceps.label }}</label>
+                  {{ form.right_biceps }}
+                </div>
+                <div class="col-md-3 mb-3">
+                  <label for="{{ form.left_triceps.id_for_label }}" class="form-label">{{ form.left_triceps.label }}</label>
+                  {{ form.left_triceps }}
+                </div>
+                <div class="col-md-3 mb-3">
+                  <label for="{{ form.right_triceps.id_for_label }}" class="form-label">{{ form.right_triceps.label }}</label>
+                  {{ form.right_triceps }}
+                </div>
+              </div>
+
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <label for="{{ form.left_forearm.id_for_label }}" class="form-label">{{ form.left_forearm.label }}</label>
+                  {{ form.left_forearm }}
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label for="{{ form.right_forearm.id_for_label }}" class="form-label">{{ form.right_forearm.label }}</label>
+                  {{ form.right_forearm }}
+                </div>
+              </div>
+
+              <!-- Legs Measurements -->
+              <h4 class="mt-3 mb-2">Legs</h4>
+              <div class="row">
+                <div class="col-md-3 mb-3">
+                  <label for="{{ form.left_thigh.id_for_label }}" class="form-label">{{ form.left_thigh.label }}</label>
+                  {{ form.left_thigh }}
+                </div>
+                <div class="col-md-3 mb-3">
+                  <label for="{{ form.right_thigh.id_for_label }}" class="form-label">{{ form.right_thigh.label }}</label>
+                  {{ form.right_thigh }}
+                </div>
+                <div class="col-md-3 mb-3">
+                  <label for="{{ form.left_lower_leg.id_for_label }}" class="form-label">{{ form.left_lower_leg.label }}</label>
+                  {{ form.left_lower_leg }}
+                </div>
+                <div class="col-md-3 mb-3">
+                  <label for="{{ form.right_lower_leg.id_for_label }}" class="form-label">{{ form.right_lower_leg.label }}</label>
+                  {{ form.right_lower_leg }}
+                </div>
+              </div>
+
+              <div class="row">
+                <div class="col-md-4 mb-3">
+                  <label for="{{ form.butt.id_for_label }}" class="form-label">{{ form.butt.label }}</label>
+                  {{ form.butt }}
+                </div>
+              </div>
+
+              <div class="row">
+                <div class="col-12 mb-3">
+                  <label for="{{ form.notes.id_for_label }}" class="form-label">{{ form.notes.label }}</label>
+                  {{ form.notes }}
+                </div>
+              </div>
+
+              <div class="d-flex justify-content-between">
+                <a href="{% url 'body_measurements_tracker' %}" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+{% endblock %}

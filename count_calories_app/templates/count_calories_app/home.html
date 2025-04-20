@@ -100,6 +100,18 @@
           </div>
         </div>
       </div>
+      <div class="col-md-6 col-lg-3">
+        <div class="card h-100 shadow-sm feature-card">
+          <div class="card-body text-center">
+            <div class="feature-icon">
+              <i class="fas fa-ruler-combined"></i>
+            </div>
+            <h3 class="h5">Body Measurements</h3>
+            <p>Track your body measurements and visualize your progress over time.</p>
+            <a href="{% url 'body_measurements_tracker' %}" class="btn btn-outline-success">Track Measurements</a>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -113,18 +125,18 @@
           </div>
           <div class="card-body">
             <p>Calories Counter is a comprehensive health and fitness tracking application designed to help you monitor and improve your overall wellness. Whether you're looking to lose weight, gain muscle, or simply maintain a healthy lifestyle, our app provides the tools you need to track your progress and achieve your goals.</p>
-            
+
             <h3 class="h5 mt-4">Why Use Calories Counter?</h3>
             <ul>
-              <li><strong>All-in-One Solution:</strong> Track your food intake, weight, workouts, and running activities all in one place.</li>
+              <li><strong>All-in-One Solution:</strong> Track your food intake, weight, workouts, running activities, and body measurements all in one place.</li>
               <li><strong>Data Visualization:</strong> View your progress through intuitive charts and graphs.</li>
               <li><strong>Personalized Tracking:</strong> Set your own goals and track your progress towards them.</li>
               <li><strong>Easy to Use:</strong> Simple and intuitive interface makes tracking your health and fitness easy.</li>
             </ul>
-            
+
             <h3 class="h5 mt-4">How to Get Started</h3>
             <p>Getting started with Calories Counter is easy! Simply click on one of the tracking features above to begin logging your data. You can start with food tracking to monitor your calorie intake, or jump straight to tracking your workouts or runs.</p>
-            
+
             <div class="text-center mt-4">
               <a href="{% url 'food_tracker' %}" class="btn btn-success">Start Tracking Now</a>
             </div>

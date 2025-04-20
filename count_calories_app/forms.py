@@ -1,6 +1,6 @@
 # F:\Python GitHub ZygimantasB\Calories_Counter_Project\count_calories_app\forms.py
 from django import forms
-from .models import FoodItem, Weight, Exercise, WorkoutSession, WorkoutExercise, RunningSession
+from .models import FoodItem, Weight, Exercise, WorkoutSession, WorkoutExercise, RunningSession, BodyMeasurement
 
 class FoodItemForm(forms.ModelForm):
     """
@@ -120,5 +120,50 @@ class RunningSessionForm(forms.ModelForm):
             'date': 'Date and Time',
             'distance': 'Distance (km)',
             'duration': 'Duration (HH:MM:SS)',
+            'notes': 'Notes',
+        }
+
+class BodyMeasurementForm(forms.ModelForm):
+    """
+    Form for users to input body measurements.
+    """
+    class Meta:
+        model = BodyMeasurement
+        fields = ['date', 'neck', 'chest', 'belly', 'left_biceps', 'right_biceps', 'left_triceps', 'right_triceps', 
+                 'left_forearm', 'right_forearm', 'left_thigh', 'right_thigh', 'left_lower_leg', 'right_lower_leg', 'butt', 'notes']
+        widgets = {
+            'date': forms.DateTimeInput(attrs={'class': 'form-control', 'type': 'datetime-local'}),
+            'neck': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'step': '0.1'}),
+            'chest': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'step': '0.1'}),
+            'belly': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'step': '0.1'}),
+            'left_biceps': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'step': '0.1'}),
+            'right_biceps': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'step': '0.1'}),
+            'left_triceps': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'step': '0.1'}),
+            'right_triceps': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'step': '0.1'}),
+            'left_forearm': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'step': '0.1'}),
+            'right_forearm': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'step': '0.1'}),
+            'left_thigh': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'step': '0.1'}),
+            'right_thigh': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'step': '0.1'}),
+            'left_lower_leg': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'step': '0.1'}),
+            'right_lower_leg': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'step': '0.1'}),
+            'butt': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'step': '0.1'}),
+            'notes': forms.Textarea(attrs={'class': 'form-control', 'rows': 3, 'placeholder': 'Optional notes about these measurements'}),
+        }
+        labels = {
+            'date': 'Date and Time',
+            'neck': 'Neck (cm)',
+            'chest': 'Chest (cm)',
+            'belly': 'Belly/Waist (cm)',
+            'left_biceps': 'Left Biceps (cm)',
+            'right_biceps': 'Right Biceps (cm)',
+            'left_triceps': 'Left Triceps (cm)',
+            'right_triceps': 'Right Triceps (cm)',
+            'left_forearm': 'Left Forearm (cm)',
+            'right_forearm': 'Right Forearm (cm)',
+            'left_thigh': 'Left Thigh (cm)',
+            'right_thigh': 'Right Thigh (cm)',
+            'left_lower_leg': 'Left Lower Leg/Calf (cm)',
+            'right_lower_leg': 'Right Lower Leg/Calf (cm)',
+            'butt': 'Butt/Glutes (cm)',
             'notes': 'Notes',
         }
