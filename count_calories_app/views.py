@@ -403,9 +403,44 @@ def get_weight_data(request):
         else:
             weight_data['stats']['change_rate'] = 0
 
-        # Calculate BMI if height is available (for future implementation)
-        # For now, we'll just add a placeholder
-        weight_data['stats']['bmi'] = 0
+        # Calculate BMI (assuming height of 175cm - this could be made configurable in user settings)
+        height_in_meters = 1.75  # Default height
+        latest_weight_value = float(latest_weight.weight) if latest_weight else 0
+        if latest_weight_value > 0:
+            bmi = latest_weight_value / (height_in_meters * height_in_meters)
+            weight_data['stats']['bmi'] = round(bmi, 1)
+        else:
+            weight_data['stats']['bmi'] = 0
+
+        # Calculate weight consistency (standard deviation)
+        if len(weights) >= 3:
+            import numpy as np
+            weight_values = [float(w.weight) for w in weights]
+            weight_data['stats']['consistency'] = round(float(np.std(weight_values)), 2)
+        else:
+            weight_data['stats']['consistency'] = 0
+
+        # Calculate projected weight in 4 weeks based on current trend
+        if weight_data['stats']['change_rate'] != 0:
+            projected_weight = latest_weight_value + (weight_data['stats']['change_rate'] * 4)
+            weight_data['stats']['projected_weight'] = round(projected_weight, 1)
+        else:
+            weight_data['stats']['projected_weight'] = latest_weight_value
+
+        # Calculate weight goal metrics (assuming goal is to lose weight to 70kg)
+        weight_goal = 70.0  # Default goal weight
+        if latest_weight_value > weight_goal and weight_data['stats']['change_rate'] < 0:
+            # If losing weight and current weight is above goal
+            weeks_to_goal = (latest_weight_value - weight_goal) / abs(weight_data['stats']['change_rate'])
+            weight_data['stats']['weeks_to_goal'] = round(weeks_to_goal, 1)
+
+            # Calculate goal date
+            import datetime
+            goal_date = latest_weight.recorded_at + datetime.timedelta(weeks=weeks_to_goal)
+            weight_data['stats']['goal_date'] = goal_date.strftime('%Y-%m-%d')
+        else:
+            weight_data['stats']['weeks_to_goal'] = 0
+            weight_data['stats']['goal_date'] = 'N/A'
     else:
         weight_data['stats'] = {
             'avg': 0,
@@ -413,7 +448,11 @@ def get_weight_data(request):
             'min': 0,
             'latest': 0,
             'change_rate': 0,
-            'bmi': 0
+            'bmi': 0,
+            'consistency': 0,
+            'projected_weight': 0,
+            'weeks_to_goal': 0,
+            'goal_date': 'N/A'
         }
 
     return JsonResponse(weight_data)
@@ -837,6 +876,23 @@ def running_tracker(request):
     # Get all running sessions, ordered by date (newest first)
     running_sessions = RunningSession.objects.all().order_by('-date')
 
+    # Calculate speed for each running session
+    running_sessions_with_speed = []
+    for session in running_sessions:
+        session_data = {
+            'session': session,
+            'speed': 0  # Default value
+        }
+
+        # Calculate speed in km/h
+        duration_seconds = session.duration.total_seconds()
+        if duration_seconds > 0:  # Avoid division by zero
+            hours = duration_seconds / 3600  # Convert seconds to hours
+            speed = float(session.distance) / hours
+            session_data['speed'] = round(speed, 1)  # Round to 1 decimal place
+
+        running_sessions_with_speed.append(session_data)
+
     if request.method == 'POST':
         # Handle form submission
         logger.info(f"Processing running session form submission: {request.POST}")
@@ -861,7 +917,7 @@ def running_tracker(request):
 
     context = {
         'form': form,
-        'running_sessions': running_sessions,
+        'running_sessions': running_sessions_with_speed,
     }
     return render(request, 'count_calories_app/running_tracker.html', context)
 
@@ -958,19 +1014,86 @@ def get_running_data(request):
         'total_sessions': 0,
         'avg_distance': 0,
         'avg_duration': 0,
+        'avg_speed': 0,  # Average speed in km/h
+        'avg_pace': 0,   # Average pace in min/km
+        'total_calories': 0,  # Estimated total calories burned
+        'weekly_distance': 0,  # Average weekly distance
+        'monthly_distance': 0,  # Average monthly distance
+        'pace_improvement': 0,  # Pace improvement over time (%)
+        'longest_run': 0,  # Longest run distance
+        'fastest_pace': 0,  # Fastest pace (min/km)
     }
 
     # Prepare data for chart
     labels = []
     distances = []
     durations = []
+    paces = []  # Pace in min/km
+    speeds = []  # Speed in km/h
+    calories = []  # Estimated calories burned
+
+    # For weekly and monthly aggregation
+    weekly_distances = {}
+    monthly_distances = {}
+
+    # For pace improvement calculation
+    first_pace = None
+    last_pace = None
+
+    # For fastest pace and longest run
+    fastest_pace_value = float('inf')
+    longest_run_distance = 0
 
     for session in running_sessions:
         labels.append(session.date.strftime('%Y-%m-%d'))
         distances.append(float(session.distance))
+
         # Convert duration to minutes for the chart
         duration_minutes = session.duration.total_seconds() / 60
         durations.append(duration_minutes)
+
+        # Calculate pace (minutes per km)
+        if float(session.distance) > 0:
+            pace = duration_minutes / float(session.distance)
+            paces.append(pace)
+
+            # Track first and last pace for improvement calculation
+            if first_pace is None:
+                first_pace = pace
+            last_pace = pace
+
+            # Track fastest pace
+            if pace < fastest_pace_value:
+                fastest_pace_value = pace
+        else:
+            paces.append(0)
+
+        # Calculate speed (km/h)
+        if duration_minutes > 0:
+            speed = float(session.distance) / (duration_minutes / 60)
+            speeds.append(speed)
+        else:
+            speeds.append(0)
+
+        # Estimate calories burned (rough estimate: ~60 calories per km)
+        calorie_estimate = float(session.distance) * 60
+        calories.append(calorie_estimate)
+
+        # Track longest run
+        if float(session.distance) > longest_run_distance:
+            longest_run_distance = float(session.distance)
+
+        # Aggregate by week
+        week_key = session.date.strftime('%Y-%W')
+        if week_key not in weekly_distances:
+            weekly_distances[week_key] = 0
+        weekly_distances[week_key] += float(session.distance)
+
+        # Aggregate by month
+        month_key = session.date.strftime('%Y-%m')
+        if month_key not in monthly_distances:
+            monthly_distances[month_key] = 0
+        monthly_distances[month_key] += float(session.distance)
 
     # Calculate stats if we have data
     if running_sessions:
@@ -980,10 +1103,43 @@ def get_running_data(request):
         total_duration_minutes = sum(durations)
         stats['avg_duration'] = total_duration_minutes / stats['total_sessions']
 
+        # Calculate average speed in km/h
+        # Convert duration from minutes to hours for speed calculation
+        total_duration_hours = total_duration_minutes / 60
+        if total_duration_hours > 0:  # Avoid division by zero
+            stats['avg_speed'] = stats['total_distance'] / total_duration_hours
+
+        # Calculate average pace in min/km
+        if stats['total_distance'] > 0:
+            stats['avg_pace'] = total_duration_minutes / stats['total_distance']
+
+        # Calculate total calories burned
+        stats['total_calories'] = sum(calories)
+
+        # Calculate weekly and monthly averages
+        if weekly_distances:
+            stats['weekly_distance'] = sum(weekly_distances.values()) / len(weekly_distances)
+
+        if monthly_distances:
+            stats['monthly_distance'] = sum(monthly_distances.values()) / len(monthly_distances)
+
+        # Calculate pace improvement (if we have at least 2 sessions)
+        if first_pace is not None and last_pace is not None and first_pace > 0:
+            # Negative value means improvement (less time per km)
+            improvement_percentage = ((last_pace - first_pace) / first_pace) * 100
+            stats['pace_improvement'] = -improvement_percentage  # Invert so positive means improvement
+
+        # Set longest run and fastest pace
+        stats['longest_run'] = longest_run_distance
+        stats['fastest_pace'] = fastest_pace_value if fastest_pace_value != float('inf') else 0
+
     running_data = {
         'labels': labels,
         'distances': distances,
         'durations': durations,
+        'paces': paces,
+        'speeds': speeds,
+        'calories': calories,
         'stats': stats
     }
 

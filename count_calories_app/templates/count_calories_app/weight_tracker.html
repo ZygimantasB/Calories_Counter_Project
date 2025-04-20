@@ -95,7 +95,7 @@
         </div>
         <div class="card-body">
           <div class="row text-center mb-3">
-            <div class="col-12 col-md-6 mb-2">
+            <div class="col-12 col-md-4 mb-2">
               <div class="card bg-light">
                 <div class="card-body py-2">
                   <div class="fw-bold" id="weight-change-rate">0 kg/week</div>
@@ -103,7 +103,7 @@
                 </div>
               </div>
             </div>
-            <div class="col-12 col-md-6 mb-2">
+            <div class="col-12 col-md-4 mb-2">
               <div class="card bg-light">
                 <div class="card-body py-2">
                   <div class="fw-bold" id="weight-trend-direction">-</div>
@@ -111,9 +111,79 @@
                 </div>
               </div>
             </div>
+            <div class="col-12 col-md-4 mb-2">
+              <div class="card bg-light">
+                <div class="card-body py-2">
+                  <div class="fw-bold" id="weight-consistency">0 kg</div>
+                  <small class="text-muted">Consistency (SD)</small>
+                </div>
+              </div>
+            </div>
           </div>
           <div class="chart-container">
             <canvas id="weightChangeChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Health Metrics -->
+      <div class="card shadow-sm rounded mb-4">
+        <div class="card-header bg-warning text-dark">
+          <h2 class="h5 mb-0">Health Metrics</h2>
+        </div>
+        <div class="card-body">
+          <div class="row text-center mb-3">
+            <div class="col-12 col-md-6 mb-2">
+              <div class="card bg-light">
+                <div class="card-body py-2">
+                  <div class="fw-bold" id="bmi-value">0</div>
+                  <small class="text-muted">BMI</small>
+                </div>
+              </div>
+            </div>
+            <div class="col-12 col-md-6 mb-2">
+              <div class="card bg-light">
+                <div class="card-body py-2">
+                  <div class="fw-bold" id="bmi-category">-</div>
+                  <small class="text-muted">BMI Category</small>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Weight Projections -->
+      <div class="card shadow-sm rounded mb-4">
+        <div class="card-header bg-primary text-white">
+          <h2 class="h5 mb-0">Weight Projections</h2>
+        </div>
+        <div class="card-body">
+          <div class="row text-center mb-3">
+            <div class="col-12 col-md-4 mb-2">
+              <div class="card bg-light">
+                <div class="card-body py-2">
+                  <div class="fw-bold" id="projected-weight">0 kg</div>
+                  <small class="text-muted">Projected (4 weeks)</small>
+                </div>
+              </div>
+            </div>
+            <div class="col-12 col-md-4 mb-2">
+              <div class="card bg-light">
+                <div class="card-body py-2">
+                  <div class="fw-bold" id="weeks-to-goal">0 weeks</div>
+                  <small class="text-muted">Time to Goal</small>
+                </div>
+              </div>
+            </div>
+            <div class="col-12 col-md-4 mb-2">
+              <div class="card bg-light">
+                <div class="card-body py-2">
+                  <div class="fw-bold" id="goal-date">-</div>
+                  <small class="text-muted">Goal Date</small>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -191,6 +261,53 @@
             const trendElement = document.getElementById('weight-trend-direction');
             trendElement.textContent = trendText;
             trendElement.className = 'fw-bold ' + trendClass;
+
+            // Update weight consistency (standard deviation)
+            if (data.stats.consistency) {
+              document.getElementById('weight-consistency').textContent = data.stats.consistency + ' kg';
+            }
+
+            // Update BMI value and category
+            if (data.stats.bmi) {
+              document.getElementById('bmi-value').textContent = data.stats.bmi;
+
+              // Determine BMI category
+              let bmiCategory = '';
+              let bmiClass = '';
+
+              if (data.stats.bmi < 18.5) {
+                bmiCategory = 'Underweight';
+                bmiClass = 'text-info';
+              } else if (data.stats.bmi < 25) {
+                bmiCategory = 'Normal';
+                bmiClass = 'text-success';
+              } else if (data.stats.bmi < 30) {
+                bmiCategory = 'Overweight';
+                bmiClass = 'text-warning';
+              } else {
+                bmiCategory = 'Obese';
+                bmiClass = 'text-danger';
+              }
+
+              const bmiElement = document.getElementById('bmi-category');
+              bmiElement.textContent = bmiCategory;
+              bmiElement.className = 'fw-bold ' + bmiClass;
+            }
+
+            // Update projected weight
+            if (data.stats.projected_weight) {
+              document.getElementById('projected-weight').textContent = data.stats.projected_weight + ' kg';
+            }
+
+            // Update weeks to goal
+            if (data.stats.weeks_to_goal) {
+              document.getElementById('weeks-to-goal').textContent = data.stats.weeks_to_goal + ' weeks';
+            }
+
+            // Update goal date
+            if (data.stats.goal_date) {
+              document.getElementById('goal-date').textContent = data.stats.goal_date;
+            }
           }
 
           // Create weight history chart

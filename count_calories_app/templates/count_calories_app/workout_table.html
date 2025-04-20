@@ -43,12 +43,15 @@
     }
     .workout-table .add-row, .workout-table .add-column {
       cursor: pointer;
-      background-color: #e9ecef;
+      background-color: #d1e7dd;
       text-align: center;
       font-weight: bold;
+      color: #0f5132;
+      transition: all 0.2s;
     }
     .workout-table .add-row:hover, .workout-table .add-column:hover {
-      background-color: #dee2e6;
+      background-color: #badbcc;
+      transform: scale(1.02);
     }
     .workout-table .delete-btn {
       position: absolute;
@@ -56,15 +59,39 @@
       right: 2px;
       cursor: pointer;
       color: #dc3545;
-      font-size: 12px;
-      opacity: 0;
-      transition: opacity 0.2s;
+      font-size: 14px;
+      opacity: 0.3;
+      transition: all 0.2s;
+      background-color: rgba(255, 255, 255, 0.7);
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     .workout-table th:hover .delete-btn, .workout-table .exercise-name:hover .delete-btn {
       opacity: 1;
     }
+    .workout-table .delete-btn:hover {
+      background-color: #dc3545;
+      color: white;
+      transform: scale(1.1);
+    }
     .save-table-btn {
       margin-top: 20px;
+    }
+    /* Responsive table styles */
+    @media (max-width: 768px) {
+      .workout-table {
+        overflow-x: scroll;
+      }
+      .workout-table .exercise-name {
+        min-width: 150px;
+      }
+      .workout-table .editable {
+        min-width: 80px;
+      }
     }
   </style>
 {% endblock %}
@@ -82,6 +109,38 @@
           <button id="new-table" class="btn btn-outline-secondary ms-2">
             <i class="fas fa-plus me-1"></i>New Table
           </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Table Controls -->
+  <div class="row mb-3">
+    <div class="col-md-6">
+      <div class="card shadow-sm">
+        <div class="card-header bg-light">
+          <h3 class="h5 mb-0">Table Controls</h3>
+        </div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-6 mb-2">
+              <label for="columns-input" class="form-label">Number of Columns:</label>
+              <div class="input-group">
+                <input type="number" id="columns-input" class="form-control" min="1" max="50" value="1">
+                <button id="set-columns" class="btn btn-outline-primary">Set</button>
+              </div>
+            </div>
+            <div class="col-md-6 mb-2">
+              <label for="rows-input" class="form-label">Number of Rows:</label>
+              <div class="input-group">
+                <input type="number" id="rows-input" class="form-control" min="1" max="50" value="1">
+                <button id="set-rows" class="btn btn-outline-primary">Set</button>
+              </div>
+            </div>
+          </div>
+          <div class="alert alert-info mt-2 mb-0">
+            <i class="fas fa-info-circle me-2"></i>You can add or remove columns and rows at any time using the buttons in the table.
+          </div>
         </div>
       </div>
     </div>
@@ -107,7 +166,9 @@
                   <th class="editable" contenteditable="true">Workout 1
                     <span class="delete-btn"><i class="fas fa-times"></i></span>
                   </th>
-                  <th class="add-column" id="add-column">+ Add Workout</th>
+                  <th class="add-column" id="add-column">
+                    <i class="fas fa-plus-circle me-1"></i> Add Workout
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -127,7 +188,9 @@
                   <td class="editable" contenteditable="true"></td>
                 </tr>
                 <tr id="add-row-row">
-                  <td class="add-row" id="add-row" colspan="3">+ Add Exercise</td>
+                  <td class="add-row" id="add-row" colspan="3">
+                    <i class="fas fa-plus-circle me-1"></i> Add Exercise
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -278,6 +341,86 @@
       // Initialize delete buttons
       setupDeleteButtons();
 
+      // Set columns button
+      document.getElementById('set-columns').addEventListener('click', function() {
+        const columnsInput = document.getElementById('columns-input');
+        const columnCount = parseInt(columnsInput.value);
+
+        if (isNaN(columnCount) || columnCount < 1 || columnCount > 50) {
+          alert('Please enter a valid number of columns between 1 and 50.');
+          return;
+        }
+
+        // Get current column count (excluding Exercise column and Add Column button)
+        const headerRow = document.getElementById('header-row');
+        const currentColumnCount = headerRow.cells.length - 2;
+
+        if (columnCount === currentColumnCount) {
+          return; // No change needed
+        }
+
+        if (columnCount > currentColumnCount) {
+          // Add columns
+          for (let i = 0; i < columnCount - currentColumnCount; i++) {
+            // Simulate clicking the add column button
+            addColumnBtn.click();
+          }
+        } else {
+          // Remove columns from the end
+          for (let i = 0; i < currentColumnCount - columnCount; i++) {
+            // Get the last workout column (before the add column button)
+            const lastColumnIndex = headerRow.cells.length - 2;
+            const lastColumn = headerRow.cells[lastColumnIndex];
+
+            // Simulate clicking its delete button
+            const deleteBtn = lastColumn.querySelector('.delete-btn');
+            if (deleteBtn) {
+              deleteBtn.click();
+            }
+          }
+        }
+      });
+
+      // Set rows button
+      document.getElementById('set-rows').addEventListener('click', function() {
+        const rowsInput = document.getElementById('rows-input');
+        const rowCount = parseInt(rowsInput.value);
+
+        if (isNaN(rowCount) || rowCount < 1 || rowCount > 50) {
+          alert('Please enter a valid number of rows between 1 and 50.');
+          return;
+        }
+
+        // Get current row count (excluding the add row button)
+        const tbody = workoutTable.tBodies[0];
+        const currentRowCount = tbody.rows.length - 1;
+
+        if (rowCount === currentRowCount) {
+          return; // No change needed
+        }
+
+        if (rowCount > currentRowCount) {
+          // Add rows
+          for (let i = 0; i < rowCount - currentRowCount; i++) {
+            // Simulate clicking the add row button
+            addRowBtn.click();
+          }
+        } else {
+          // Remove rows from the end
+          for (let i = 0; i < currentRowCount - rowCount; i++) {
+            // Get the last exercise row (before the add row button)
+            const lastRowIndex = tbody.rows.length - 2;
+            const lastRow = tbody.rows[lastRowIndex];
+
+            // Simulate clicking its delete button
+            const deleteBtn = lastRow.cells[0].querySelector('.delete-btn');
+            if (deleteBtn) {
+              deleteBtn.click();
+            }
+          }
+        }
+      });
+
       // Save the table
       saveTableBtn.addEventListener('click', function() {
         try {
@@ -312,6 +455,8 @@
 
           // Get exercise data
           const rows = workoutTable.tBodies[0].rows;
+          const workoutCount = tableData.workouts.length; // Get the number of workout columns
+
           for (let i = 0; i < rows.length - 1; i++) { // Skip the add row button
             if (rows[i].id !== 'add-row-row') {
               // Clone the cell to manipulate it safely
@@ -332,8 +477,16 @@
               };
 
               // Get workout data for this exercise
-              for (let j = 1; j < rows[i].cells.length - 1; j++) {
-                exerciseData.workouts.push(rows[i].cells[j].textContent.trim());
+              for (let j = 0; j < workoutCount; j++) {
+                // Check if the cell exists and get its content, otherwise use empty string
+                const cellContent = (j + 1 < rows[i].cells.length - 1) ? 
+                  rows[i].cells[j + 1].textContent.trim() : '';
+                exerciseData.workouts.push(cellContent);
+              }
+
+              // Ensure the workouts array has exactly the same length as the number of workout columns
+              while (exerciseData.workouts.length < workoutCount) {
+                exerciseData.workouts.push('');
               }
 
               tableData.exercises.push(exerciseData);
@@ -573,14 +726,20 @@
                 newRow.appendChild(exerciseCell);
 
                 // Add workout data cells
-                exercise.workouts.forEach((workout, wIdx) => {
-                  console.log(`Adding workout data cell ${wIdx} for exercise ${idx}:`, workout);
+                // Make sure we add exactly the right number of cells
+                for (let wIdx = 0; wIdx < workouts.length; wIdx++) {
+                  console.log(`Adding workout data cell ${wIdx} for exercise ${idx}`);
                   const workoutCell = document.createElement('td');
                   workoutCell.className = 'editable';
                   workoutCell.contentEditable = true;
+
+                  // Get the workout data if it exists, otherwise use empty string
+                  const workout = wIdx < exercise.workouts.length ? exercise.workouts[wIdx] : '';
+                  console.log(`Cell content: "${workout}"`);
+
                   workoutCell.textContent = workout;
                   newRow.appendChild(workoutCell);
-                });
+                }
 
                 // Add empty cell for the add column button
                 const emptyCell = document.createElement('td');
@@ -601,6 +760,11 @@
               // Setup delete buttons
               setupDeleteButtons();
               console.log('Setup delete buttons');
+
+              // Update the column and row input values to match the loaded table
+              document.getElementById('columns-input').value = workouts.length;
+              document.getElementById('rows-input').value = exercises.length;
+              console.log('Updated column and row inputs to match loaded table');
 
               console.log('Table loaded successfully');
             })
@@ -730,10 +894,22 @@
         const addRowCell = document.getElementById('add-row');
         if (addRowCell) {
           addRowCell.colSpan = headerRow.cells.length;
+          // Update the add row button text to include the icon
+          addRowCell.innerHTML = '<i class="fas fa-plus-circle me-1"></i> Add Exercise';
+        }
+
+        // Update the add column button text to include the icon
+        const addColumnCell = document.getElementById('add-column');
+        if (addColumnCell) {
+          addColumnCell.innerHTML = '<i class="fas fa-plus-circle me-1"></i> Add Workout';
         }
 
         // Reset table name
         tableNameInput.value = '';
+
+        // Reset the column and row input values to match the default table
+        document.getElementById('columns-input').value = '1';
+        document.getElementById('rows-input').value = '1';
 
         // Setup delete buttons
         setupDeleteButtons();

@@ -65,21 +65,99 @@
         </div>
         <div class="card-body">
           <div class="row text-center">
-            <div class="col-6 col-sm-3 mb-2">
+            <div class="col-6 col-sm-3 col-md-2 mb-2">
               <div class="fw-bold" id="total-distance">0 km</div>
               <small class="text-muted">Total Distance</small>
             </div>
-            <div class="col-6 col-sm-3 mb-2">
+            <div class="col-6 col-sm-3 col-md-2 mb-2">
               <div class="fw-bold" id="total-sessions">0</div>
               <small class="text-muted">Total Sessions</small>
             </div>
-            <div class="col-6 col-sm-3 mb-2">
+            <div class="col-6 col-sm-3 col-md-2 mb-2">
               <div class="fw-bold" id="avg-distance">0 km</div>
               <small class="text-muted">Avg Distance</small>
             </div>
-            <div class="col-6 col-sm-3 mb-2">
+            <div class="col-6 col-sm-3 col-md-2 mb-2">
               <div class="fw-bold" id="avg-duration">0 min</div>
               <small class="text-muted">Avg Duration</small>
+            </div>
+            <div class="col-6 col-sm-3 col-md-2 mb-2">
+              <div class="fw-bold" id="avg-speed">0 km/h</div>
+              <small class="text-muted">Avg Speed</small>
+            </div>
+            <div class="col-6 col-sm-3 col-md-2 mb-2">
+              <div class="fw-bold" id="avg-pace">0 min/km</div>
+              <small class="text-muted">Avg Pace</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Performance Metrics -->
+      <div class="card shadow-sm rounded mb-4">
+        <div class="card-header bg-primary text-white">
+          <h2 class="h5 mb-0">Performance Metrics</h2>
+        </div>
+        <div class="card-body">
+          <div class="row text-center">
+            <div class="col-6 col-sm-3 mb-2">
+              <div class="card bg-light">
+                <div class="card-body py-2">
+                  <div class="fw-bold" id="pace-improvement">0%</div>
+                  <small class="text-muted">Pace Improvement</small>
+                </div>
+              </div>
+            </div>
+            <div class="col-6 col-sm-3 mb-2">
+              <div class="card bg-light">
+                <div class="card-body py-2">
+                  <div class="fw-bold" id="fastest-pace">0 min/km</div>
+                  <small class="text-muted">Fastest Pace</small>
+                </div>
+              </div>
+            </div>
+            <div class="col-6 col-sm-3 mb-2">
+              <div class="card bg-light">
+                <div class="card-body py-2">
+                  <div class="fw-bold" id="longest-run">0 km</div>
+                  <small class="text-muted">Longest Run</small>
+                </div>
+              </div>
+            </div>
+            <div class="col-6 col-sm-3 mb-2">
+              <div class="card bg-light">
+                <div class="card-body py-2">
+                  <div class="fw-bold" id="total-calories">0 kcal</div>
+                  <small class="text-muted">Total Calories</small>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Distance Aggregation -->
+      <div class="card shadow-sm rounded mb-4">
+        <div class="card-header bg-warning text-dark">
+          <h2 class="h5 mb-0">Distance Aggregation</h2>
+        </div>
+        <div class="card-body">
+          <div class="row text-center">
+            <div class="col-6 mb-2">
+              <div class="card bg-light">
+                <div class="card-body py-2">
+                  <div class="fw-bold" id="weekly-distance">0 km</div>
+                  <small class="text-muted">Avg Weekly Distance</small>
+                </div>
+              </div>
+            </div>
+            <div class="col-6 mb-2">
+              <div class="card bg-light">
+                <div class="card-body py-2">
+                  <div class="fw-bold" id="monthly-distance">0 km</div>
+                  <small class="text-muted">Avg Monthly Distance</small>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -115,19 +193,20 @@
         </div>
         {% if running_sessions %}
           <ul class="list-group list-group-flush">
-            {% for session in running_sessions %}
+            {% for session_data in running_sessions %}
               <li class="list-group-item d-flex justify-content-between align-items-center">
                 <div>
-                  <strong>{{ session.distance }} km</strong> in {{ session.duration }}
-                  {% if session.notes %}
+                  <strong>{{ session_data.session.distance }} km</strong> in {{ session_data.session.duration }}
+                  <span class="badge bg-info text-dark ms-2">{{ session_data.speed }} km/h</span>
+                  {% if session_data.session.notes %}
                     <br>
-                    <small class="text-muted">{{ session.notes }}</small>
+                    <small class="text-muted">{{ session_data.session.notes }}</small>
                   {% endif %}
                 </div>
                 <div class="d-flex align-items-center">
-                  <span class="badge bg-secondary rounded-pill me-2">{{ session.date|date:"Y-m-d H:i" }}</span>
-                  <a href="{% url 'edit_running_session' session.id %}" class="btn btn-sm btn-outline-primary me-1">Edit</a>
-                  <a href="{% url 'delete_running_session' session.id %}" class="btn btn-sm btn-outline-danger">Delete</a>
+                  <span class="badge bg-secondary rounded-pill me-2">{{ session_data.session.date|date:"Y-m-d H:i" }}</span>
+                  <a href="{% url 'edit_running_session' session_data.session.id %}" class="btn btn-sm btn-outline-primary me-1">Edit</a>
+                  <a href="{% url 'delete_running_session' session_data.session.id %}" class="btn btn-sm btn-outline-danger">Delete</a>
                 </div>
               </li>
             {% endfor %}
@@ -156,6 +235,57 @@
             document.getElementById('total-sessions').textContent = data.stats.total_sessions;
             document.getElementById('avg-distance').textContent = data.stats.avg_distance.toFixed(1) + ' km';
             document.getElementById('avg-duration').textContent = data.stats.avg_duration.toFixed(0) + ' min';
+            document.getElementById('avg-speed').textContent = data.stats.avg_speed.toFixed(1) + ' km/h';
+
+            // Update new statistics
+            // Average pace
+            if (data.stats.avg_pace) {
+              const paceMinutes = Math.floor(data.stats.avg_pace);
+              const paceSeconds = Math.round((data.stats.avg_pace - paceMinutes) * 60);
+              document.getElementById('avg-pace').textContent = `${paceMinutes}:${paceSeconds.toString().padStart(2, '0')} min/km`;
+            }
+
+            // Pace improvement
+            if (data.stats.pace_improvement) {
+              const improvementElement = document.getElementById('pace-improvement');
+              const improvementValue = data.stats.pace_improvement.toFixed(1);
+              improvementElement.textContent = improvementValue + '%';
+
+              // Add color based on improvement
+              if (improvementValue > 0) {
+                improvementElement.classList.add('text-success');
+              } else if (improvementValue < 0) {
+                improvementElement.classList.add('text-danger');
+              }
+            }
+
+            // Fastest pace
+            if (data.stats.fastest_pace && data.stats.fastest_pace > 0) {
+              const fastestPaceMinutes = Math.floor(data.stats.fastest_pace);
+              const fastestPaceSeconds = Math.round((data.stats.fastest_pace - fastestPaceMinutes) * 60);
+              document.getElementById('fastest-pace').textContent = 
+                `${fastestPaceMinutes}:${fastestPaceSeconds.toString().padStart(2, '0')} min/km`;
+            }
+
+            // Longest run
+            if (data.stats.longest_run) {
+              document.getElementById('longest-run').textContent = data.stats.longest_run.toFixed(1) + ' km';
+            }
+
+            // Total calories
+            if (data.stats.total_calories) {
+              document.getElementById('total-calories').textContent = Math.round(data.stats.total_calories) + ' kcal';
+            }
+
+            // Weekly distance
+            if (data.stats.weekly_distance) {
+              document.getElementById('weekly-distance').textContent = data.stats.weekly_distance.toFixed(1) + ' km';
+            }
+
+            // Monthly distance
+            if (data.stats.monthly_distance) {
+              document.getElementById('monthly-distance').textContent = data.stats.monthly_distance.toFixed(1) + ' km';
+            }
           }
 
           // Create distance chart
