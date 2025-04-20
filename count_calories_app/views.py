@@ -25,20 +25,59 @@ def get_nutrition_data(request):
     API endpoint to get nutrition data for charts
     """
     time_range = request.GET.get('range', 'today')
+    selected_date_str = request.GET.get('date')
+    start_date_str = request.GET.get('start_date')
+    end_date_str = request.GET.get('end_date')
     now = timezone.now()
     start_date = now
+    end_date = None
 
-    # Determine the date range for filtering
-    if time_range == 'today':
-        start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    elif time_range == 'week':
-        start_date = now - timedelta(days=now.weekday())
-        start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
-    elif time_range == 'month':
-        start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    # Check if a specific date was selected
+    if selected_date_str:
+        try:
+            from datetime import datetime
+            selected_date = datetime.strptime(selected_date_str, '%Y-%m-%d').date()
+            # Set start_date to the beginning of the selected date
+            start_date = timezone.make_aware(datetime.combine(selected_date, datetime.min.time()))
+            # Set end_date to the end of the selected date
+            end_date = timezone.make_aware(datetime.combine(selected_date, datetime.max.time()))
+        except (ValueError, TypeError):
+            # If date parsing fails, fall back to default behavior
+            selected_date_str = None
 
-    # Filter food items based on the selected time range
-    food_items = FoodItem.objects.filter(consumed_at__gte=start_date)
+    # Check if a date range was selected
+    elif start_date_str and end_date_str:
+        try:
+            from datetime import datetime
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+
+            # Set start_date to the beginning of the selected start date
+            start_date = timezone.make_aware(datetime.combine(start_date, datetime.min.time()))
+            # Set end_date to the end of the selected end date
+            end_date = timezone.make_aware(datetime.combine(end_date, datetime.max.time()))
+        except (ValueError, TypeError):
+            # If date parsing fails, fall back to default behavior
+            start_date_str = None
+            end_date_str = None
+
+    # If no specific date or date range was selected, determine the date range based on time_range
+    else:
+        if time_range == 'today':
+            start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        elif time_range == 'week':
+            start_date = now - timedelta(days=now.weekday())
+            start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+        elif time_range == 'month':
+            start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    # Filter food items based on the selected time range, specific date, or date range
+    if end_date:
+        # For a specific date or date range, filter between start and end dates
+        food_items = FoodItem.objects.filter(consumed_at__gte=start_date, consumed_at__lte=end_date)
+    else:
+        # For a time range, filter from start_date onwards
+        food_items = FoodItem.objects.filter(consumed_at__gte=start_date)
 
     # Get data for charts
     nutrition_data = {
@@ -60,13 +99,39 @@ def food_tracker(request):
     """
     time_range = request.GET.get('range', 'today') # Default to 'today'
     selected_date_str = request.GET.get('date')
+    start_date_str = request.GET.get('start_date')
+    end_date_str = request.GET.get('end_date')
     now = timezone.now()
     start_date = now
     end_date = None
     selected_date = None
+    date_range_selected = False
+    show_averages = False
 
-    # Check if a specific date was selected
-    if selected_date_str:
+    # Check if a date range was selected
+    if start_date_str and end_date_str:
+        try:
+            # Parse the date strings into date objects
+            from datetime import datetime
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+
+            # Set start_date to the beginning of the selected start date
+            start_date = timezone.make_aware(datetime.combine(start_date, datetime.min.time()))
+            # Set end_date to the end of the selected end date
+            end_date = timezone.make_aware(datetime.combine(end_date, datetime.max.time()))
+
+            # Override time_range to indicate we're viewing a date range
+            time_range = 'date_range'
+            date_range_selected = True
+            show_averages = True
+        except (ValueError, TypeError):
+            # If date parsing fails, fall back to default behavior
+            start_date_str = None
+            end_date_str = None
+
+    # Check if a specific date was selected (if no date range was selected)
+    elif selected_date_str:
         try:
             # Parse the date string into a date object
             from datetime import datetime
@@ -81,8 +146,8 @@ def food_tracker(request):
             # If date parsing fails, fall back to default behavior
             selected_date = None
 
-    # If no specific date was selected, determine the date range based on time_range
-    if not selected_date:
+    # If no specific date or date range was selected, determine the date range based on time_range
+    if not selected_date and not date_range_selected:
         if time_range == 'today':
             start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
         elif time_range == 'week':
@@ -93,9 +158,9 @@ def food_tracker(request):
             # Start from the beginning of the current month
             start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
-    # Filter food items based on the selected time range or specific date
+    # Filter food items based on the selected time range, specific date, or date range
     if end_date:
-        # For a specific date, filter between start and end of that day
+        # For a specific date or date range, filter between start and end dates
         food_items = FoodItem.objects.filter(consumed_at__gte=start_date, consumed_at__lte=end_date)
     else:
         # For a time range, filter from start_date onwards
@@ -146,6 +211,27 @@ def food_tracker(request):
         totals['carbs_percentage'] = 0
         totals['protein_percentage'] = 0
 
+    # Calculate averages if a date range is selected
+    averages = {}
+    if show_averages and food_items.exists():
+        # Count the number of days in the range
+        from datetime import datetime
+        days_in_range = (end_date.date() - start_date.date()).days + 1
+
+        if days_in_range > 0:
+            averages = {
+                'avg_calories': round(totals['total_calories'] / days_in_range, 1),
+                'avg_fat': round(totals['total_fat'] / days_in_range, 1),
+                'avg_carbohydrates': round(totals['total_carbohydrates'] / days_in_range, 1),
+                'avg_protein': round(totals['total_protein'] / days_in_range, 1),
+                'days_in_range': days_in_range
+            }
+
+            # Calculate average macronutrient percentages (same as totals)
+            averages['fat_percentage'] = totals['fat_percentage']
+            averages['carbs_percentage'] = totals['carbs_percentage']
+            averages['protein_percentage'] = totals['protein_percentage']
+
     if request.method == 'POST':
         # Handle form submission
         logger.info(f"Processing food item form submission: {request.POST}")
@@ -195,6 +281,10 @@ def food_tracker(request):
         'totals': totals,
         'selected_range': time_range, # Pass the selected range to the template
         'selected_date': selected_date, # Pass the selected date to the template
+        'show_averages': show_averages, # Whether to show averages section
+        'averages': averages if show_averages else {}, # Pass the averages to the template
+        'start_date_str': start_date_str, # Pass the start date string to the template
+        'end_date_str': end_date_str, # Pass the end date string to the template
     }
     return render(request, 'count_calories_app/food_tracker.html', context)
 

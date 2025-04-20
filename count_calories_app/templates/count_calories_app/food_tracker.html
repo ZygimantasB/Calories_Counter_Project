@@ -34,7 +34,7 @@
         </div>
         <div class="card-body">
 
-          <form method="post" action="{% url 'food_tracker' %}{% if selected_date %}?date={{ selected_date|date:'Y-m-d' }}{% else %}?range={{ selected_range }}{% endif %}">
+          <form method="post" action="{% url 'food_tracker' %}{% if selected_date %}?date={{ selected_date|date:'Y-m-d' }}{% elif start_date_str and end_date_str %}?start_date={{ start_date_str }}&end_date={{ end_date_str }}{% else %}?range={{ selected_range }}{% endif %}">
             {% csrf_token %}
 
             {% if form.non_field_errors %}
@@ -148,11 +148,20 @@
           <a href="?range=week" class="btn btn-sm {% if selected_range == 'week' %}btn-info{% else %}btn-outline-info{% endif %} me-2">This Week</a>
           <a href="?range=month" class="btn btn-sm {% if selected_range == 'month' %}btn-info{% else %}btn-outline-info{% endif %} me-2">This Month</a>
         </div>
-        <div class="d-flex justify-content-center justify-content-md-start">
+        <div class="d-flex justify-content-center justify-content-md-start mb-2">
           <form method="get" class="d-flex align-items-center">
             <label for="date-picker" class="me-2">Select Date:</label>
             <input type="date" id="date-picker" name="date" class="form-control form-control-sm me-2" value="{{ selected_date|date:'Y-m-d' }}">
             <button type="submit" class="btn btn-sm btn-primary">View</button>
+          </form>
+        </div>
+        <div class="d-flex justify-content-center justify-content-md-start">
+          <form method="get" class="d-flex align-items-center flex-wrap">
+            <label for="start-date" class="me-2">Date Range:</label>
+            <input type="date" id="start-date" name="start_date" class="form-control form-control-sm me-2" value="{{ start_date_str }}" required>
+            <label for="end-date" class="me-2">to</label>
+            <input type="date" id="end-date" name="end_date" class="form-control form-control-sm me-2" value="{{ end_date_str }}" required>
+            <button type="submit" class="btn btn-sm btn-success">View Range</button>
           </form>
         </div>
       </div>
@@ -187,6 +196,32 @@
               <div class="small text-primary">{{ totals.protein_percentage }}% of total</div>
             </div>
           </div>
+
+          {% if show_averages %}
+          <hr>
+          <h5 class="text-center mb-3">Daily Averages ({{ averages.days_in_range }} days)</h5>
+          <div class="row text-center">
+            <div class="col-6 col-sm-3 mb-2">
+              <div class="fw-bold">{{ averages.avg_calories|floatformat:0 }}</div>
+              <small class="text-muted">Calories (kcal)</small>
+            </div>
+            <div class="col-6 col-sm-3 mb-2">
+              <div class="fw-bold">{{ averages.avg_fat|floatformat:1 }} g</div>
+              <small class="text-muted">Fat</small>
+              <div class="small text-primary">{{ averages.fat_percentage }}% of total</div>
+            </div>
+            <div class="col-6 col-sm-3 mb-2">
+              <div class="fw-bold">{{ averages.avg_carbohydrates|floatformat:1 }} g</div>
+              <small class="text-muted">Carbs</small>
+              <div class="small text-primary">{{ averages.carbs_percentage }}% of total</div>
+            </div>
+            <div class="col-6 col-sm-3 mb-2">
+              <div class="fw-bold">{{ averages.avg_protein|floatformat:1 }} g</div>
+              <small class="text-muted">Protein</small>
+              <div class="small text-primary">{{ averages.protein_percentage }}% of total</div>
+            </div>
+          </div>
+          {% endif %}
         </div>
       </div>
 
@@ -219,6 +254,8 @@
           <h2 class="h5 mb-0">
             {% if selected_date %}
               Consumed Items ({{ selected_date|date:"F d, Y" }})
+            {% elif start_date_str and end_date_str %}
+              Consumed Items ({{ start_date_str }} to {{ end_date_str }})
             {% else %}
               Consumed Items ({{ selected_range|title }})
             {% endif %}
@@ -565,7 +602,13 @@
     // Chart.js for nutrition visualization
     document.addEventListener('DOMContentLoaded', function() {
       // Macronutrient Distribution Chart
-      fetch('{% url "nutrition_data" %}?range={{ selected_range }}')
+      {% if selected_date %}
+        fetch('{% url "nutrition_data" %}?date={{ selected_date|date:"Y-m-d" }}')
+      {% elif start_date_str and end_date_str %}
+        fetch('{% url "nutrition_data" %}?start_date={{ start_date_str }}&end_date={{ end_date_str }}')
+      {% else %}
+        fetch('{% url "nutrition_data" %}?range={{ selected_range }}')
+      {% endif %}
         .then(response => response.json())
         .then(data => {
           const ctx = document.getElementById('macroChart').getContext('2d');
