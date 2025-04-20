@@ -135,6 +135,17 @@ def food_tracker(request):
         if value is None:
             totals[key] = 0
 
+    # Calculate macronutrient percentages
+    total_macros = totals['total_fat'] + totals['total_carbohydrates'] + totals['total_protein']
+    if total_macros > 0:
+        totals['fat_percentage'] = round((totals['total_fat'] / total_macros) * 100, 1)
+        totals['carbs_percentage'] = round((totals['total_carbohydrates'] / total_macros) * 100, 1)
+        totals['protein_percentage'] = round((totals['total_protein'] / total_macros) * 100, 1)
+    else:
+        totals['fat_percentage'] = 0
+        totals['carbs_percentage'] = 0
+        totals['protein_percentage'] = 0
+
     if request.method == 'POST':
         # Handle form submission
         logger.info(f"Processing food item form submission: {request.POST}")

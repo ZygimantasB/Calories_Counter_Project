@@ -174,14 +174,17 @@
             <div class="col-6 col-sm-3 mb-2">
               <div class="fw-bold">{{ totals.total_fat|floatformat:1 }} g</div>
               <small class="text-muted">Fat</small>
+              <div class="small text-primary">{{ totals.fat_percentage }}% of total</div>
             </div>
             <div class="col-6 col-sm-3 mb-2">
               <div class="fw-bold">{{ totals.total_carbohydrates|floatformat:1 }} g</div>
               <small class="text-muted">Carbs</small>
+              <div class="small text-primary">{{ totals.carbs_percentage }}% of total</div>
             </div>
             <div class="col-6 col-sm-3 mb-2">
               <div class="fw-bold">{{ totals.total_protein|floatformat:1 }} g</div>
               <small class="text-muted">Protein</small>
+              <div class="small text-primary">{{ totals.protein_percentage }}% of total</div>
             </div>
           </div>
         </div>
