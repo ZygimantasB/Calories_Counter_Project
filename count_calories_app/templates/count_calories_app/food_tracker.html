@@ -423,13 +423,12 @@
         // Create a form and submit it
         const form = document.createElement('form');
         form.method = 'POST';
+        form.style.display = 'none'; // Hide the form
 
-        // Use the selected date in the form action if available
-        {% if selected_date %}
-        form.action = '{% url "food_tracker" %}?date={{ selected_date|date:"Y-m-d" }}';
-        {% else %}
-        form.action = '{% url "food_tracker" %}?range={{ selected_range }}';
-        {% endif %}
+        // Get the current URL and preserve query parameters
+        const currentUrl = window.location.href.split('?')[0];
+        const queryParams = window.location.search;
+        form.action = currentUrl + queryParams;
 
         // Add CSRF token
         const csrfToken = document.createElement('input');
@@ -447,11 +446,24 @@
           { name: 'protein', value: item.protein }
         ];
 
-        // Add consumed_at field if a date is selected
+        // Always add consumed_at field
         {% if selected_date %}
         fields.push({ 
           name: 'consumed_at', 
           value: '{{ selected_date|date:"Y-m-d" }}T00:00:00' 
+        });
+        {% else %}
+        // If no date is selected, use current date/time
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+        fields.push({ 
+          name: 'consumed_at', 
+          value: `${year}-${month}-${day}T${hours}:${minutes}:${seconds}` 
         });
         {% endif %}
 
@@ -463,8 +475,16 @@
           form.appendChild(input);
         });
 
+        // Append the form to the document body
         document.body.appendChild(form);
-        form.submit();
+
+        // Submit the form directly without setTimeout
+        try {
+          form.submit();
+        } catch (error) {
+          console.error('Error submitting form:', error);
+          alert('Failed to add item. Please try again.');
+        }
       };
 
       const handleHideItem = (item) => {
@@ -472,7 +492,7 @@
         setItems(items.filter(i => i.id !== item.id));
 
         // Send request to hide the item from the quick list
-        fetch(`/food/${item.id}/hide-from-quick-list/`, {
+        fetch(`{% url 'hide_from_quick_list' 0 %}`.replace('0', item.id), {
           method: 'GET',
           headers: {
             'X-Requested-With': 'XMLHttpRequest'
