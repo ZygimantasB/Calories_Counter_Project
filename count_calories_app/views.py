@@ -150,13 +150,19 @@ def food_tracker(request):
     if not selected_date and not date_range_selected:
         if time_range == 'today':
             start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            # Set end_date to the end of the current day to only show today's items
+            end_date = start_date.replace(hour=23, minute=59, second=59, microsecond=999999)
         elif time_range == 'week':
             # Start from the beginning of the current week (assuming Monday is the first day)
             start_date = now - timedelta(days=now.weekday())
             start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+            # Set end_date to the end of the current day to only show items up to now
+            end_date = now.replace(hour=23, minute=59, second=59, microsecond=999999)
         elif time_range == 'month':
             # Start from the beginning of the current month
             start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            # Set end_date to the end of the current day to only show items up to now
+            end_date = now.replace(hour=23, minute=59, second=59, microsecond=999999)
 
     # Filter food items based on the selected time range, specific date, or date range
     if end_date:
