@@ -158,11 +158,15 @@ def food_tracker(request):
             start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
             # Set end_date to the end of the current day to only show items up to now
             end_date = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+            # Show averages for weekly view
+            show_averages = True
         elif time_range == 'month':
             # Start from the beginning of the current month
             start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
             # Set end_date to the end of the current day to only show items up to now
             end_date = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+            # Show averages for monthly view
+            show_averages = True
 
     # Filter food items based on the selected time range, specific date, or date range
     if end_date:
@@ -172,14 +176,14 @@ def food_tracker(request):
         # For a time range, filter from start_date onwards
         food_items = FoodItem.objects.filter(consumed_at__gte=start_date)
 
-    # Get top 15 recently entered food items
+    # Get top 30 recently entered food items
     # Using a more SQLite-compatible approach
     from django.db.models import Max
     product_names = FoodItem.objects.filter(
         hide_from_quick_list=False
     ).values('product_name').annotate(
         latest=Max('consumed_at')
-    ).order_by('-latest')[:15]
+    ).order_by('-latest')[:30]
 
     recent_items = []
     for item in product_names:

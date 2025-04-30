@@ -17,7 +17,7 @@
     }
     .chart-container {
       position: relative;
-      height: 200px;
+      height: 300px;
       width: 100%;
       margin-bottom: 20px;
     }
@@ -130,7 +130,7 @@
       {% if recent_items %}
       <div class="card shadow-sm rounded">
         <div class="card-header bg-info text-white">
-          <h2 class="h5 mb-0">Quick Add Recent Foods</h2>
+          <h2 class="h5 mb-0">Quick Add Recent Foods (Last 30)</h2>
         </div>
         <div class="card-body p-0">
           <div id="quick-add-container"></div>
@@ -456,6 +456,35 @@
         {% endfor %}
       ]);
 
+      // Pagination state
+      const [currentPage, setCurrentPage] = React.useState(1);
+      const itemsPerPage = 15;
+
+      // Calculate total pages
+      const totalPages = Math.ceil(items.length / itemsPerPage);
+
+      // Get current items
+      const indexOfLastItem = currentPage * itemsPerPage;
+      const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+      const currentItems = items.slice(indexOfFirstItem, indexOfLastItem);
+
+      // Change page
+      const paginate = (pageNumber) => setCurrentPage(pageNumber);
+
+      // Previous page
+      const goToPreviousPage = () => {
+        if (currentPage > 1) {
+          setCurrentPage(currentPage - 1);
+        }
+      };
+
+      // Next page
+      const goToNextPage = () => {
+        if (currentPage < totalPages) {
+          setCurrentPage(currentPage + 1);
+        }
+      };
+
       const handleQuickAdd = (item) => {
         // Create a form and submit it
         const form = document.createElement('form');
@@ -541,7 +570,7 @@
 
       return (
         <div>
-          {items.map(item => (
+          {currentItems.map(item => (
             <QuickAddItem 
               key={item.id} 
               item={item} 
@@ -549,6 +578,35 @@
               onHideItem={handleHideItem} 
             />
           ))}
+
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="d-flex justify-content-center mt-3">
+              <nav aria-label="Quick add pagination">
+                <ul className="pagination pagination-sm">
+                  <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
+                    <button className="page-link" onClick={goToPreviousPage} aria-label="Previous">
+                      <span aria-hidden="true">&laquo;</span>
+                    </button>
+                  </li>
+
+                  {[...Array(totalPages)].map((_, index) => (
+                    <li key={index} className={`page-item ${currentPage === index + 1 ? 'active' : ''}`}>
+                      <button className="page-link" onClick={() => paginate(index + 1)}>
+                        {index + 1}
+                      </button>
+                    </li>
+                  ))}
+
+                  <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
+                    <button className="page-link" onClick={goToNextPage} aria-label="Next">
+                      <span aria-hidden="true">&raquo;</span>
+                    </button>
+                  </li>
+                </ul>
+              </nav>
+            </div>
+          )}
         </div>
       );
     };
@@ -680,6 +738,10 @@
                   title: {
                     display: true,
                     text: 'Date'
+                  },
+                  ticks: {
+                    minRotation: 45,
+                    maxRotation: 45
                   }
                 }
               },
@@ -758,6 +820,10 @@
                   title: {
                     display: true,
                     text: 'Date'
+                  },
+                  ticks: {
+                    minRotation: 45,
+                    maxRotation: 45
                   }
                 }
               },
