@@ -18,6 +18,7 @@ urlpatterns = [
     path('weight/<int:weight_id>/edit/', views.edit_weight, name='edit_weight'),
     path('weight/<int:weight_id>/delete/', views.delete_weight, name='delete_weight'),
     path('api/weight-data/', views.get_weight_data, name='weight_data'),
+    path('api/weight-calories-correlation/', views.get_weight_calories_correlation, name='weight_calories_correlation'),
 
     # Workout tracking URLs
     path('workout/', views.workout_tracker, name='workout_tracker'),

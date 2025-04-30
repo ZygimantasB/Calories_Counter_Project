@@ -188,6 +188,37 @@
         </div>
       </div>
 
+      <!-- Weight and Calories Correlation -->
+      <div class="card shadow-sm rounded mb-4">
+        <div class="card-header bg-success text-white">
+          <h2 class="h5 mb-0">Weight Changes vs. Calorie Intake</h2>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-striped table-hover" id="weight-calories-table">
+              <thead>
+                <tr>
+                  <th>Period</th>
+                  <th>Weight Change</th>
+                  <th>Days</th>
+                  <th>Total Calories</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- Table rows will be populated by JavaScript -->
+                <tr>
+                  <td colspan="4" class="text-center">Loading data...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <!-- Pagination controls -->
+          <div class="pagination-controls mt-3 d-flex justify-content-center" id="weight-calories-pagination">
+            <!-- Pagination will be added by JavaScript -->
+          </div>
+        </div>
+      </div>
+
       <div class="card shadow-sm rounded">
         <div class="card-header">
           <h2 class="h5 mb-0">Weight Measurements</h2>
@@ -232,6 +263,7 @@
   <script>
     // Chart.js for weight visualization
     document.addEventListener('DOMContentLoaded', function() {
+      // Fetch weight data for charts and stats
       fetch('{% url "weight_data" %}')
         .then(response => response.json())
         .then(data => {
@@ -417,6 +449,143 @@
           }
         })
         .catch(error => console.error('Error fetching weight data:', error));
+
+      // Function to load weight-calories correlation data with pagination
+      function loadWeightCaloriesData(page = 1) {
+        // Fetch weight-calories correlation data for the table
+        fetch(`{% url "weight_calories_correlation" %}?page=${page}`)
+          .then(response => response.json())
+          .then(data => {
+            const tableBody = document.querySelector('#weight-calories-table tbody');
+            const paginationContainer = document.querySelector('#weight-calories-pagination');
+
+            // Clear loading message
+            tableBody.innerHTML = '';
+
+            if (data.correlation_data && data.correlation_data.length > 0) {
+              // Populate table with correlation data
+              data.correlation_data.forEach(item => {
+                const row = document.createElement('tr');
+
+                // Determine color class based on weight change
+                let weightChangeClass = '';
+                if (item.weight_change > 0) {
+                  weightChangeClass = 'text-danger';
+                } else if (item.weight_change < 0) {
+                  weightChangeClass = 'text-success';
+                }
+
+                // Format the period as a date range
+                const period = `${item.start_date} to ${item.end_date}`;
+
+                // Format weight change with + or - sign
+                const weightChangeFormatted = (item.weight_change > 0 ? '+' : '') + item.weight_change + ' kg';
+
+                // Create table cells
+                row.innerHTML = `
+                  <td>${period}</td>
+                  <td class="${weightChangeClass} fw-bold">${weightChangeFormatted}</td>
+                  <td>${item.days_between} days</td>
+                  <td>${Math.round(item.total_calories).toLocaleString()} kcal</td>
+                `;
+
+                tableBody.appendChild(row);
+              });
+
+              // Create pagination controls if we have pagination data
+              if (data.pagination) {
+                paginationContainer.innerHTML = '';
+
+                const pagination = document.createElement('nav');
+                pagination.setAttribute('aria-label', 'Weight-calories correlation pagination');
+
+                const paginationList = document.createElement('ul');
+                paginationList.className = 'pagination';
+
+                // Previous page button
+                const prevItem = document.createElement('li');
+                prevItem.className = `page-item ${!data.pagination.has_prev ? 'disabled' : ''}`;
+
+                const prevLink = document.createElement('a');
+                prevLink.className = 'page-link';
+                prevLink.href = '#';
+                prevLink.textContent = 'Previous';
+
+                if (data.pagination.has_prev) {
+                  prevLink.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    loadWeightCaloriesData(data.pagination.current_page - 1);
+                  });
+                }
+
+                prevItem.appendChild(prevLink);
+                paginationList.appendChild(prevItem);
+
+                // Page numbers
+                for (let i = 1; i <= data.pagination.total_pages; i++) {
+                  const pageItem = document.createElement('li');
+                  pageItem.className = `page-item ${i === data.pagination.current_page ? 'active' : ''}`;
+
+                  const pageLink = document.createElement('a');
+                  pageLink.className = 'page-link';
+                  pageLink.href = '#';
+                  pageLink.textContent = i;
+
+                  if (i !== data.pagination.current_page) {
+                    pageLink.addEventListener('click', function(e) {
+                      e.preventDefault();
+                      loadWeightCaloriesData(i);
+                    });
+                  }
+
+                  pageItem.appendChild(pageLink);
+                  paginationList.appendChild(pageItem);
+                }
+
+                // Next page button
+                const nextItem = document.createElement('li');
+                nextItem.className = `page-item ${!data.pagination.has_next ? 'disabled' : ''}`;
+
+                const nextLink = document.createElement('a');
+                nextLink.className = 'page-link';
+                nextLink.href = '#';
+                nextLink.textContent = 'Next';
+
+                if (data.pagination.has_next) {
+                  nextLink.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    loadWeightCaloriesData(data.pagination.current_page + 1);
+                  });
+                }
+
+                nextItem.appendChild(nextLink);
+                paginationList.appendChild(nextItem);
+
+                pagination.appendChild(paginationList);
+                paginationContainer.appendChild(pagination);
+              }
+            } else {
+              // Show message if no data
+              const row = document.createElement('tr');
+              row.innerHTML = '<td colspan="4" class="text-center">No data available. Add at least two weight measurements to see correlation.</td>';
+              tableBody.appendChild(row);
+
+              // Clear pagination
+              paginationContainer.innerHTML = '';
+            }
+          })
+          .catch(error => {
+            console.error('Error fetching weight-calories correlation data:', error);
+            const tableBody = document.querySelector('#weight-calories-table tbody');
+            tableBody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Error loading data. Please try again later.</td></tr>';
+
+            // Clear pagination on error
+            document.querySelector('#weight-calories-pagination').innerHTML = '';
+          });
+      }
+
+      // Load the first page of data
+      loadWeightCaloriesData(1);
     });
   </script>
 {% endblock %}

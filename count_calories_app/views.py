@@ -467,6 +467,99 @@ def get_weight_data(request):
 
     return JsonResponse(weight_data)
 
+def get_weight_calories_correlation(request):
+    """
+    API endpoint to get correlation data between weight changes and calorie intake
+    """
+    # Get all weight measurements, ordered by date (oldest first)
+    weights = Weight.objects.all().order_by('recorded_at')
+
+    correlation_data = []
+
+    # We need at least 2 weight measurements to calculate changes
+    if len(weights) >= 2:
+        for i in range(1, len(weights)):
+            current_weight = weights[i]
+            previous_weight = weights[i-1]
+
+            # Calculate weight change
+            weight_change = float(current_weight.weight) - float(previous_weight.weight)
+
+            # Get total calories consumed between these two weight measurements
+            # Use the date part of the weight measurements to include all food items for those days
+            from datetime import datetime, time
+
+            # Get the date part of the previous weight measurement and set time to 00:00:00
+            prev_date = previous_weight.recorded_at.date()
+            prev_datetime = timezone.make_aware(datetime.combine(prev_date, time.min))
+
+            # Get the date part of the current weight measurement and set time to 23:59:59
+            curr_date = current_weight.recorded_at.date()
+            curr_datetime = timezone.make_aware(datetime.combine(curr_date, time.max))
+
+            # Filter food items between the two dates (inclusive of both days)
+            food_items = FoodItem.objects.filter(
+                consumed_at__gte=prev_datetime,
+                consumed_at__lte=curr_datetime
+            )
+
+            # Use Django's ORM aggregation to calculate total calories, consistent with food_tracker
+            total_calories_result = food_items.aggregate(Sum('calories'))['calories__sum'] or 0
+            total_calories = float(total_calories_result)
+
+            # Calculate days between measurements
+            days_between = (current_weight.recorded_at - previous_weight.recorded_at).days
+            if days_between == 0:  # Avoid division by zero
+                days_between = 1
+
+            # Calculate daily average calories (we'll still calculate it even though we won't display it)
+            daily_avg_calories = float(total_calories) / days_between
+
+            # Add data to the result
+            correlation_data.append({
+                'start_date': previous_weight.recorded_at.strftime('%Y-%m-%d'),
+                'end_date': current_weight.recorded_at.strftime('%Y-%m-%d'),
+                'start_weight': float(previous_weight.weight),
+                'end_weight': float(current_weight.weight),
+                'weight_change': round(weight_change, 2),
+                'days_between': days_between,
+                'total_calories': float(total_calories),
+                'daily_avg_calories': round(daily_avg_calories, 1),
+            })
+
+    # Reverse the order of the data (newest first)
+    correlation_data.reverse()
+
+    # Implement pagination
+    page = request.GET.get('page', 1)
+    try:
+        page = int(page)
+    except ValueError:
+        page = 1
+
+    # Define items per page
+    items_per_page = 10
+
+    # Calculate start and end indices for the current page
+    start_idx = (page - 1) * items_per_page
+    end_idx = start_idx + items_per_page
+
+    # Get the data for the current page
+    page_data = correlation_data[start_idx:end_idx]
+
+    # Calculate total pages
+    total_pages = (len(correlation_data) + items_per_page - 1) // items_per_page
+
+    return JsonResponse({
+        'correlation_data': page_data,
+        'pagination': {
+            'current_page': page,
+            'total_pages': total_pages,
+            'has_next': page < total_pages,
+            'has_prev': page > 1
+        }
+    })
+
 def weight_tracker(request):
     """
     View for the weight tracking page.
