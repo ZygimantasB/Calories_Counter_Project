@@ -136,12 +136,22 @@ def food_tracker(request):
             # Parse the date string into a date object
             from datetime import datetime
             selected_date = datetime.strptime(selected_date_str, '%Y-%m-%d').date()
-            # Set start_date to the beginning of the selected date
-            start_date = timezone.make_aware(datetime.combine(selected_date, datetime.min.time()))
-            # Set end_date to the end of the selected date
-            end_date = timezone.make_aware(datetime.combine(selected_date, datetime.max.time()))
-            # Override time_range to indicate we're viewing a specific date
-            time_range = 'specific_date'
+
+            # Check if the selected date is today
+            today_date = now.date()
+            if selected_date == today_date:
+                # Use the same date range as 'today' to ensure consistency
+                start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+                end_date = start_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+                # Keep track that we're viewing today but with a specific date parameter
+                time_range = 'today_specific'
+            else:
+                # Set start_date to the beginning of the selected date
+                start_date = timezone.make_aware(datetime.combine(selected_date, datetime.min.time()))
+                # Set end_date to the end of the selected date
+                end_date = timezone.make_aware(datetime.combine(selected_date, datetime.max.time()))
+                # Override time_range to indicate we're viewing a specific date
+                time_range = 'specific_date'
         except (ValueError, TypeError):
             # If date parsing fails, fall back to default behavior
             selected_date = None

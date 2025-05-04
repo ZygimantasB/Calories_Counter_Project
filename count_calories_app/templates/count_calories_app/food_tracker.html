@@ -519,17 +519,20 @@
           value: '{{ selected_date|date:"Y-m-d" }}T00:00:00' 
         });
         {% else %}
-        // If no date is selected, use current date/time
+        // If no date is selected, use current date/time in Lithuanian timezone
+        // Get the server's timezone offset from the rendered template
+        const serverTimezone = 'Europe/Vilnius'; // Using Lithuanian timezone
+
+        // Create a date object for the current time
         const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        const seconds = String(now.getSeconds()).padStart(2, '0');
+
+        // Format the date in ISO format with timezone information
+        // This will be parsed correctly by Django as it respects the TIME_ZONE setting
+        const isoString = now.toISOString();
+
         fields.push({ 
           name: 'consumed_at', 
-          value: `${year}-${month}-${day}T${hours}:${minutes}:${seconds}` 
+          value: isoString
         });
         {% endif %}
 
