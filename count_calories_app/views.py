@@ -178,10 +178,32 @@ def food_tracker(request):
             # Show averages for monthly view
             show_averages = True
 
+    # Import TruncDate for date-based filtering
+    from django.db.models.functions import TruncDate
+
     # Filter food items based on the selected time range, specific date, or date range
     if end_date:
-        # For a specific date or date range, filter between start and end dates
-        food_items = FoodItem.objects.filter(consumed_at__gte=start_date, consumed_at__lte=end_date)
+        if time_range == 'specific_date' or time_range == 'today_specific' or time_range == 'today':
+            # For a specific date (including today), filter by the date part only
+            if selected_date:
+                # If we have a selected date, use that
+                # Check if selected_date is already a date object or a datetime object
+                if hasattr(selected_date, 'date'):
+                    # It's a datetime object, so call .date()
+                    date_to_filter = selected_date.date()
+                else:
+                    # It's already a date object
+                    date_to_filter = selected_date
+            else:
+                # For 'today' without a selected date, use today's date
+                date_to_filter = now.date()
+
+            food_items = FoodItem.objects.annotate(
+                consumed_date=TruncDate('consumed_at')
+            ).filter(consumed_date=date_to_filter)
+        else:
+            # For a date range, filter between start and end dates
+            food_items = FoodItem.objects.filter(consumed_at__gte=start_date, consumed_at__lte=end_date)
     else:
         # For a time range, filter from start_date onwards
         food_items = FoodItem.objects.filter(consumed_at__gte=start_date)
@@ -236,7 +258,10 @@ def food_tracker(request):
     if show_averages and food_items.exists():
         # Count the number of days in the range
         from datetime import datetime
-        days_in_range = (end_date.date() - start_date.date()).days + 1
+        # Get date objects from end_date and start_date
+        end_date_obj = end_date.date() if hasattr(end_date, 'date') else end_date
+        start_date_obj = start_date.date() if hasattr(start_date, 'date') else start_date
+        days_in_range = (end_date_obj - start_date_obj).days + 1
 
         if days_in_range > 0:
             averages = {
@@ -259,11 +284,23 @@ def food_tracker(request):
         # Create a copy of POST data that we can modify
         post_data = request.POST.copy()
 
-        # If a date is selected and consumed_at is not in the POST data, set it
-        if selected_date and 'consumed_at' not in post_data:
+        # Always set consumed_at to the selected date if available, regardless of whether it's in POST data
+        if selected_date:
             # Create a datetime at the beginning of the selected date
             initial_datetime = timezone.make_aware(datetime.combine(selected_date, datetime.min.time()))
             post_data['consumed_at'] = initial_datetime
+            logger.info(f"Setting consumed_at to selected date: {initial_datetime}")
+        # If selected_date is not set but selected_date_str is available, use that
+        elif selected_date_str:
+            try:
+                # Parse the date string into a date object
+                selected_date_from_str = datetime.strptime(selected_date_str, '%Y-%m-%d').date()
+                # Create a datetime at the beginning of the selected date
+                initial_datetime = timezone.make_aware(datetime.combine(selected_date_from_str, datetime.min.time()))
+                post_data['consumed_at'] = initial_datetime
+                logger.info(f"Setting consumed_at to date from URL parameter: {initial_datetime}")
+            except (ValueError, TypeError):
+                logger.warning(f"Could not parse date string: {selected_date_str}")
 
         form = FoodItemForm(post_data)
         if form.is_valid():
@@ -275,6 +312,9 @@ def food_tracker(request):
                 # Keep the current date or time range selection
                 if selected_date:
                     return redirect(f"/food_tracker/?date={selected_date.strftime('%Y-%m-%d')}")
+                elif selected_date_str:
+                    # If we have a date string from the URL, redirect back to that date
+                    return redirect(f"/food_tracker/?date={selected_date_str}")
                 else:
                     return redirect(f"/food_tracker/?range={time_range}")
             except Exception as e:
@@ -291,6 +331,17 @@ def food_tracker(request):
             # Create a datetime at the beginning of the selected date
             initial_datetime = timezone.make_aware(datetime.combine(selected_date, datetime.min.time()))
             form = FoodItemForm(initial={'consumed_at': initial_datetime})
+        # If selected_date is not set but selected_date_str is available, use that
+        elif selected_date_str:
+            try:
+                # Parse the date string into a date object
+                selected_date_from_str = datetime.strptime(selected_date_str, '%Y-%m-%d').date()
+                # Create a datetime at the beginning of the selected date
+                initial_datetime = timezone.make_aware(datetime.combine(selected_date_from_str, datetime.min.time()))
+                form = FoodItemForm(initial={'consumed_at': initial_datetime})
+            except (ValueError, TypeError):
+                logger.warning(f"Could not parse date string: {selected_date_str}")
+                form = FoodItemForm() # Create an empty form if date parsing fails
         else:
             form = FoodItemForm() # Create an empty form
 
@@ -1290,7 +1341,8 @@ def body_measurements_tracker(request):
             }
 
             # Find weight for the same date
-            measurement_date = measurement.date.date()  # Get just the date part
+            # Get just the date part, handling both datetime and date objects
+            measurement_date = measurement.date.date() if hasattr(measurement.date, 'date') else measurement.date
             matching_weight = weights.filter(recorded_at__date=measurement_date).first()
             if matching_weight:
                 measurement_data['weight'] = matching_weight.weight
@@ -1314,7 +1366,8 @@ def body_measurements_tracker(request):
 
             # Compare weight if available
             if i < len(measurements) - 1 and measurement_data['weight'] is not None:
-                next_measurement_date = measurements[i + 1].date.date()
+                # Get just the date part, handling both datetime and date objects
+                next_measurement_date = measurements[i + 1].date.date() if hasattr(measurements[i + 1].date, 'date') else measurements[i + 1].date
                 next_matching_weight = weights.filter(recorded_at__date=next_measurement_date).first()
                 if next_matching_weight:
                     if measurement_data['weight'] > next_matching_weight.weight:
@@ -1419,7 +1472,8 @@ def get_body_measurements_data(request):
         # Get weight data for each measurement date
         weight_data = []
         for m in measurements:
-            measurement_date = m.date.date()
+            # Get just the date part, handling both datetime and date objects
+            measurement_date = m.date.date() if hasattr(m.date, 'date') else m.date
             matching_weight = weights.filter(recorded_at__date=measurement_date).first()
             if matching_weight:
                 weight_data.append(float(matching_weight.weight))
