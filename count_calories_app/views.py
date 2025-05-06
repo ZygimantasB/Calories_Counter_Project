@@ -628,7 +628,14 @@ def weight_tracker(request):
     as well as processing form submissions.
     """
     # Get all weight measurements, ordered by date (newest first)
-    weights = Weight.objects.all().order_by('-recorded_at')
+    weights_list = Weight.objects.all().order_by('-recorded_at')
+
+    # Pagination - 10 items per page
+    from django.core.paginator import Paginator
+    paginator = Paginator(weights_list, 10)  # Show 10 weights per page
+
+    page_number = request.GET.get('page')
+    weights = paginator.get_page(page_number)
 
     if request.method == 'POST':
         # Handle form submission
