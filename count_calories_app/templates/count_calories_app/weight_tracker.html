@@ -133,7 +133,7 @@
         </div>
         <div class="card-body">
           <div class="row text-center mb-3">
-            <div class="col-12 col-md-6 mb-2">
+            <div class="col-12 col-md-4 mb-2">
               <div class="card bg-light">
                 <div class="card-body py-2">
                   <div class="fw-bold" id="bmi-value">0</div>
@@ -141,11 +141,19 @@
                 </div>
               </div>
             </div>
-            <div class="col-12 col-md-6 mb-2">
+            <div class="col-12 col-md-4 mb-2">
               <div class="card bg-light">
                 <div class="card-body py-2">
                   <div class="fw-bold" id="bmi-category">-</div>
                   <small class="text-muted">BMI Category</small>
+                </div>
+              </div>
+            </div>
+            <div class="col-12 col-md-4 mb-2">
+              <div class="card bg-light">
+                <div class="card-body py-2">
+                  <div class="fw-bold" id="muscular-obese-category">-</div>
+                  <small class="text-muted">Body Type</small>
                 </div>
               </div>
             </div>
@@ -378,6 +386,27 @@
               const bmiElement = document.getElementById('bmi-category');
               bmiElement.textContent = bmiCategory;
               bmiElement.className = 'fw-bold ' + bmiClass;
+            }
+
+            // Update muscular obese category
+            if (data.stats.muscular_obese_category) {
+              const muscularObeseElement = document.getElementById('muscular-obese-category');
+              muscularObeseElement.textContent = data.stats.muscular_obese_category;
+
+              // Set appropriate class based on category
+              let muscularObeseClass = 'text-secondary';
+
+              if (data.stats.muscular_obese_category === 'Normal') {
+                muscularObeseClass = 'text-success';
+              } else if (data.stats.muscular_obese_category === 'Overweight') {
+                muscularObeseClass = 'text-warning';
+              } else if (data.stats.muscular_obese_category === 'Obese') {
+                muscularObeseClass = 'text-danger';
+              } else if (data.stats.muscular_obese_category === 'Muscular Obese') {
+                muscularObeseClass = 'text-info';
+              }
+
+              muscularObeseElement.className = 'fw-bold ' + muscularObeseClass;
             }
 
             // Update projected weight
