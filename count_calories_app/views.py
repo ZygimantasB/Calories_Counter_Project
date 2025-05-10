@@ -208,16 +208,16 @@ def food_tracker(request):
         # For a time range, filter from start_date onwards
         food_items = FoodItem.objects.filter(consumed_at__gte=start_date)
 
-    # Get top 30 recently entered food items
+    # Get all available food items for quick add
     # Using a more SQLite-compatible approach
     from django.db.models import Max
     product_names = FoodItem.objects.filter(
         hide_from_quick_list=False
     ).values('product_name').annotate(
         latest=Max('consumed_at')
-    ).order_by('-latest')[:30]
+    ).order_by('-latest')
 
-    recent_items = []
+    quick_add_items = []
     for item in product_names:
         # Get the most recent entry for each product name
         food = FoodItem.objects.filter(
@@ -226,7 +226,7 @@ def food_tracker(request):
             hide_from_quick_list=False
         ).first()
         if food:
-            recent_items.append(food)
+            quick_add_items.append(food)
 
     # Calculate totals for the selected range
     # Use aggregate and Sum, handling None if no items exist
@@ -348,7 +348,7 @@ def food_tracker(request):
     context = {
         'form': form,
         'food_items': food_items,
-        'recent_items': recent_items,
+        'recent_items': quick_add_items,  # Using quick_add_items but keeping the template variable name for compatibility
         'totals': totals,
         'selected_range': time_range, # Pass the selected range to the template
         'selected_date': selected_date, # Pass the selected date to the template
