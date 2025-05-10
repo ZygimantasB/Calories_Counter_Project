@@ -455,59 +455,6 @@ def get_weight_data(request):
             'latest': float(latest_weight.weight) if latest_weight else 0
         }
 
-        # Check for muscular obesity based on body measurements
-        if latest_weight:
-            # Get the latest body measurement
-            latest_measurement_date = latest_weight.recorded_at.date()
-            latest_measurement = BodyMeasurement.objects.filter(date__date=latest_measurement_date).first()
-
-            # If no measurement on the same day, get the closest one
-            if not latest_measurement:
-                latest_measurement = BodyMeasurement.objects.order_by('-date').first()
-
-            # Calculate muscular obesity if we have belly measurement and weight
-            if latest_measurement and latest_measurement.belly:
-                # Calculate waist-to-height ratio (using default height of 1.75m)
-                height_in_cm = 175  # Default height
-                waist_to_height_ratio = float(latest_measurement.belly) / height_in_cm
-
-                # Calculate BMI
-                height_in_meters = height_in_cm / 100
-                latest_weight_value = float(latest_weight.weight)
-                bmi = latest_weight_value / (height_in_meters * height_in_meters)
-
-                # Check for muscular obesity:
-                # - BMI > 25 (overweight or obese by BMI standards)
-                # - Waist-to-height ratio < 0.5 (healthy waist size)
-                # - Has significant muscle measurements (biceps, chest, etc.)
-                is_muscular_obese = False
-                muscular_obese_category = "Normal"
-
-                if bmi > 25:
-                    # Check if waist-to-height ratio is healthy
-                    if waist_to_height_ratio < 0.5:
-                        # Check for significant muscle measurements
-                        has_significant_muscles = False
-                        if (latest_measurement.chest and latest_measurement.left_biceps and 
-                            latest_measurement.right_biceps):
-                            # Simple check: chest significantly larger than waist and good biceps size
-                            if (float(latest_measurement.chest) > float(latest_measurement.belly) * 1.1 and
-                                float(latest_measurement.left_biceps) > 35 and 
-                                float(latest_measurement.right_biceps) > 35):
-                                has_significant_muscles = True
-
-                        if has_significant_muscles:
-                            is_muscular_obese = True
-                            muscular_obese_category = "Muscular Obese"
-                        else:
-                            muscular_obese_category = "Overweight"
-                    else:
-                        muscular_obese_category = "Obese"
-
-                # Add to stats
-                weight_data['stats']['is_muscular_obese'] = is_muscular_obese
-                weight_data['stats']['muscular_obese_category'] = muscular_obese_category
-
         # Calculate weight change rate (kg per week)
         if len(weights) >= 2:
             # Get oldest and newest weights
@@ -1397,11 +1344,7 @@ def body_measurements_tracker(request):
             measurement_data = {
                 'measurement': measurement,
                 'arrows': {},
-                'weight': None,
-                'muscular_obese': {
-                    'is_muscular_obese': False,
-                    'category': 'Normal'
-                }
+                'weight': None
             }
 
             # Find weight for the same date
@@ -1410,51 +1353,6 @@ def body_measurements_tracker(request):
             matching_weight = weights.filter(recorded_at__date=measurement_date).first()
             if matching_weight:
                 measurement_data['weight'] = matching_weight.weight
-
-                # Calculate muscular obesity if we have belly measurement and weight
-                if measurement.belly:
-                    # Calculate waist-to-height ratio (using default height of 1.75m)
-                    height_in_cm = 175  # Default height
-                    waist_to_height_ratio = float(measurement.belly) / height_in_cm
-
-                    # Calculate BMI
-                    height_in_meters = height_in_cm / 100
-                    weight_value = float(matching_weight.weight)
-                    bmi = weight_value / (height_in_meters * height_in_meters)
-
-                    # Check for muscular obesity:
-                    # - BMI > 25 (overweight or obese by BMI standards)
-                    # - Waist-to-height ratio < 0.5 (healthy waist size)
-                    # - Has significant muscle measurements (biceps, chest, etc.)
-                    is_muscular_obese = False
-                    muscular_obese_category = "Normal"
-
-                    if bmi > 25:
-                        # Check if waist-to-height ratio is healthy
-                        if waist_to_height_ratio < 0.5:
-                            # Check for significant muscle measurements
-                            has_significant_muscles = False
-                            if (measurement.chest and measurement.left_biceps and 
-                                measurement.right_biceps):
-                                # Simple check: chest significantly larger than waist and good biceps size
-                                if (float(measurement.chest) > float(measurement.belly) * 1.1 and
-                                    float(measurement.left_biceps) > 35 and 
-                                    float(measurement.right_biceps) > 35):
-                                    has_significant_muscles = True
-
-                            if has_significant_muscles:
-                                is_muscular_obese = True
-                                muscular_obese_category = "Muscular Obese"
-                            else:
-                                muscular_obese_category = "Overweight"
-                        else:
-                            muscular_obese_category = "Obese"
-
-                    # Update muscular obese data
-                    measurement_data['muscular_obese'] = {
-                        'is_muscular_obese': is_muscular_obese,
-                        'category': muscular_obese_category
-                    }
 
             # If there's a next measurement (chronologically previous), compare values
             if i < len(measurements) - 1:

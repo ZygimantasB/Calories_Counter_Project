@@ -197,7 +197,6 @@
               <tr>
                 <th>Date</th>
                 <th>Weight</th>
-                <th>Body Type</th>
                 <th>Neck</th>
                 <th>Chest</th>
                 <th>Belly</th>
@@ -220,15 +219,6 @@
                       <i class="fas fa-arrow-up arrow-up"></i>
                     {% elif measurement_data.arrows.weight == 'down' %}
                       <i class="fas fa-arrow-down arrow-down"></i>
-                    {% endif %}
-                  </td>
-                  <td>
-                    {% if measurement_data.muscular_obese.is_muscular_obese %}
-                      <span class="badge bg-info">{{ measurement_data.muscular_obese.category }}</span>
-                    {% else %}
-                      <span class="badge {% if measurement_data.muscular_obese.category == 'Normal' %}bg-success{% elif measurement_data.muscular_obese.category == 'Overweight' %}bg-warning{% elif measurement_data.muscular_obese.category == 'Obese' %}bg-danger{% endif %}">
-                        {{ measurement_data.muscular_obese.category }}
-                      </span>
                     {% endif %}
                   </td>
                   <td>
