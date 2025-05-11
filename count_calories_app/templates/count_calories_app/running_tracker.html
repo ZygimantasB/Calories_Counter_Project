@@ -218,6 +218,25 @@
         </div>
       </div>
 
+      <!-- Distance Filter -->
+      <div class="card shadow-sm rounded mb-4">
+        <div class="card-header bg-secondary text-white">
+          <h2 class="h5 mb-0">Filter Options</h2>
+        </div>
+        <div class="card-body">
+          <form method="get" action="{% url 'running_tracker' %}" class="row g-3 align-items-end">
+            <div class="col-md-6">
+              <label for="min_distance" class="form-label">Minimum Distance (km)</label>
+              <input type="number" class="form-control" id="min_distance" name="min_distance" value="{{ min_distance }}" min="0" step="0.1">
+              <small class="form-text text-muted">Only show runs with at least this distance</small>
+            </div>
+            <div class="col-md-6">
+              <button type="submit" class="btn btn-primary w-100">Apply Filter</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
       <div class="card shadow-sm rounded">
         <div class="card-header">
           <h2 class="h5 mb-0">Running Sessions</h2>
@@ -257,7 +276,11 @@
   <script>
     // Chart.js for running visualization
     document.addEventListener('DOMContentLoaded', function() {
-      fetch('{% url "running_data" %}')
+      // Get the current min_distance value
+      const minDistance = document.getElementById('min_distance').value;
+
+      // Fetch running data with the min_distance parameter
+      fetch(`{% url "running_data" %}?min_distance=${minDistance}`)
         .then(response => response.json())
         .then(data => {
           // Update stats

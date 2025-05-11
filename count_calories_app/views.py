@@ -1044,8 +1044,15 @@ def running_tracker(request):
     Handles displaying the form, list of running sessions, and charts,
     as well as processing form submissions.
     """
-    # Get all running sessions, ordered by date (newest first)
-    running_sessions = RunningSession.objects.all().order_by('-date')
+    # Get the minimum distance filter from the request, default to 3 km
+    min_distance = request.GET.get('min_distance', 3)
+    try:
+        min_distance = float(min_distance)
+    except ValueError:
+        min_distance = 3
+
+    # Get running sessions with distance >= min_distance, ordered by date (newest first)
+    running_sessions = RunningSession.objects.filter(distance__gte=min_distance).order_by('-date')
 
     # Calculate speed for each running session
     running_sessions_with_speed = []
@@ -1104,6 +1111,7 @@ def running_tracker(request):
         'running_sessions': running_sessions_with_speed,
         'highest_speed_session': highest_speed_session,
         'lowest_speed_session': lowest_speed_session,
+        'min_distance': min_distance,
     }
     return render(request, 'count_calories_app/running_tracker.html', context)
 
@@ -1188,10 +1196,18 @@ def get_running_data(request):
     end_date = timezone.now()
     start_date = end_date - timedelta(days=90)
 
-    # Get all running sessions in the date range
+    # Get the minimum distance filter from the request, default to 3 km
+    min_distance = request.GET.get('min_distance', 3)
+    try:
+        min_distance = float(min_distance)
+    except ValueError:
+        min_distance = 3
+
+    # Get running sessions in the date range with distance >= min_distance
     running_sessions = RunningSession.objects.filter(
         date__gte=start_date,
-        date__lte=end_date
+        date__lte=end_date,
+        distance__gte=min_distance
     ).order_by('date')
 
     # Calculate stats
