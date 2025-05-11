@@ -53,11 +53,11 @@ HealthTracker Pro is continuously evolving with planned features including:
 - **Django 5.1**: High-level Python web framework
 - **SQLite**: Lightweight database for data storage
 - **Python-Decouple**: Secure configuration management
+- **Logging**: Comprehensive logging configuration for debugging and monitoring
 
 ### Frontend
 - **Bootstrap 5**: Responsive design framework
 - **Chart.js**: Interactive data visualization
-- **React**: Dynamic UI components
 - **Font Awesome**: Icon library
 
 ## 📋 Prerequisites
@@ -79,7 +79,7 @@ HealthTracker Pro is continuously evolving with planned features including:
    # Windows
    python -m venv venv
    venv\Scripts\activate
-   
+
    # macOS/Linux
    python3 -m venv venv
    source venv/bin/activate
@@ -87,7 +87,9 @@ HealthTracker Pro is continuously evolving with planned features including:
 
 3. **Install dependencies**
    ```bash
-   pip install -r requirements.txt
+   # Note: The project currently doesn't include a requirements.txt file.
+   # You'll need to install the following packages manually:
+   pip install django python-decouple
    ```
 
 4. **Set up environment variables**
@@ -117,6 +119,8 @@ HealthTracker Pro is continuously evolving with planned features including:
 2. **Food Tracking**: Log meals and view nutrition analytics
 3. **Workout Tracking**: Record exercises and monitor progress
 4. **Body Stats**: Track weight and body measurements
+
+> **Note**: The Django admin interface is not configured in the current implementation. All data management is handled through the custom user interface.
 
 ### Data Visualization
 
