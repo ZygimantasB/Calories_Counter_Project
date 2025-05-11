@@ -1049,6 +1049,11 @@ def running_tracker(request):
 
     # Calculate speed for each running session
     running_sessions_with_speed = []
+    highest_speed_session = None
+    lowest_speed_session = None
+    highest_speed = 0
+    lowest_speed = float('inf')
+
     for session in running_sessions:
         session_data = {
             'session': session,
@@ -1061,6 +1066,14 @@ def running_tracker(request):
             hours = duration_seconds / 3600  # Convert seconds to hours
             speed = float(session.distance) / hours
             session_data['speed'] = round(speed, 1)  # Round to 1 decimal place
+
+            # Track highest and lowest speed sessions
+            if speed > highest_speed:
+                highest_speed = speed
+                highest_speed_session = session_data
+            if speed < lowest_speed:
+                lowest_speed = speed
+                lowest_speed_session = session_data
 
         running_sessions_with_speed.append(session_data)
 
@@ -1089,6 +1102,8 @@ def running_tracker(request):
     context = {
         'form': form,
         'running_sessions': running_sessions_with_speed,
+        'highest_speed_session': highest_speed_session,
+        'lowest_speed_session': lowest_speed_session,
     }
     return render(request, 'count_calories_app/running_tracker.html', context)
 

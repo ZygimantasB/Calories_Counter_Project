@@ -133,6 +133,37 @@
               </div>
             </div>
           </div>
+
+          <!-- Highest and Lowest Speed Runs -->
+          <div class="row text-center mt-3">
+            {% if highest_speed_session %}
+            <div class="col-6 mb-2">
+              <div class="card bg-success text-white">
+                <div class="card-body py-2">
+                  <div class="fw-bold">{{ highest_speed_session.speed }} km/h</div>
+                  <small>Highest Speed Run</small>
+                  <div class="small mt-1">
+                    {{ highest_speed_session.session.distance }} km on {{ highest_speed_session.session.date|date:"Y-m-d" }}
+                  </div>
+                </div>
+              </div>
+            </div>
+            {% endif %}
+
+            {% if lowest_speed_session %}
+            <div class="col-6 mb-2">
+              <div class="card bg-info text-white">
+                <div class="card-body py-2">
+                  <div class="fw-bold">{{ lowest_speed_session.speed }} km/h</div>
+                  <small>Lowest Speed Run</small>
+                  <div class="small mt-1">
+                    {{ lowest_speed_session.session.distance }} km on {{ lowest_speed_session.session.date|date:"Y-m-d" }}
+                  </div>
+                </div>
+              </div>
+            </div>
+            {% endif %}
+          </div>
         </div>
       </div>
 
