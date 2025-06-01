@@ -28,6 +28,80 @@
       color: red;
       margin-left: 5px;
     }
+    .card {
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      transition: transform 0.3s;
+      margin-bottom: 1.5rem;
+    }
+    .card:hover {
+      transform: translateY(-5px);
+    }
+    .card-header {
+      background: linear-gradient(135deg, #28a745, #20c997);
+    }
+    .nav-tabs .nav-link {
+      color: #495057;
+      font-weight: 500;
+    }
+    .nav-tabs .nav-link.active {
+      color: #28a745;
+      font-weight: 600;
+      border-bottom: 3px solid #28a745;
+    }
+    .measurement-card {
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 1rem;
+    }
+    .measurement-card .card-body {
+      padding: 1.25rem;
+    }
+    .measurement-value {
+      font-size: 1.2rem;
+      font-weight: 600;
+    }
+    .measurement-label {
+      font-size: 0.9rem;
+      color: #6c757d;
+    }
+    .measurement-date {
+      font-size: 0.85rem;
+      color: #6c757d;
+      margin-bottom: 0.5rem;
+    }
+    .measurement-group {
+      margin-bottom: 1.5rem;
+    }
+    .measurement-group-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid #e9ecef;
+    }
+    .btn-floating {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      font-size: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      z-index: 1000;
+    }
+    .measurement-history-item {
+      border-left: 3px solid #28a745;
+      padding-left: 15px;
+      margin-bottom: 15px;
+    }
+    .compact-table td, .compact-table th {
+      padding: 0.5rem;
+      font-size: 0.9rem;
+    }
   </style>
 {% endblock %}
 
@@ -35,321 +109,697 @@
   <div class="container mt-4">
     <h1 class="mb-4">Body Measurements Tracker</h1>
 
-    <!-- Add New Measurement Form -->
-    <div class="measurement-form-container">
-      <h2 class="h4 mb-3">Add New Measurements</h2>
-      <form method="post">
-        {% csrf_token %}
-        <div class="row">
-          <div class="col-md-4 mb-3">
-            <label for="{{ form.date.id_for_label }}" class="form-label">{{ form.date.label }}</label>
-            {{ form.date }}
-          </div>
-        </div>
+    <!-- Main Tabs -->
+    <ul class="nav nav-tabs mb-4" id="measurementTabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="dashboard-tab" data-bs-toggle="tab" data-bs-target="#dashboard" type="button" role="tab" aria-controls="dashboard" aria-selected="true">
+          <i class="fas fa-chart-line me-2"></i>Dashboard
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="history-tab" data-bs-toggle="tab" data-bs-target="#history" type="button" role="tab" aria-controls="history" aria-selected="false">
+          <i class="fas fa-history me-2"></i>History
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="add-tab" data-bs-toggle="tab" data-bs-target="#add" type="button" role="tab" aria-controls="add" aria-selected="false">
+          <i class="fas fa-plus-circle me-2"></i>Add New
+        </button>
+      </li>
+    </ul>
 
-        <div class="row">
-          <div class="col-md-4 mb-3">
-            <label for="{{ form.neck.id_for_label }}" class="form-label">{{ form.neck.label }}</label>
-            {{ form.neck }}
+    <div class="tab-content" id="measurementTabsContent">
+      <!-- Dashboard Tab -->
+      <div class="tab-pane fade show active" id="dashboard" role="tabpanel" aria-labelledby="dashboard-tab">
+        <!-- Progress Chart -->
+        <div class="card mb-4">
+          <div class="card-header text-white">
+            <h2 class="h4 mb-0">Body Measurements Progress</h2>
           </div>
-          <div class="col-md-4 mb-3">
-            <label for="{{ form.chest.id_for_label }}" class="form-label">{{ form.chest.label }}</label>
-            {{ form.chest }}
-          </div>
-          <div class="col-md-4 mb-3">
-            <label for="{{ form.belly.id_for_label }}" class="form-label">{{ form.belly.label }}</label>
-            {{ form.belly }}
-          </div>
-        </div>
+          <div class="card-body">
+            <div class="measurement-chart" id="measurementsChart"></div>
 
-        <!-- Arms Measurements -->
-        <h4 class="mt-3 mb-2">Arms</h4>
-        <div class="row">
-          <div class="col-md-3 mb-3">
-            <label for="{{ form.left_biceps.id_for_label }}" class="form-label">{{ form.left_biceps.label }}</label>
-            {{ form.left_biceps }}
-          </div>
-          <div class="col-md-3 mb-3">
-            <label for="{{ form.right_biceps.id_for_label }}" class="form-label">{{ form.right_biceps.label }}</label>
-            {{ form.right_biceps }}
-          </div>
-          <div class="col-md-3 mb-3">
-            <label for="{{ form.left_triceps.id_for_label }}" class="form-label">{{ form.left_triceps.label }}</label>
-            {{ form.left_triceps }}
-          </div>
-          <div class="col-md-3 mb-3">
-            <label for="{{ form.right_triceps.id_for_label }}" class="form-label">{{ form.right_triceps.label }}</label>
-            {{ form.right_triceps }}
-          </div>
-        </div>
-
-        <div class="row">
-          <div class="col-md-6 mb-3">
-            <label for="{{ form.left_forearm.id_for_label }}" class="form-label">{{ form.left_forearm.label }}</label>
-            {{ form.left_forearm }}
-          </div>
-          <div class="col-md-6 mb-3">
-            <label for="{{ form.right_forearm.id_for_label }}" class="form-label">{{ form.right_forearm.label }}</label>
-            {{ form.right_forearm }}
-          </div>
-        </div>
-
-        <!-- Legs Measurements -->
-        <h4 class="mt-3 mb-2">Legs</h4>
-        <div class="row">
-          <div class="col-md-3 mb-3">
-            <label for="{{ form.left_thigh.id_for_label }}" class="form-label">{{ form.left_thigh.label }}</label>
-            {{ form.left_thigh }}
-          </div>
-          <div class="col-md-3 mb-3">
-            <label for="{{ form.right_thigh.id_for_label }}" class="form-label">{{ form.right_thigh.label }}</label>
-            {{ form.right_thigh }}
-          </div>
-          <div class="col-md-3 mb-3">
-            <label for="{{ form.left_lower_leg.id_for_label }}" class="form-label">{{ form.left_lower_leg.label }}</label>
-            {{ form.left_lower_leg }}
-          </div>
-          <div class="col-md-3 mb-3">
-            <label for="{{ form.right_lower_leg.id_for_label }}" class="form-label">{{ form.right_lower_leg.label }}</label>
-            {{ form.right_lower_leg }}
-          </div>
-        </div>
-
-        <div class="row">
-          <div class="col-md-4 mb-3">
-            <label for="{{ form.butt.id_for_label }}" class="form-label">{{ form.butt.label }}</label>
-            {{ form.butt }}
-          </div>
-        </div>
-
-        <div class="row">
-          <div class="col-12 mb-3">
-            <label for="{{ form.notes.id_for_label }}" class="form-label">{{ form.notes.label }}</label>
-            {{ form.notes }}
-          </div>
-        </div>
-
-        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-          <button type="submit" class="btn btn-primary">Save Measurements</button>
-        </div>
-      </form>
-    </div>
-
-    <!-- Measurements Chart -->
-    <div class="card mb-4">
-      <div class="card-header bg-success text-white">
-        <h2 class="h4 mb-0">Body Measurements Progress</h2>
-      </div>
-      <div class="card-body">
-        <div class="measurement-chart" id="measurementsChart"></div>
-
-        <!-- Chart Controls -->
-        <div class="row mb-3">
-          <div class="col-md-6">
-            <div class="form-group">
-              <label for="chartType" class="form-label">Chart Type</label>
-              <select id="chartType" class="form-select">
-                <option value="line">Line Chart</option>
-                <option value="bar">Bar Chart</option>
-              </select>
-            </div>
-          </div>
-          <div class="col-md-6">
-            <div class="form-group">
-              <label for="measurementType" class="form-label">Measurement Type</label>
-              <select id="measurementType" class="form-select">
-                <option value="all">All Measurements</option>
-                <option value="weight">Weight</option>
-                <option value="neck">Neck</option>
-                <option value="chest">Chest</option>
-                <option value="belly">Belly/Waist</option>
-                <optgroup label="Arms">
-                  <option value="left_biceps">Left Biceps</option>
-                  <option value="right_biceps">Right Biceps</option>
-                  <option value="left_triceps">Left Triceps</option>
-                  <option value="right_triceps">Right Triceps</option>
-                  <option value="left_forearm">Left Forearm</option>
-                  <option value="right_forearm">Right Forearm</option>
-                </optgroup>
-                <optgroup label="Legs">
-                  <option value="left_thigh">Left Thigh</option>
-                  <option value="right_thigh">Right Thigh</option>
-                  <option value="left_lower_leg">Left Lower Leg/Calf</option>
-                  <option value="right_lower_leg">Right Lower Leg/Calf</option>
-                </optgroup>
-                <option value="butt">Butt/Glutes</option>
-              </select>
+            <!-- Chart Controls -->
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label for="chartType" class="form-label">Chart Type</label>
+                  <select id="chartType" class="form-select">
+                    <option value="line">Line Chart</option>
+                    <option value="bar">Bar Chart</option>
+                  </select>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <div class="form-group">
+                  <label for="measurementType" class="form-label">Measurement Type</label>
+                  <select id="measurementType" class="form-select">
+                    <option value="all">All Measurements</option>
+                    <option value="weight">Weight</option>
+                    <option value="neck">Neck</option>
+                    <option value="chest">Chest</option>
+                    <option value="belly">Belly/Waist</option>
+                    <optgroup label="Arms">
+                      <option value="left_biceps">Left Biceps</option>
+                      <option value="right_biceps">Right Biceps</option>
+                      <option value="left_triceps">Left Triceps</option>
+                      <option value="right_triceps">Right Triceps</option>
+                      <option value="left_forearm">Left Forearm</option>
+                      <option value="right_forearm">Right Forearm</option>
+                    </optgroup>
+                    <optgroup label="Legs">
+                      <option value="left_thigh">Left Thigh</option>
+                      <option value="right_thigh">Right Thigh</option>
+                      <option value="left_lower_leg">Left Lower Leg/Calf</option>
+                      <option value="right_lower_leg">Right Lower Leg/Calf</option>
+                    </optgroup>
+                    <option value="butt">Butt/Glutes</option>
+                  </select>
+                </div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-    </div>
 
-    <!-- Measurements Table -->
-    <div class="card">
-      <div class="card-header bg-success text-white">
-        <h2 class="h4 mb-0">Measurement History</h2>
-      </div>
-      <div class="card-body">
-        <div class="table-responsive">
-          <table class="table table-striped table-hover measurement-table">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Weight</th>
-                <th>Neck</th>
-                <th>Chest</th>
-                <th>Belly</th>
-                <th colspan="2">Biceps (L/R)</th>
-                <th colspan="2">Triceps (L/R)</th>
-                <th colspan="2">Forearm (L/R)</th>
-                <th colspan="2">Thigh (L/R)</th>
-                <th colspan="2">Lower Leg (L/R)</th>
-                <th>Butt</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for measurement_data in measurements_with_arrows %}
-                <tr>
-                  <td>{{ measurement_data.measurement.date|date:"Y-m-d" }}</td>
-                  <td>
-                    {{ measurement_data.weight|default:"-" }}
-                    {% if measurement_data.arrows.weight == 'up' %}
-                      <i class="fas fa-arrow-up arrow-up"></i>
-                    {% elif measurement_data.arrows.weight == 'down' %}
-                      <i class="fas fa-arrow-down arrow-down"></i>
-                    {% endif %}
-                  </td>
-                  <td>
-                    {{ measurement_data.measurement.neck|default:"-" }}
-                    {% if measurement_data.arrows.neck == 'up' %}
-                      <i class="fas fa-arrow-up arrow-up"></i>
-                    {% elif measurement_data.arrows.neck == 'down' %}
-                      <i class="fas fa-arrow-down arrow-down"></i>
-                    {% endif %}
-                  </td>
-                  <td>
-                    {{ measurement_data.measurement.chest|default:"-" }}
-                    {% if measurement_data.arrows.chest == 'up' %}
-                      <i class="fas fa-arrow-up arrow-up"></i>
-                    {% elif measurement_data.arrows.chest == 'down' %}
-                      <i class="fas fa-arrow-down arrow-down"></i>
-                    {% endif %}
-                  </td>
-                  <td>
-                    {{ measurement_data.measurement.belly|default:"-" }}
-                    {% if measurement_data.arrows.belly == 'up' %}
-                      <i class="fas fa-arrow-up arrow-up"></i>
-                    {% elif measurement_data.arrows.belly == 'down' %}
-                      <i class="fas fa-arrow-down arrow-down"></i>
-                    {% endif %}
-                  </td>
-                  <td>
-                    {{ measurement_data.measurement.left_biceps|default:"-" }}
-                    {% if measurement_data.arrows.left_biceps == 'up' %}
-                      <i class="fas fa-arrow-up arrow-up"></i>
-                    {% elif measurement_data.arrows.left_biceps == 'down' %}
-                      <i class="fas fa-arrow-down arrow-down"></i>
-                    {% endif %}
-                  </td>
-                  <td>
-                    {{ measurement_data.measurement.right_biceps|default:"-" }}
-                    {% if measurement_data.arrows.right_biceps == 'up' %}
-                      <i class="fas fa-arrow-up arrow-up"></i>
-                    {% elif measurement_data.arrows.right_biceps == 'down' %}
-                      <i class="fas fa-arrow-down arrow-down"></i>
-                    {% endif %}
-                  </td>
-                  <td>
-                    {{ measurement_data.measurement.left_triceps|default:"-" }}
-                    {% if measurement_data.arrows.left_triceps == 'up' %}
-                      <i class="fas fa-arrow-up arrow-up"></i>
-                    {% elif measurement_data.arrows.left_triceps == 'down' %}
-                      <i class="fas fa-arrow-down arrow-down"></i>
-                    {% endif %}
-                  </td>
-                  <td>
-                    {{ measurement_data.measurement.right_triceps|default:"-" }}
-                    {% if measurement_data.arrows.right_triceps == 'up' %}
-                      <i class="fas fa-arrow-up arrow-up"></i>
-                    {% elif measurement_data.arrows.right_triceps == 'down' %}
-                      <i class="fas fa-arrow-down arrow-down"></i>
-                    {% endif %}
-                  </td>
-                  <td>
-                    {{ measurement_data.measurement.left_forearm|default:"-" }}
-                    {% if measurement_data.arrows.left_forearm == 'up' %}
-                      <i class="fas fa-arrow-up arrow-up"></i>
-                    {% elif measurement_data.arrows.left_forearm == 'down' %}
-                      <i class="fas fa-arrow-down arrow-down"></i>
-                    {% endif %}
-                  </td>
-                  <td>
-                    {{ measurement_data.measurement.right_forearm|default:"-" }}
-                    {% if measurement_data.arrows.right_forearm == 'up' %}
-                      <i class="fas fa-arrow-up arrow-up"></i>
-                    {% elif measurement_data.arrows.right_forearm == 'down' %}
-                      <i class="fas fa-arrow-down arrow-down"></i>
-                    {% endif %}
-                  </td>
-                  <td>
-                    {{ measurement_data.measurement.left_thigh|default:"-" }}
-                    {% if measurement_data.arrows.left_thigh == 'up' %}
-                      <i class="fas fa-arrow-up arrow-up"></i>
-                    {% elif measurement_data.arrows.left_thigh == 'down' %}
-                      <i class="fas fa-arrow-down arrow-down"></i>
-                    {% endif %}
-                  </td>
-                  <td>
-                    {{ measurement_data.measurement.right_thigh|default:"-" }}
-                    {% if measurement_data.arrows.right_thigh == 'up' %}
-                      <i class="fas fa-arrow-up arrow-up"></i>
-                    {% elif measurement_data.arrows.right_thigh == 'down' %}
-                      <i class="fas fa-arrow-down arrow-down"></i>
-                    {% endif %}
-                  </td>
-                  <td>
-                    {{ measurement_data.measurement.left_lower_leg|default:"-" }}
-                    {% if measurement_data.arrows.left_lower_leg == 'up' %}
-                      <i class="fas fa-arrow-up arrow-up"></i>
-                    {% elif measurement_data.arrows.left_lower_leg == 'down' %}
-                      <i class="fas fa-arrow-down arrow-down"></i>
-                    {% endif %}
-                  </td>
-                  <td>
-                    {{ measurement_data.measurement.right_lower_leg|default:"-" }}
-                    {% if measurement_data.arrows.right_lower_leg == 'up' %}
-                      <i class="fas fa-arrow-up arrow-up"></i>
-                    {% elif measurement_data.arrows.right_lower_leg == 'down' %}
-                      <i class="fas fa-arrow-down arrow-down"></i>
-                    {% endif %}
-                  </td>
-                  <td>
-                    {{ measurement_data.measurement.butt|default:"-" }}
-                    {% if measurement_data.arrows.butt == 'up' %}
-                      <i class="fas fa-arrow-up arrow-up"></i>
-                    {% elif measurement_data.arrows.butt == 'down' %}
-                      <i class="fas fa-arrow-down arrow-down"></i>
-                    {% endif %}
-                  </td>
-                  <td>
-                    <div class="btn-group btn-group-sm" role="group">
-                      <a href="{% url 'edit_body_measurement' measurement_data.measurement.id %}" class="btn btn-outline-primary">Edit</a>
-                      <a href="{% url 'delete_body_measurement' measurement_data.measurement.id %}" class="btn btn-outline-danger">Delete</a>
+        <!-- Latest Measurements Summary -->
+        {% if measurements_with_arrows %}
+          {% with latest=measurements_with_arrows.0 %}
+            <h3 class="h5 mb-3">Latest Measurements ({{ latest.measurement.date|date:"F j, Y" }})</h3>
+
+            <div class="row">
+              <!-- Core Measurements -->
+              <div class="col-md-4">
+                <div class="card measurement-group">
+                  <div class="card-body">
+                    <h4 class="measurement-group-title">Core</h4>
+
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                      <div>
+                        <div class="measurement-label">Weight</div>
+                        <div class="measurement-value">
+                          {{ latest.weight|default:"-" }} kg
+                          {% if latest.arrows.weight == 'up' %}
+                            <i class="fas fa-arrow-up arrow-up"></i>
+                          {% elif latest.arrows.weight == 'down' %}
+                            <i class="fas fa-arrow-down arrow-down"></i>
+                          {% endif %}
+                        </div>
+                      </div>
+                      <div>
+                        <div class="measurement-label">Neck</div>
+                        <div class="measurement-value">
+                          {{ latest.measurement.neck|default:"-" }} cm
+                          {% if latest.arrows.neck == 'up' %}
+                            <i class="fas fa-arrow-up arrow-up"></i>
+                          {% elif latest.arrows.neck == 'down' %}
+                            <i class="fas fa-arrow-down arrow-down"></i>
+                          {% endif %}
+                        </div>
+                      </div>
                     </div>
-                  </td>
-                </tr>
+
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                      <div>
+                        <div class="measurement-label">Chest</div>
+                        <div class="measurement-value">
+                          {{ latest.measurement.chest|default:"-" }} cm
+                          {% if latest.arrows.chest == 'up' %}
+                            <i class="fas fa-arrow-up arrow-up"></i>
+                          {% elif latest.arrows.chest == 'down' %}
+                            <i class="fas fa-arrow-down arrow-down"></i>
+                          {% endif %}
+                        </div>
+                      </div>
+                      <div>
+                        <div class="measurement-label">Belly/Waist</div>
+                        <div class="measurement-value">
+                          {{ latest.measurement.belly|default:"-" }} cm
+                          {% if latest.arrows.belly == 'up' %}
+                            <i class="fas fa-arrow-up arrow-up"></i>
+                          {% elif latest.arrows.belly == 'down' %}
+                            <i class="fas fa-arrow-down arrow-down"></i>
+                          {% endif %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div class="measurement-label">Butt/Glutes</div>
+                      <div class="measurement-value">
+                        {{ latest.measurement.butt|default:"-" }} cm
+                        {% if latest.arrows.butt == 'up' %}
+                          <i class="fas fa-arrow-up arrow-up"></i>
+                        {% elif latest.arrows.butt == 'down' %}
+                          <i class="fas fa-arrow-down arrow-down"></i>
+                        {% endif %}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Arms Measurements -->
+              <div class="col-md-4">
+                <div class="card measurement-group">
+                  <div class="card-body">
+                    <h4 class="measurement-group-title">Arms</h4>
+
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                      <div>
+                        <div class="measurement-label">Left Biceps</div>
+                        <div class="measurement-value">
+                          {{ latest.measurement.left_biceps|default:"-" }} cm
+                          {% if latest.arrows.left_biceps == 'up' %}
+                            <i class="fas fa-arrow-up arrow-up"></i>
+                          {% elif latest.arrows.left_biceps == 'down' %}
+                            <i class="fas fa-arrow-down arrow-down"></i>
+                          {% endif %}
+                        </div>
+                      </div>
+                      <div>
+                        <div class="measurement-label">Right Biceps</div>
+                        <div class="measurement-value">
+                          {{ latest.measurement.right_biceps|default:"-" }} cm
+                          {% if latest.arrows.right_biceps == 'up' %}
+                            <i class="fas fa-arrow-up arrow-up"></i>
+                          {% elif latest.arrows.right_biceps == 'down' %}
+                            <i class="fas fa-arrow-down arrow-down"></i>
+                          {% endif %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                      <div>
+                        <div class="measurement-label">Left Triceps</div>
+                        <div class="measurement-value">
+                          {{ latest.measurement.left_triceps|default:"-" }} cm
+                          {% if latest.arrows.left_triceps == 'up' %}
+                            <i class="fas fa-arrow-up arrow-up"></i>
+                          {% elif latest.arrows.left_triceps == 'down' %}
+                            <i class="fas fa-arrow-down arrow-down"></i>
+                          {% endif %}
+                        </div>
+                      </div>
+                      <div>
+                        <div class="measurement-label">Right Triceps</div>
+                        <div class="measurement-value">
+                          {{ latest.measurement.right_triceps|default:"-" }} cm
+                          {% if latest.arrows.right_triceps == 'up' %}
+                            <i class="fas fa-arrow-up arrow-up"></i>
+                          {% elif latest.arrows.right_triceps == 'down' %}
+                            <i class="fas fa-arrow-down arrow-down"></i>
+                          {% endif %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center">
+                      <div>
+                        <div class="measurement-label">Left Forearm</div>
+                        <div class="measurement-value">
+                          {{ latest.measurement.left_forearm|default:"-" }} cm
+                          {% if latest.arrows.left_forearm == 'up' %}
+                            <i class="fas fa-arrow-up arrow-up"></i>
+                          {% elif latest.arrows.left_forearm == 'down' %}
+                            <i class="fas fa-arrow-down arrow-down"></i>
+                          {% endif %}
+                        </div>
+                      </div>
+                      <div>
+                        <div class="measurement-label">Right Forearm</div>
+                        <div class="measurement-value">
+                          {{ latest.measurement.right_forearm|default:"-" }} cm
+                          {% if latest.arrows.right_forearm == 'up' %}
+                            <i class="fas fa-arrow-up arrow-up"></i>
+                          {% elif latest.arrows.right_forearm == 'down' %}
+                            <i class="fas fa-arrow-down arrow-down"></i>
+                          {% endif %}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Legs Measurements -->
+              <div class="col-md-4">
+                <div class="card measurement-group">
+                  <div class="card-body">
+                    <h4 class="measurement-group-title">Legs</h4>
+
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                      <div>
+                        <div class="measurement-label">Left Thigh</div>
+                        <div class="measurement-value">
+                          {{ latest.measurement.left_thigh|default:"-" }} cm
+                          {% if latest.arrows.left_thigh == 'up' %}
+                            <i class="fas fa-arrow-up arrow-up"></i>
+                          {% elif latest.arrows.left_thigh == 'down' %}
+                            <i class="fas fa-arrow-down arrow-down"></i>
+                          {% endif %}
+                        </div>
+                      </div>
+                      <div>
+                        <div class="measurement-label">Right Thigh</div>
+                        <div class="measurement-value">
+                          {{ latest.measurement.right_thigh|default:"-" }} cm
+                          {% if latest.arrows.right_thigh == 'up' %}
+                            <i class="fas fa-arrow-up arrow-up"></i>
+                          {% elif latest.arrows.right_thigh == 'down' %}
+                            <i class="fas fa-arrow-down arrow-down"></i>
+                          {% endif %}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center">
+                      <div>
+                        <div class="measurement-label">Left Lower Leg</div>
+                        <div class="measurement-value">
+                          {{ latest.measurement.left_lower_leg|default:"-" }} cm
+                          {% if latest.arrows.left_lower_leg == 'up' %}
+                            <i class="fas fa-arrow-up arrow-up"></i>
+                          {% elif latest.arrows.left_lower_leg == 'down' %}
+                            <i class="fas fa-arrow-down arrow-down"></i>
+                          {% endif %}
+                        </div>
+                      </div>
+                      <div>
+                        <div class="measurement-label">Right Lower Leg</div>
+                        <div class="measurement-value">
+                          {{ latest.measurement.right_lower_leg|default:"-" }} cm
+                          {% if latest.arrows.right_lower_leg == 'up' %}
+                            <i class="fas fa-arrow-up arrow-up"></i>
+                          {% elif latest.arrows.right_lower_leg == 'down' %}
+                            <i class="fas fa-arrow-down arrow-down"></i>
+                          {% endif %}
+                        </div>
+                      </div>
+                    </div>
+
+                    {% if latest.measurement.notes %}
+                      <div class="mt-3">
+                        <div class="measurement-label">Notes</div>
+                        <div class="small text-muted">{{ latest.measurement.notes }}</div>
+                      </div>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+            </div>
+          {% endwith %}
+        {% else %}
+          <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>No measurements recorded yet. Add your first measurement to start tracking your progress!
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- History Tab -->
+      <div class="tab-pane fade" id="history" role="tabpanel" aria-labelledby="history-tab">
+        <div class="card">
+          <div class="card-header text-white">
+            <div class="d-flex justify-content-between align-items-center">
+              <h2 class="h4 mb-0">Measurement History</h2>
+              <button class="btn btn-sm btn-outline-light" type="button" data-bs-toggle="collapse" data-bs-target="#historyTable" aria-expanded="false" aria-controls="historyTable">
+                <i class="fas fa-table me-1"></i>Toggle Table View
+              </button>
+            </div>
+          </div>
+          <div class="card-body">
+            <!-- Timeline View -->
+            <div class="measurement-timeline mb-4">
+              {% for measurement_data in measurements_with_arrows %}
+                <div class="measurement-history-item">
+                  <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-2">{{ measurement_data.measurement.date|date:"F j, Y" }}</h5>
+                    <div class="btn-group btn-group-sm" role="group">
+                      <a href="{% url 'edit_body_measurement' measurement_data.measurement.id %}" class="btn btn-outline-primary">
+                        <i class="fas fa-edit"></i> Edit
+                      </a>
+                      <a href="{% url 'delete_body_measurement' measurement_data.measurement.id %}" class="btn btn-outline-danger">
+                        <i class="fas fa-trash"></i> Delete
+                      </a>
+                    </div>
+                  </div>
+
+                  <div class="row g-3">
+                    <div class="col-md-3">
+                      <div class="card bg-light">
+                        <div class="card-body p-2">
+                          <div class="d-flex justify-content-between">
+                            <span>Weight:</span>
+                            <span>
+                              {{ measurement_data.weight|default:"-" }} kg
+                              {% if measurement_data.arrows.weight == 'up' %}
+                                <i class="fas fa-arrow-up arrow-up"></i>
+                              {% elif measurement_data.arrows.weight == 'down' %}
+                                <i class="fas fa-arrow-down arrow-down"></i>
+                              {% endif %}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-3">
+                      <div class="card bg-light">
+                        <div class="card-body p-2">
+                          <div class="d-flex justify-content-between">
+                            <span>Chest:</span>
+                            <span>
+                              {{ measurement_data.measurement.chest|default:"-" }} cm
+                              {% if measurement_data.arrows.chest == 'up' %}
+                                <i class="fas fa-arrow-up arrow-up"></i>
+                              {% elif measurement_data.arrows.chest == 'down' %}
+                                <i class="fas fa-arrow-down arrow-down"></i>
+                              {% endif %}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-3">
+                      <div class="card bg-light">
+                        <div class="card-body p-2">
+                          <div class="d-flex justify-content-between">
+                            <span>Belly:</span>
+                            <span>
+                              {{ measurement_data.measurement.belly|default:"-" }} cm
+                              {% if measurement_data.arrows.belly == 'up' %}
+                                <i class="fas fa-arrow-up arrow-up"></i>
+                              {% elif measurement_data.arrows.belly == 'down' %}
+                                <i class="fas fa-arrow-down arrow-down"></i>
+                              {% endif %}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-3">
+                      <div class="card bg-light">
+                        <div class="card-body p-2">
+                          <div class="d-flex justify-content-between">
+                            <span>Biceps (L/R):</span>
+                            <span>
+                              {{ measurement_data.measurement.left_biceps|default:"-" }}/{{ measurement_data.measurement.right_biceps|default:"-" }} cm
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {% if measurement_data.measurement.notes %}
+                    <div class="mt-2 small text-muted">
+                      <i class="fas fa-sticky-note me-1"></i> {{ measurement_data.measurement.notes }}
+                    </div>
+                  {% endif %}
+                </div>
               {% empty %}
-                <tr>
-                  <td colspan="17" class="text-center">No measurements recorded yet.</td>
-                </tr>
+                <div class="text-center py-4">
+                  <i class="fas fa-clipboard-list fa-3x mb-3 text-muted"></i>
+                  <p>No measurements recorded yet.</p>
+                </div>
               {% endfor %}
-            </tbody>
-          </table>
+            </div>
+
+            <!-- Table View (Collapsed by Default) -->
+            <div class="collapse" id="historyTable">
+              <div class="table-responsive">
+                <table class="table table-striped table-hover measurement-table compact-table">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th>Weight</th>
+                      <th>Neck</th>
+                      <th>Chest</th>
+                      <th>Belly</th>
+                      <th colspan="2">Biceps (L/R)</th>
+                      <th colspan="2">Triceps (L/R)</th>
+                      <th colspan="2">Forearm (L/R)</th>
+                      <th colspan="2">Thigh (L/R)</th>
+                      <th colspan="2">Lower Leg (L/R)</th>
+                      <th>Butt</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for measurement_data in measurements_with_arrows %}
+                      <tr>
+                        <td>{{ measurement_data.measurement.date|date:"Y-m-d" }}</td>
+                        <td>
+                          {{ measurement_data.weight|default:"-" }}
+                          {% if measurement_data.arrows.weight == 'up' %}
+                            <i class="fas fa-arrow-up arrow-up"></i>
+                          {% elif measurement_data.arrows.weight == 'down' %}
+                            <i class="fas fa-arrow-down arrow-down"></i>
+                          {% endif %}
+                        </td>
+                        <td>
+                          {{ measurement_data.measurement.neck|default:"-" }}
+                          {% if measurement_data.arrows.neck == 'up' %}
+                            <i class="fas fa-arrow-up arrow-up"></i>
+                          {% elif measurement_data.arrows.neck == 'down' %}
+                            <i class="fas fa-arrow-down arrow-down"></i>
+                          {% endif %}
+                        </td>
+                        <td>
+                          {{ measurement_data.measurement.chest|default:"-" }}
+                          {% if measurement_data.arrows.chest == 'up' %}
+                            <i class="fas fa-arrow-up arrow-up"></i>
+                          {% elif measurement_data.arrows.chest == 'down' %}
+                            <i class="fas fa-arrow-down arrow-down"></i>
+                          {% endif %}
+                        </td>
+                        <td>
+                          {{ measurement_data.measurement.belly|default:"-" }}
+                          {% if measurement_data.arrows.belly == 'up' %}
+                            <i class="fas fa-arrow-up arrow-up"></i>
+                          {% elif measurement_data.arrows.belly == 'down' %}
+                            <i class="fas fa-arrow-down arrow-down"></i>
+                          {% endif %}
+                        </td>
+                        <td>
+                          {{ measurement_data.measurement.left_biceps|default:"-" }}
+                          {% if measurement_data.arrows.left_biceps == 'up' %}
+                            <i class="fas fa-arrow-up arrow-up"></i>
+                          {% elif measurement_data.arrows.left_biceps == 'down' %}
+                            <i class="fas fa-arrow-down arrow-down"></i>
+                          {% endif %}
+                        </td>
+                        <td>
+                          {{ measurement_data.measurement.right_biceps|default:"-" }}
+                          {% if measurement_data.arrows.right_biceps == 'up' %}
+                            <i class="fas fa-arrow-up arrow-up"></i>
+                          {% elif measurement_data.arrows.right_biceps == 'down' %}
+                            <i class="fas fa-arrow-down arrow-down"></i>
+                          {% endif %}
+                        </td>
+                        <td>
+                          {{ measurement_data.measurement.left_triceps|default:"-" }}
+                          {% if measurement_data.arrows.left_triceps == 'up' %}
+                            <i class="fas fa-arrow-up arrow-up"></i>
+                          {% elif measurement_data.arrows.left_triceps == 'down' %}
+                            <i class="fas fa-arrow-down arrow-down"></i>
+                          {% endif %}
+                        </td>
+                        <td>
+                          {{ measurement_data.measurement.right_triceps|default:"-" }}
+                          {% if measurement_data.arrows.right_triceps == 'up' %}
+                            <i class="fas fa-arrow-up arrow-up"></i>
+                          {% elif measurement_data.arrows.right_triceps == 'down' %}
+                            <i class="fas fa-arrow-down arrow-down"></i>
+                          {% endif %}
+                        </td>
+                        <td>
+                          {{ measurement_data.measurement.left_forearm|default:"-" }}
+                          {% if measurement_data.arrows.left_forearm == 'up' %}
+                            <i class="fas fa-arrow-up arrow-up"></i>
+                          {% elif measurement_data.arrows.left_forearm == 'down' %}
+                            <i class="fas fa-arrow-down arrow-down"></i>
+                          {% endif %}
+                        </td>
+                        <td>
+                          {{ measurement_data.measurement.right_forearm|default:"-" }}
+                          {% if measurement_data.arrows.right_forearm == 'up' %}
+                            <i class="fas fa-arrow-up arrow-up"></i>
+                          {% elif measurement_data.arrows.right_forearm == 'down' %}
+                            <i class="fas fa-arrow-down arrow-down"></i>
+                          {% endif %}
+                        </td>
+                        <td>
+                          {{ measurement_data.measurement.left_thigh|default:"-" }}
+                          {% if measurement_data.arrows.left_thigh == 'up' %}
+                            <i class="fas fa-arrow-up arrow-up"></i>
+                          {% elif measurement_data.arrows.left_thigh == 'down' %}
+                            <i class="fas fa-arrow-down arrow-down"></i>
+                          {% endif %}
+                        </td>
+                        <td>
+                          {{ measurement_data.measurement.right_thigh|default:"-" }}
+                          {% if measurement_data.arrows.right_thigh == 'up' %}
+                            <i class="fas fa-arrow-up arrow-up"></i>
+                          {% elif measurement_data.arrows.right_thigh == 'down' %}
+                            <i class="fas fa-arrow-down arrow-down"></i>
+                          {% endif %}
+                        </td>
+                        <td>
+                          {{ measurement_data.measurement.left_lower_leg|default:"-" }}
+                          {% if measurement_data.arrows.left_lower_leg == 'up' %}
+                            <i class="fas fa-arrow-up arrow-up"></i>
+                          {% elif measurement_data.arrows.left_lower_leg == 'down' %}
+                            <i class="fas fa-arrow-down arrow-down"></i>
+                          {% endif %}
+                        </td>
+                        <td>
+                          {{ measurement_data.measurement.right_lower_leg|default:"-" }}
+                          {% if measurement_data.arrows.right_lower_leg == 'up' %}
+                            <i class="fas fa-arrow-up arrow-up"></i>
+                          {% elif measurement_data.arrows.right_lower_leg == 'down' %}
+                            <i class="fas fa-arrow-down arrow-down"></i>
+                          {% endif %}
+                        </td>
+                        <td>
+                          {{ measurement_data.measurement.butt|default:"-" }}
+                          {% if measurement_data.arrows.butt == 'up' %}
+                            <i class="fas fa-arrow-up arrow-up"></i>
+                          {% elif measurement_data.arrows.butt == 'down' %}
+                            <i class="fas fa-arrow-down arrow-down"></i>
+                          {% endif %}
+                        </td>
+                        <td>
+                          <div class="btn-group btn-group-sm" role="group">
+                            <a href="{% url 'edit_body_measurement' measurement_data.measurement.id %}" class="btn btn-outline-primary">Edit</a>
+                            <a href="{% url 'delete_body_measurement' measurement_data.measurement.id %}" class="btn btn-outline-danger">Delete</a>
+                          </div>
+                        </td>
+                      </tr>
+                    {% empty %}
+                      <tr>
+                        <td colspan="17" class="text-center">No measurements recorded yet.</td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Add New Tab -->
+      <div class="tab-pane fade" id="add" role="tabpanel" aria-labelledby="add-tab">
+        <div class="card measurement-form-container">
+          <div class="card-header text-white">
+            <h2 class="h4 mb-0">Add New Measurements</h2>
+          </div>
+          <div class="card-body">
+            <form method="post">
+              {% csrf_token %}
+              <div class="row">
+                <div class="col-md-4 mb-3">
+                  <label for="{{ form.date.id_for_label }}" class="form-label">{{ form.date.label }}</label>
+                  {{ form.date }}
+                </div>
+              </div>
+
+              <!-- Core Measurements -->
+              <h4 class="mt-3 mb-2">Core Measurements</h4>
+              <div class="row">
+                <div class="col-md-3 mb-3">
+                  <label for="{{ form.neck.id_for_label }}" class="form-label">{{ form.neck.label }}</label>
+                  {{ form.neck }}
+                </div>
+                <div class="col-md-3 mb-3">
+                  <label for="{{ form.chest.id_for_label }}" class="form-label">{{ form.chest.label }}</label>
+                  {{ form.chest }}
+                </div>
+                <div class="col-md-3 mb-3">
+                  <label for="{{ form.belly.id_for_label }}" class="form-label">{{ form.belly.label }}</label>
+                  {{ form.belly }}
+                </div>
+                <div class="col-md-3 mb-3">
+                  <label for="{{ form.butt.id_for_label }}" class="form-label">{{ form.butt.label }}</label>
+                  {{ form.butt }}
+                </div>
+              </div>
+
+              <!-- Arms Measurements -->
+              <h4 class="mt-3 mb-2">Arms</h4>
+              <div class="row">
+                <div class="col-md-3 mb-3">
+                  <label for="{{ form.left_biceps.id_for_label }}" class="form-label">{{ form.left_biceps.label }}</label>
+                  {{ form.left_biceps }}
+                </div>
+                <div class="col-md-3 mb-3">
+                  <label for="{{ form.right_biceps.id_for_label }}" class="form-label">{{ form.right_biceps.label }}</label>
+                  {{ form.right_biceps }}
+                </div>
+                <div class="col-md-3 mb-3">
+                  <label for="{{ form.left_triceps.id_for_label }}" class="form-label">{{ form.left_triceps.label }}</label>
+                  {{ form.left_triceps }}
+                </div>
+                <div class="col-md-3 mb-3">
+                  <label for="{{ form.right_triceps.id_for_label }}" class="form-label">{{ form.right_triceps.label }}</label>
+                  {{ form.right_triceps }}
+                </div>
+              </div>
+
+              <div class="row">
+                <div class="col-md-6 mb-3">
+                  <label for="{{ form.left_forearm.id_for_label }}" class="form-label">{{ form.left_forearm.label }}</label>
+                  {{ form.left_forearm }}
+                </div>
+                <div class="col-md-6 mb-3">
+                  <label for="{{ form.right_forearm.id_for_label }}" class="form-label">{{ form.right_forearm.label }}</label>
+                  {{ form.right_forearm }}
+                </div>
+              </div>
+
+              <!-- Legs Measurements -->
+              <h4 class="mt-3 mb-2">Legs</h4>
+              <div class="row">
+                <div class="col-md-3 mb-3">
+                  <label for="{{ form.left_thigh.id_for_label }}" class="form-label">{{ form.left_thigh.label }}</label>
+                  {{ form.left_thigh }}
+                </div>
+                <div class="col-md-3 mb-3">
+                  <label for="{{ form.right_thigh.id_for_label }}" class="form-label">{{ form.right_thigh.label }}</label>
+                  {{ form.right_thigh }}
+                </div>
+                <div class="col-md-3 mb-3">
+                  <label for="{{ form.left_lower_leg.id_for_label }}" class="form-label">{{ form.left_lower_leg.label }}</label>
+                  {{ form.left_lower_leg }}
+                </div>
+                <div class="col-md-3 mb-3">
+                  <label for="{{ form.right_lower_leg.id_for_label }}" class="form-label">{{ form.right_lower_leg.label }}</label>
+                  {{ form.right_lower_leg }}
+                </div>
+              </div>
+
+              <div class="row">
+                <div class="col-12 mb-3">
+                  <label for="{{ form.notes.id_for_label }}" class="form-label">{{ form.notes.label }}</label>
+                  {{ form.notes }}
+                </div>
+              </div>
+
+              <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                <button type="submit" class="btn btn-primary">
+                  <i class="fas fa-save me-2"></i>Save Measurements
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
     </div>
+
+    <!-- Floating Action Button for Mobile -->
+    <a href="#" class="btn btn-primary btn-floating d-md-none" data-bs-toggle="tab" data-bs-target="#add">
+      <i class="fas fa-plus"></i>
+    </a>
   </div>
 {% endblock %}
 
