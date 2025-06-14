@@ -1,8 +1,7 @@
-# F:\Python GitHub ZygimantasB\Calories_Counter_Project\count_calories_app\views.py
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from datetime import timedelta
-from django.db.models import Sum, Count, Avg, Max, Min # Import additional aggregation functions
+from django.db.models import Sum, Count, Avg, Max, Min
 from django.http import JsonResponse
 from django.contrib import messages
 from .models import FoodItem, Weight, Exercise, WorkoutSession, WorkoutExercise, RunningSession, WorkoutTable, BodyMeasurement
@@ -10,20 +9,12 @@ from .forms import FoodItemForm, WeightForm, ExerciseForm, WorkoutSessionForm, W
 import logging
 import json
 
-# Get a logger for this file
 logger = logging.getLogger('count_calories_app')
 
 def home(request):
-    """
-    View for the home page.
-    Displays general information about the application.
-    """
     return render(request, 'count_calories_app/home.html')
 
 def get_nutrition_data(request):
-    """
-    API endpoint to get nutrition data for charts
-    """
     time_range = request.GET.get('range', 'today')
     selected_date_str = request.GET.get('date')
     start_date_str = request.GET.get('start_date')
@@ -32,36 +23,27 @@ def get_nutrition_data(request):
     start_date = now
     end_date = None
 
-    # Check if a specific date was selected
     if selected_date_str:
         try:
             from datetime import datetime
             selected_date = datetime.strptime(selected_date_str, '%Y-%m-%d').date()
-            # Set start_date to the beginning of the selected date
             start_date = timezone.make_aware(datetime.combine(selected_date, datetime.min.time()))
-            # Set end_date to the end of the selected date
             end_date = timezone.make_aware(datetime.combine(selected_date, datetime.max.time()))
         except (ValueError, TypeError):
-            # If date parsing fails, fall back to default behavior
             selected_date_str = None
 
-    # Check if a date range was selected
     elif start_date_str and end_date_str:
         try:
             from datetime import datetime
             start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
             end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
 
-            # Set start_date to the beginning of the selected start date
             start_date = timezone.make_aware(datetime.combine(start_date, datetime.min.time()))
-            # Set end_date to the end of the selected end date
             end_date = timezone.make_aware(datetime.combine(end_date, datetime.max.time()))
         except (ValueError, TypeError):
-            # If date parsing fails, fall back to default behavior
             start_date_str = None
             end_date_str = None
 
-    # If no specific date or date range was selected, determine the date range based on time_range
     else:
         if time_range == 'today':
             start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -71,15 +53,11 @@ def get_nutrition_data(request):
         elif time_range == 'month':
             start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
-    # Filter food items based on the selected time range, specific date, or date range
     if end_date:
-        # For a specific date or date range, filter between start and end dates
         food_items = FoodItem.objects.filter(consumed_at__gte=start_date, consumed_at__lte=end_date)
     else:
-        # For a time range, filter from start_date onwards
         food_items = FoodItem.objects.filter(consumed_at__gte=start_date)
 
-    # Get data for charts
     nutrition_data = {
         'labels': ['Protein', 'Carbs', 'Fat'],
         'data': [
@@ -92,12 +70,7 @@ def get_nutrition_data(request):
     return JsonResponse(nutrition_data)
 
 def food_tracker(request):
-    """
-    View for the food tracking page.
-    Handles displaying the form, list of items, and totals,
-    as well as processing form submissions.
-    """
-    time_range = request.GET.get('range', 'today') # Default to 'today'
+    time_range = request.GET.get('range', 'today')
     selected_date_str = request.GET.get('date')
     start_date_str = request.GET.get('start_date')
     end_date_str = request.GET.get('end_date')
@@ -108,108 +81,73 @@ def food_tracker(request):
     date_range_selected = False
     show_averages = False
 
-    # Check if a date range was selected
     if start_date_str and end_date_str:
         try:
-            # Parse the date strings into date objects
             from datetime import datetime
             start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
             end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
 
-            # Set start_date to the beginning of the selected start date
             start_date = timezone.make_aware(datetime.combine(start_date, datetime.min.time()))
-            # Set end_date to the end of the selected end date
             end_date = timezone.make_aware(datetime.combine(end_date, datetime.max.time()))
 
-            # Override time_range to indicate we're viewing a date range
             time_range = 'date_range'
             date_range_selected = True
             show_averages = True
         except (ValueError, TypeError):
-            # If date parsing fails, fall back to default behavior
             start_date_str = None
             end_date_str = None
 
-    # Check if a specific date was selected (if no date range was selected)
     elif selected_date_str:
         try:
-            # Parse the date string into a date object
             from datetime import datetime
             selected_date = datetime.strptime(selected_date_str, '%Y-%m-%d').date()
 
-            # Check if the selected date is today
             today_date = now.date()
             if selected_date == today_date:
-                # Use the same date range as 'today' to ensure consistency
                 start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
                 end_date = start_date.replace(hour=23, minute=59, second=59, microsecond=999999)
-                # Keep track that we're viewing today but with a specific date parameter
                 time_range = 'today_specific'
             else:
-                # Set start_date to the beginning of the selected date
                 start_date = timezone.make_aware(datetime.combine(selected_date, datetime.min.time()))
-                # Set end_date to the end of the selected date
                 end_date = timezone.make_aware(datetime.combine(selected_date, datetime.max.time()))
-                # Override time_range to indicate we're viewing a specific date
                 time_range = 'specific_date'
         except (ValueError, TypeError):
-            # If date parsing fails, fall back to default behavior
             selected_date = None
 
-    # If no specific date or date range was selected, determine the date range based on time_range
     if not selected_date and not date_range_selected:
         if time_range == 'today':
             start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
-            # Set end_date to the end of the current day to only show today's items
             end_date = start_date.replace(hour=23, minute=59, second=59, microsecond=999999)
         elif time_range == 'week':
-            # Start from the beginning of the current week (assuming Monday is the first day)
             start_date = now - timedelta(days=now.weekday())
             start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
-            # Set end_date to the end of the current day to only show items up to now
             end_date = now.replace(hour=23, minute=59, second=59, microsecond=999999)
-            # Show averages for weekly view
             show_averages = True
         elif time_range == 'month':
-            # Start from the beginning of the current month
             start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-            # Set end_date to the end of the current day to only show items up to now
             end_date = now.replace(hour=23, minute=59, second=59, microsecond=999999)
-            # Show averages for monthly view
             show_averages = True
 
-    # Import TruncDate for date-based filtering
     from django.db.models.functions import TruncDate
 
-    # Filter food items based on the selected time range, specific date, or date range
     if end_date:
         if time_range == 'specific_date' or time_range == 'today_specific' or time_range == 'today':
-            # For a specific date (including today), filter by the date part only
             if selected_date:
-                # If we have a selected date, use that
-                # Check if selected_date is already a date object or a datetime object
                 if hasattr(selected_date, 'date'):
-                    # It's a datetime object, so call .date()
                     date_to_filter = selected_date.date()
                 else:
-                    # It's already a date object
                     date_to_filter = selected_date
             else:
-                # For 'today' without a selected date, use today's date
                 date_to_filter = now.date()
 
             food_items = FoodItem.objects.annotate(
                 consumed_date=TruncDate('consumed_at')
             ).filter(consumed_date=date_to_filter)
         else:
-            # For a date range, filter between start and end dates
             food_items = FoodItem.objects.filter(consumed_at__gte=start_date, consumed_at__lte=end_date)
     else:
-        # For a time range, filter from start_date onwards
         food_items = FoodItem.objects.filter(consumed_at__gte=start_date)
 
-    # Get all available food items for quick add
-    # Using a more SQLite-compatible approach
     from django.db.models import Max
     product_names = FoodItem.objects.filter(
         hide_from_quick_list=False
@@ -219,7 +157,6 @@ def food_tracker(request):
 
     quick_add_items = []
     for item in product_names:
-        # Get the most recent entry for each product name
         food = FoodItem.objects.filter(
             product_name=item['product_name'],
             consumed_at=item['latest'],
@@ -228,8 +165,6 @@ def food_tracker(request):
         if food:
             quick_add_items.append(food)
 
-    # Calculate totals for the selected range
-    # Use aggregate and Sum, handling None if no items exist
     totals = food_items.aggregate(
         total_calories=Sum('calories'),
         total_fat=Sum('fat'),
@@ -237,12 +172,10 @@ def food_tracker(request):
         total_protein=Sum('protein')
     )
 
-    # Replace None with 0 if the aggregation result is None
     for key, value in totals.items():
         if value is None:
             totals[key] = 0
 
-    # Calculate macronutrient percentages
     total_macros = totals['total_fat'] + totals['total_carbohydrates'] + totals['total_protein']
     if total_macros > 0:
         totals['fat_percentage'] = round((totals['total_fat'] / total_macros) * 100, 1)
@@ -253,12 +186,9 @@ def food_tracker(request):
         totals['carbs_percentage'] = 0
         totals['protein_percentage'] = 0
 
-    # Calculate averages if a date range is selected
     averages = {}
     if show_averages and food_items.exists():
-        # Count the number of days in the range
         from datetime import datetime
-        # Get date objects from end_date and start_date
         end_date_obj = end_date.date() if hasattr(end_date, 'date') else end_date
         start_date_obj = start_date.date() if hasattr(start_date, 'date') else start_date
         days_in_range = (end_date_obj - start_date_obj).days + 1
@@ -272,30 +202,22 @@ def food_tracker(request):
                 'days_in_range': days_in_range
             }
 
-            # Calculate average macronutrient percentages (same as totals)
             averages['fat_percentage'] = totals['fat_percentage']
             averages['carbs_percentage'] = totals['carbs_percentage']
             averages['protein_percentage'] = totals['protein_percentage']
 
     if request.method == 'POST':
-        # Handle form submission
         logger.info(f"Processing food item form submission: {request.POST}")
 
-        # Create a copy of POST data that we can modify
         post_data = request.POST.copy()
 
-        # Always set consumed_at to the selected date if available, regardless of whether it's in POST data
         if selected_date:
-            # Create a datetime at the beginning of the selected date
             initial_datetime = timezone.make_aware(datetime.combine(selected_date, datetime.min.time()))
             post_data['consumed_at'] = initial_datetime
             logger.info(f"Setting consumed_at to selected date: {initial_datetime}")
-        # If selected_date is not set but selected_date_str is available, use that
         elif selected_date_str:
             try:
-                # Parse the date string into a date object
                 selected_date_from_str = datetime.strptime(selected_date_str, '%Y-%m-%d').date()
-                # Create a datetime at the beginning of the selected date
                 initial_datetime = timezone.make_aware(datetime.combine(selected_date_from_str, datetime.min.time()))
                 post_data['consumed_at'] = initial_datetime
                 logger.info(f"Setting consumed_at to date from URL parameter: {initial_datetime}")
@@ -308,12 +230,9 @@ def food_tracker(request):
                 food_item = form.save()
                 logger.info(f"Food item saved successfully: {food_item.id} - {food_item.product_name}")
                 messages.success(request, f"Food item '{food_item.product_name}' added successfully!")
-                # Redirect to the same page (using GET) to prevent form resubmission
-                # Keep the current date or time range selection
                 if selected_date:
                     return redirect(f"/food_tracker/?date={selected_date.strftime('%Y-%m-%d')}")
                 elif selected_date_str:
-                    # If we have a date string from the URL, redirect back to that date
                     return redirect(f"/food_tracker/?date={selected_date_str}")
                 else:
                     return redirect(f"/food_tracker/?range={time_range}")
@@ -323,10 +242,7 @@ def food_tracker(request):
         else:
             logger.warning(f"Invalid food item form: {form.errors}")
             messages.warning(request, "Please correct the errors in the form.")
-        # If form is invalid, it will be re-rendered with errors below
     else:
-        # Handle GET request (displaying the page)
-        # Initialize form with selected date as consumed_at if a date is selected
         if selected_date:
             # Create a datetime at the beginning of the selected date
             initial_datetime = timezone.make_aware(datetime.combine(selected_date, datetime.min.time()))
@@ -360,20 +276,12 @@ def food_tracker(request):
     return render(request, 'count_calories_app/food_tracker.html', context)
 
 def get_calories_trend_data(request):
-    """
-    API endpoint to get calorie intake trend data for charts
-    """
-    # Get the last 30 days of data
     end_date = timezone.now()
     start_date = end_date - timedelta(days=30)
-
-    # Get all food items in the date range
     food_items = FoodItem.objects.filter(
         consumed_at__gte=start_date,
         consumed_at__lte=end_date
     ).order_by('consumed_at')
-
-    # Group by day and sum calories
     from django.db.models.functions import TruncDate
     daily_calories = food_items.annotate(
         day=TruncDate('consumed_at')
@@ -381,7 +289,6 @@ def get_calories_trend_data(request):
         total_calories=Sum('calories')
     ).order_by('day')
 
-    # Prepare data for chart
     calories_data = {
         'labels': [item['day'].strftime('%Y-%m-%d') for item in daily_calories],
         'data': [float(item['total_calories']) for item in daily_calories]
@@ -390,20 +297,12 @@ def get_calories_trend_data(request):
     return JsonResponse(calories_data)
 
 def get_macros_trend_data(request):
-    """
-    API endpoint to get macronutrient trend data for charts
-    """
-    # Get the last 30 days of data
     end_date = timezone.now()
     start_date = end_date - timedelta(days=30)
-
-    # Get all food items in the date range
     food_items = FoodItem.objects.filter(
         consumed_at__gte=start_date,
         consumed_at__lte=end_date
     ).order_by('consumed_at')
-
-    # Group by day and sum macros
     from django.db.models.functions import TruncDate
     daily_macros = food_items.annotate(
         day=TruncDate('consumed_at')
@@ -413,7 +312,6 @@ def get_macros_trend_data(request):
         total_fat=Sum('fat')
     ).order_by('day')
 
-    # Prepare data for chart
     macros_data = {
         'labels': [item['day'].strftime('%Y-%m-%d') for item in daily_macros],
         'protein': [float(item['total_protein']) for item in daily_macros],
@@ -424,19 +322,11 @@ def get_macros_trend_data(request):
     return JsonResponse(macros_data)
 
 def get_weight_data(request):
-    """
-    API endpoint to get weight data for charts
-    """
-    # Get all weight measurements, ordered by date
     weights = Weight.objects.all().order_by('recorded_at')
-
-    # Prepare data for chart
     weight_data = {
         'labels': [w.recorded_at.strftime('%Y-%m-%d') for w in weights],
         'data': [float(w.weight) for w in weights]
     }
-
-    # Add statistics
     if weights.exists():
         stats = weights.aggregate(
             avg_weight=Avg('weight'),
@@ -444,8 +334,6 @@ def get_weight_data(request):
             min_weight=Min('weight'),
             latest_weight=Max('recorded_at')
         )
-
-        # Get the latest weight measurement
         latest_weight = weights.filter(recorded_at=stats['latest_weight']).first()
 
         weight_data['stats'] = {
@@ -454,17 +342,10 @@ def get_weight_data(request):
             'min': float(stats['min_weight']),
             'latest': float(latest_weight.weight) if latest_weight else 0
         }
-
-        # Calculate weight change rate (kg per week)
         if len(weights) >= 2:
-            # Get oldest and newest weights
             oldest_weight = weights.first()
             newest_weight = weights.last()
-
-            # Calculate time difference in weeks
             time_diff = (newest_weight.recorded_at - oldest_weight.recorded_at).total_seconds() / (60 * 60 * 24 * 7)
-
-            # Avoid division by zero
             if time_diff > 0:
                 weight_change = newest_weight.weight - oldest_weight.weight
                 weight_change_rate = float(weight_change) / time_diff
@@ -529,54 +410,29 @@ def get_weight_data(request):
     return JsonResponse(weight_data)
 
 def get_weight_calories_correlation(request):
-    """
-    API endpoint to get correlation data between weight changes and calorie intake
-    """
-    # Get all weight measurements, ordered by date (oldest first)
     weights = Weight.objects.all().order_by('recorded_at')
 
     correlation_data = []
-
-    # We need at least 2 weight measurements to calculate changes
     if len(weights) >= 2:
         for i in range(1, len(weights)):
             current_weight = weights[i]
             previous_weight = weights[i-1]
-
-            # Calculate weight change
             weight_change = float(current_weight.weight) - float(previous_weight.weight)
-
-            # Get total calories consumed between these two weight measurements
-            # Use the date part of the weight measurements to include all food items for those days
             from datetime import datetime, time
-
-            # Get the date part of the previous weight measurement and set time to 00:00:00
             prev_date = previous_weight.recorded_at.date()
             prev_datetime = timezone.make_aware(datetime.combine(prev_date, time.min))
-
-            # Get the date part of the current weight measurement and set time to 23:59:59
             curr_date = current_weight.recorded_at.date()
             curr_datetime = timezone.make_aware(datetime.combine(curr_date, time.max))
-
-            # Filter food items between the two dates (inclusive of both days)
             food_items = FoodItem.objects.filter(
                 consumed_at__gte=prev_datetime,
                 consumed_at__lte=curr_datetime
             )
-
-            # Use Django's ORM aggregation to calculate total calories, consistent with food_tracker
             total_calories_result = food_items.aggregate(Sum('calories'))['calories__sum'] or 0
             total_calories = float(total_calories_result)
-
-            # Calculate days between measurements
             days_between = (current_weight.recorded_at - previous_weight.recorded_at).days
-            if days_between == 0:  # Avoid division by zero
+            if days_between == 0:
                 days_between = 1
-
-            # Calculate daily average calories (we'll still calculate it even though we won't display it)
             daily_avg_calories = float(total_calories) / days_between
-
-            # Add data to the result
             correlation_data.append({
                 'start_date': previous_weight.recorded_at.strftime('%Y-%m-%d'),
                 'end_date': current_weight.recorded_at.strftime('%Y-%m-%d'),
@@ -588,27 +444,16 @@ def get_weight_calories_correlation(request):
                 'daily_avg_calories': round(daily_avg_calories, 1),
             })
 
-    # Reverse the order of the data (newest first)
     correlation_data.reverse()
-
-    # Implement pagination
     page = request.GET.get('page', 1)
     try:
         page = int(page)
     except ValueError:
         page = 1
-
-    # Define items per page
     items_per_page = 10
-
-    # Calculate start and end indices for the current page
     start_idx = (page - 1) * items_per_page
     end_idx = start_idx + items_per_page
-
-    # Get the data for the current page
     page_data = correlation_data[start_idx:end_idx]
-
-    # Calculate total pages
     total_pages = (len(correlation_data) + items_per_page - 1) // items_per_page
 
     return JsonResponse({
@@ -622,23 +467,14 @@ def get_weight_calories_correlation(request):
     })
 
 def weight_tracker(request):
-    """
-    View for the weight tracking page.
-    Handles displaying the form, list of weight measurements, and chart,
-    as well as processing form submissions.
-    """
-    # Get all weight measurements, ordered by date (newest first)
     weights_list = Weight.objects.all().order_by('-recorded_at')
-
-    # Pagination - 10 items per page
     from django.core.paginator import Paginator
-    paginator = Paginator(weights_list, 10)  # Show 10 weights per page
+    paginator = Paginator(weights_list, 10)
 
     page_number = request.GET.get('page')
     weights = paginator.get_page(page_number)
 
     if request.method == 'POST':
-        # Handle form submission
         logger.info(f"Processing weight form submission: {request.POST}")
         form = WeightForm(request.POST)
         if form.is_valid():
@@ -646,7 +482,6 @@ def weight_tracker(request):
                 weight = form.save()
                 logger.info(f"Weight measurement saved successfully: {weight.id} - {weight.weight} kg")
                 messages.success(request, f"Weight measurement of {weight.weight} kg added successfully!")
-                # Redirect to the same page (using GET) to prevent form resubmission
                 return redirect('weight_tracker')
             except Exception as e:
                 logger.error(f"Error saving weight measurement: {str(e)}")
@@ -654,10 +489,8 @@ def weight_tracker(request):
         else:
             logger.warning(f"Invalid weight form: {form.errors}")
             messages.warning(request, "Please correct the errors in the form.")
-        # If form is invalid, it will be re-rendered with errors below
     else:
-        # Handle GET request (displaying the page)
-        form = WeightForm(initial={'recorded_at': timezone.now()})  # Create an empty form with current date/time
+        form = WeightForm(initial={'recorded_at': timezone.now()})
 
     context = {
         'form': form,
@@ -666,24 +499,15 @@ def weight_tracker(request):
     return render(request, 'count_calories_app/weight_tracker.html', context)
 
 def workout_tracker(request):
-    """
-    View for the workout tracking page.
-    Displays a list of workout sessions and a form to create a new session.
-    """
-    # Get all workout sessions, ordered by date (newest first)
     workouts = WorkoutSession.objects.all().order_by('-date')
 
     if request.method == 'POST':
-        # Handle form submission
         form = WorkoutSessionForm(request.POST)
         if form.is_valid():
             form.save()
-            # Redirect to the same page (using GET) to prevent form resubmission
             return redirect('workout_tracker')
-        # If form is invalid, it will be re-rendered with errors below
     else:
-        # Handle GET request (displaying the page)
-        form = WorkoutSessionForm(initial={'date': timezone.now()})  # Create an empty form with current date/time
+        form = WorkoutSessionForm(initial={'date': timezone.now()})
 
     context = {
         'form': form,
@@ -692,24 +516,15 @@ def workout_tracker(request):
     return render(request, 'count_calories_app/workout_tracker.html', context)
 
 def exercise_list(request):
-    """
-    View for managing exercises.
-    Displays a list of exercises and a form to create a new exercise.
-    """
-    # Get all exercises, ordered by name
     exercises = Exercise.objects.all().order_by('name')
 
     if request.method == 'POST':
-        # Handle form submission
         form = ExerciseForm(request.POST)
         if form.is_valid():
             form.save()
-            # Redirect to the same page (using GET) to prevent form resubmission
             return redirect('exercise_list')
-        # If form is invalid, it will be re-rendered with errors below
     else:
-        # Handle GET request (displaying the page)
-        form = ExerciseForm()  # Create an empty form
+        form = ExerciseForm()
 
     context = {
         'form': form,
@@ -718,9 +533,6 @@ def exercise_list(request):
     return render(request, 'count_calories_app/exercise_list.html', context)
 
 def get_workout_frequency_data(request):
-    """
-    API endpoint to get workout frequency data for charts
-    """
     # Get the last 90 days of data
     end_date = timezone.now()
     start_date = end_date - timedelta(days=90)
