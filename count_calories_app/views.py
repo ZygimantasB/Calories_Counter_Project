@@ -202,9 +202,15 @@ def food_tracker(request):
                 'days_in_range': days_in_range
             }
 
-            averages['fat_percentage'] = totals['fat_percentage']
-            averages['carbs_percentage'] = totals['carbs_percentage']
-            averages['protein_percentage'] = totals['protein_percentage']
+            avg_total_macros = averages['avg_fat'] + averages['avg_carbohydrates'] + averages['avg_protein']
+            if avg_total_macros > 0:
+                averages['fat_percentage'] = round((averages['avg_fat'] / avg_total_macros) * 100, 1)
+                averages['carbs_percentage'] = round((averages['avg_carbohydrates'] / avg_total_macros) * 100, 1)
+                averages['protein_percentage'] = round((averages['avg_protein'] / avg_total_macros) * 100, 1)
+            else:
+                averages['fat_percentage'] = 0
+                averages['carbs_percentage'] = 0
+                averages['protein_percentage'] = 0
 
     if request.method == 'POST':
         logger.info(f"Processing food item form submission: {request.POST}")
