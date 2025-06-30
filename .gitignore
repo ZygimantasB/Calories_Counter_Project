@@ -5,6 +5,7 @@ db.sqlite3
 *.jpg
 calories_counter/
 *.iml
+*.driveupload
 
 ### PyCharm+iml template
 # Covers JetBrains IDEs: IntelliJ, RubyMine, PhpStorm, AppCode, PyCharm, CLion, Android Studio, WebStorm and Rider
