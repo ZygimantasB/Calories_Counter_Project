@@ -1317,6 +1317,27 @@ def get_body_measurements_data(request):
         # Get all body measurements ordered by date
         measurements = BodyMeasurement.objects.all().order_by('date')
 
+        # Check if there are any measurements
+        if not measurements.exists():
+            return JsonResponse({
+                'dates': [],
+                'weight': [],
+                'neck': [],
+                'chest': [],
+                'belly': [],
+                'left_biceps': [],
+                'right_biceps': [],
+                'left_triceps': [],
+                'right_triceps': [],
+                'left_forearm': [],
+                'right_forearm': [],
+                'left_thigh': [],
+                'right_thigh': [],
+                'left_lower_leg': [],
+                'right_lower_leg': [],
+                'butt': [],
+            })
+
         # Get all weight measurements
         weights = Weight.objects.all()
 

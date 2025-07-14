@@ -972,17 +972,34 @@
       }
 
       // Chart setup
-      let ctx = document.getElementById('measurementsChart').getContext('2d');
       let measurementsChart;
       let chartType = document.getElementById('chartType');
       let measurementType = document.getElementById('measurementType');
 
-      // Fetch data and create chart
-      fetchMeasurementsData();
-
       // Event listeners for chart controls
       chartType.addEventListener('change', updateChart);
       measurementType.addEventListener('change', updateChart);
+
+      // Only fetch data and create chart if dashboard tab is active initially
+      if (!tabParam || tabParam === 'dashboard') {
+        fetchMeasurementsData();
+      }
+
+      // Add event listener for tab changes to initialize or redraw chart when dashboard tab is shown
+      document.getElementById('dashboard-tab').addEventListener('shown.bs.tab', function (e) {
+        if (!window.measurementsData) {
+          // If data hasn't been fetched yet, fetch it
+          fetchMeasurementsData();
+        } else {
+          // If data is already available but chart might need redrawing
+          setTimeout(function() {
+            if (measurementsChart) {
+              measurementsChart.destroy();
+            }
+            updateChart();
+          }, 50); // Small delay to ensure the tab is fully visible
+        }
+      });
 
       function fetchMeasurementsData() {
         console.log('Fetching measurements data...');
@@ -995,12 +1012,28 @@
           })
           .then(data => {
             console.log('Data received:', data);
+            // Check if data contains an error message
+            if (data.error) {
+              throw new Error(data.error);
+            }
+            // Check if data is empty or doesn't have the expected structure
+            if (!data || !data.dates || data.dates.length === 0) {
+              const chartCanvas = document.getElementById('measurementsChart');
+              if (chartCanvas) {
+                chartCanvas.innerHTML = 
+                  '<div class="alert alert-warning">No measurement data available. Please add some measurements first.</div>';
+              }
+              return;
+            }
             createChart(data);
           })
           .catch(error => {
             console.error('Error fetching measurements data:', error);
-            document.getElementById('measurementsChart').innerHTML = 
-              '<div class="alert alert-danger">Error loading chart data. Please try refreshing the page.</div>';
+            const chartCanvas = document.getElementById('measurementsChart');
+            if (chartCanvas) {
+              chartCanvas.innerHTML = 
+                '<div class="alert alert-danger">Error loading chart data. Please try refreshing the page.</div>';
+            }
           });
       }
 
@@ -1015,12 +1048,40 @@
       function updateChart() {
         console.log('Updating chart...');
         const data = window.measurementsData;
+        const chartCanvas = document.getElementById('measurementsChart');
+
+        if (!chartCanvas) {
+          console.warn('Chart canvas not found');
+          return;
+        }
+
         if (!data || !data.dates || data.dates.length === 0) {
           console.warn('No data available for chart');
-          document.getElementById('measurementsChart').innerHTML = 
+          chartCanvas.innerHTML = 
             '<div class="alert alert-warning">No measurement data available. Please add some measurements first.</div>';
           return;
         }
+
+        // Destroy previous chart if it exists to prevent memory leaks and rendering issues
+        if (measurementsChart) {
+          measurementsChart.destroy();
+        }
+
+        // Clear any previous HTML content that might interfere with the canvas
+        chartCanvas.innerHTML = '';
+
+        // Create a new canvas element to avoid any potential issues with reusing the same canvas
+        const canvasContainer = document.createElement('div');
+        canvasContainer.style.width = '100%';
+        canvasContainer.style.height = '100%';
+
+        const newCanvas = document.createElement('canvas');
+        newCanvas.id = 'measurementsChartCanvas';
+        canvasContainer.appendChild(newCanvas);
+        chartCanvas.appendChild(canvasContainer);
+
+        // Get the chart context from the new canvas
+        const ctx = newCanvas.getContext('2d');
 
         const selectedType = measurementType.value;
         const selectedChartType = chartType.value;
