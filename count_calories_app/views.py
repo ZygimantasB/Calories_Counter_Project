@@ -1233,11 +1233,23 @@ def body_measurements_tracker(request):
 
             measurements_with_arrows.append(measurement_data)
 
+        # Paginate the measurements
+        from django.core.paginator import Paginator
+        paginator = Paginator(measurements_with_arrows, 10)  # Show 10 measurements per page
+
+        page_number = request.GET.get('page')
+        page_obj = paginator.get_page(page_number)
+
+        # Get table_view parameter from request
+        table_view = request.GET.get('table_view', 'false')
+
         # Render the template with the form and measurements
         return render(request, 'count_calories_app/body_measurements_tracker.html', {
             'form': form,
-            'measurements_with_arrows': measurements_with_arrows,
+            'measurements_with_arrows': measurements_with_arrows,  # Keep the full list for charts
+            'page_obj': page_obj,  # Add paginated measurements
             'page_title': 'Body Measurements Tracker',
+            'table_view': table_view,  # Pass table view state to template
         })
     except Exception as e:
         logger.error(f"Error in body_measurements_tracker: {str(e)}")

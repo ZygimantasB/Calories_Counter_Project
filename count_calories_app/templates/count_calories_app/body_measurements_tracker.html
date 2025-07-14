@@ -422,7 +422,7 @@
           <div class="card-header text-white">
             <div class="d-flex justify-content-between align-items-center">
               <h2 class="h4 mb-0">Measurement History</h2>
-              <button class="btn btn-sm btn-outline-light" type="button" data-bs-toggle="collapse" data-bs-target="#historyTable" aria-expanded="false" aria-controls="historyTable">
+              <button id="toggleTableBtn" class="btn btn-sm btn-outline-light" type="button" data-bs-toggle="collapse" data-bs-target="#historyTable" aria-expanded="false" aria-controls="historyTable">
                 <i class="fas fa-table me-1"></i>Toggle Table View
               </button>
             </div>
@@ -430,7 +430,7 @@
           <div class="card-body">
             <!-- Timeline View -->
             <div class="measurement-timeline mb-4">
-              {% for measurement_data in measurements_with_arrows %}
+              {% for measurement_data in page_obj %}
                 <div class="measurement-history-item">
                   <div class="d-flex justify-content-between align-items-center">
                     <h5 class="mb-2">{{ measurement_data.measurement.date|date:"F j, Y" }}</h5>
@@ -522,6 +522,63 @@
                   <p>No measurements recorded yet.</p>
                 </div>
               {% endfor %}
+
+              <!-- Pagination controls for timeline view -->
+              {% if page_obj.paginator.num_pages > 1 %}
+                <div class="mt-4">
+                  <nav aria-label="Measurement history pagination">
+                    <ul class="pagination justify-content-center mb-0">
+                      {% if page_obj.has_previous %}
+                        <li class="page-item">
+                          <a class="page-link" href="?page=1&tab=history&table_view={{ table_view }}" aria-label="First">
+                            <span aria-hidden="true">&laquo;&laquo;</span>
+                          </a>
+                        </li>
+                        <li class="page-item">
+                          <a class="page-link" href="?page={{ page_obj.previous_page_number }}&tab=history&table_view={{ table_view }}" aria-label="Previous">
+                            <span aria-hidden="true">&laquo;</span>
+                          </a>
+                        </li>
+                      {% else %}
+                        <li class="page-item disabled">
+                          <span class="page-link">&laquo;&laquo;</span>
+                        </li>
+                        <li class="page-item disabled">
+                          <span class="page-link">&laquo;</span>
+                        </li>
+                      {% endif %}
+
+                      {% for i in page_obj.paginator.page_range %}
+                        {% if page_obj.number == i %}
+                          <li class="page-item active"><span class="page-link">{{ i }}</span></li>
+                        {% elif i > page_obj.number|add:'-3' and i < page_obj.number|add:'3' %}
+                          <li class="page-item"><a class="page-link" href="?page={{ i }}&tab=history&table_view={{ table_view }}">{{ i }}</a></li>
+                        {% endif %}
+                      {% endfor %}
+
+                      {% if page_obj.has_next %}
+                        <li class="page-item">
+                          <a class="page-link" href="?page={{ page_obj.next_page_number }}&tab=history&table_view={{ table_view }}" aria-label="Next">
+                            <span aria-hidden="true">&raquo;</span>
+                          </a>
+                        </li>
+                        <li class="page-item">
+                          <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&tab=history&table_view={{ table_view }}" aria-label="Last">
+                            <span aria-hidden="true">&raquo;&raquo;</span>
+                          </a>
+                        </li>
+                      {% else %}
+                        <li class="page-item disabled">
+                          <span class="page-link">&raquo;</span>
+                        </li>
+                        <li class="page-item disabled">
+                          <span class="page-link">&raquo;&raquo;</span>
+                        </li>
+                      {% endif %}
+                    </ul>
+                  </nav>
+                </div>
+              {% endif %}
             </div>
 
             <!-- Table View (Collapsed by Default) -->
@@ -545,7 +602,7 @@
                     </tr>
                   </thead>
                   <tbody>
-                    {% for measurement_data in measurements_with_arrows %}
+                    {% for measurement_data in page_obj %}
                       <tr>
                         <td>{{ measurement_data.measurement.date|date:"Y-m-d" }}</td>
                         <td>
@@ -682,6 +739,63 @@
                     {% endfor %}
                   </tbody>
                 </table>
+
+                <!-- Pagination controls for table view -->
+                {% if page_obj.paginator.num_pages > 1 %}
+                  <div class="mt-4">
+                    <nav aria-label="Measurement table pagination">
+                      <ul class="pagination justify-content-center mb-0">
+                        {% if page_obj.has_previous %}
+                          <li class="page-item">
+                            <a class="page-link" href="?page=1&tab=history&table_view={{ table_view }}" aria-label="First">
+                              <span aria-hidden="true">&laquo;&laquo;</span>
+                            </a>
+                          </li>
+                          <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}&tab=history&table_view={{ table_view }}" aria-label="Previous">
+                              <span aria-hidden="true">&laquo;</span>
+                            </a>
+                          </li>
+                        {% else %}
+                          <li class="page-item disabled">
+                            <span class="page-link">&laquo;&laquo;</span>
+                          </li>
+                          <li class="page-item disabled">
+                            <span class="page-link">&laquo;</span>
+                          </li>
+                        {% endif %}
+
+                        {% for i in page_obj.paginator.page_range %}
+                          {% if page_obj.number == i %}
+                            <li class="page-item active"><span class="page-link">{{ i }}</span></li>
+                          {% elif i > page_obj.number|add:'-3' and i < page_obj.number|add:'3' %}
+                            <li class="page-item"><a class="page-link" href="?page={{ i }}&tab=history&table_view={{ table_view }}">{{ i }}</a></li>
+                          {% endif %}
+                        {% endfor %}
+
+                        {% if page_obj.has_next %}
+                          <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}&tab=history&table_view={{ table_view }}" aria-label="Next">
+                              <span aria-hidden="true">&raquo;</span>
+                            </a>
+                          </li>
+                          <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&tab=history&table_view={{ table_view }}" aria-label="Last">
+                              <span aria-hidden="true">&raquo;&raquo;</span>
+                            </a>
+                          </li>
+                        {% else %}
+                          <li class="page-item disabled">
+                            <span class="page-link">&raquo;</span>
+                          </li>
+                          <li class="page-item disabled">
+                            <span class="page-link">&raquo;&raquo;</span>
+                          </li>
+                        {% endif %}
+                      </ul>
+                    </nav>
+                  </div>
+                {% endif %}
               </div>
             </div>
           </div>
@@ -808,6 +922,55 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', function() {
+      // Check URL parameters for active tab
+      const urlParams = new URLSearchParams(window.location.search);
+      const tabParam = urlParams.get('tab');
+      const pageParam = urlParams.get('page');
+
+      // If tab parameter exists, activate the corresponding tab
+      if (tabParam) {
+        const tabToActivate = document.getElementById(tabParam + '-tab');
+        if (tabToActivate) {
+          const tab = new bootstrap.Tab(tabToActivate);
+          tab.show();
+        }
+      }
+      // If page parameter exists but no tab parameter, activate the history tab
+      else if (pageParam) {
+        const historyTab = document.getElementById('history-tab');
+        if (historyTab) {
+          const tab = new bootstrap.Tab(historyTab);
+          tab.show();
+        }
+      }
+
+      // Handle table view state
+      const tableViewParam = urlParams.get('table_view');
+      const historyTable = document.getElementById('historyTable');
+
+      if (tableViewParam === 'true' && historyTable) {
+        // Show the table if table_view=true
+        const bsCollapse = new bootstrap.Collapse(historyTable, { toggle: false });
+        bsCollapse.show();
+      }
+
+      // Update URL when toggle button is clicked
+      const toggleTableBtn = document.getElementById('toggleTableBtn');
+      if (toggleTableBtn) {
+        toggleTableBtn.addEventListener('click', function() {
+          // Get current URL parameters
+          const currentParams = new URLSearchParams(window.location.search);
+
+          // Toggle the table_view parameter
+          const currentTableView = currentParams.get('table_view') === 'true';
+          currentParams.set('table_view', (!currentTableView).toString());
+
+          // Update URL without reloading the page
+          const newUrl = window.location.pathname + '?' + currentParams.toString();
+          window.history.replaceState({}, '', newUrl);
+        });
+      }
+
       // Chart setup
       let ctx = document.getElementById('measurementsChart').getContext('2d');
       let measurementsChart;
