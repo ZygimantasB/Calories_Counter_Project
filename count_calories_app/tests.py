@@ -839,3 +839,11 @@ class BodyMeasurementsDataAPITest(TestCase):
         self.assertEqual(data['neck'][0], 40.0)
         self.assertEqual(data['neck'][1], 39.5)
         self.assertEqual(data['neck'][2], 39.0)
+
+class GeneralTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+
+    def test_home_page_loads(self):
+        response = self.client.get(reverse('home'))
+        self.assertEqual(response.status_code, 200)
