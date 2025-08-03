@@ -28,6 +28,11 @@
             <i class="fas fa-ruler me-1"></i>Body Measurements
           </a>
         </li>
+        <li class="nav-item">
+          <a class="nav-link {% if request.path == '/top_foods/' %}active{% endif %}" href="{% url 'top_foods' %}">
+            <i class="fas fa-trophy me-1"></i>Top Foods
+          </a>
+        </li>
         <li class="nav-item dropdown">
           <a class="nav-link dropdown-toggle {% if '/workout/' in request.path or '/exercise/' in request.path or '/workout-table/' in request.path %}active{% endif %}" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
             <i class="fas fa-dumbbell me-1"></i>Workout Tracker

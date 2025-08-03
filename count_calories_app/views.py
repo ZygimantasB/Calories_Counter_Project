@@ -4,6 +4,7 @@ from datetime import timedelta
 from django.db.models import Sum, Count, Avg, Max, Min
 from django.http import JsonResponse
 from django.contrib import messages
+from django.core.paginator import Paginator
 from .models import FoodItem, Weight, Exercise, WorkoutSession, WorkoutExercise, RunningSession, WorkoutTable, BodyMeasurement
 from .forms import FoodItemForm, WeightForm, ExerciseForm, WorkoutSessionForm, WorkoutExerciseForm, RunningSessionForm, BodyMeasurementForm
 import logging
@@ -267,6 +268,74 @@ def food_tracker(request):
         else:
             form = FoodItemForm() # Create an empty form
 
+    # Top Foods Table with Pagination
+    # Get pagination parameters
+    page_number = request.GET.get('page', 1)
+    sort_by = request.GET.get('sort', 'count')  # Default sort by count
+    sort_order = request.GET.get('order', 'desc')  # Default descending order
+    
+    # Get date range for top foods (same as main food items)
+    if end_date:
+        if time_range == 'specific_date' or time_range == 'today_specific' or time_range == 'today':
+            if selected_date:
+                if hasattr(selected_date, 'date'):
+                    date_to_filter = selected_date.date()
+                else:
+                    date_to_filter = selected_date
+            else:
+                date_to_filter = now.date()
+            
+            top_foods_queryset = FoodItem.objects.annotate(
+                consumed_date=TruncDate('consumed_at')
+            ).filter(consumed_date=date_to_filter)
+        else:
+            top_foods_queryset = FoodItem.objects.filter(consumed_at__gte=start_date, consumed_at__lte=end_date)
+    else:
+        top_foods_queryset = FoodItem.objects.filter(consumed_at__gte=start_date)
+    
+    # Aggregate top foods by product name with counts and totals
+    top_foods_data = top_foods_queryset.values('product_name').annotate(
+        count=Count('id'),
+        total_calories=Sum('calories'),
+        avg_calories=Avg('calories'),
+        total_fat=Sum('fat'),
+        total_carbs=Sum('carbohydrates'),
+        total_protein=Sum('protein'),
+        latest_consumed=Max('consumed_at')
+    )
+    
+    # Apply sorting
+    if sort_by == 'count':
+        if sort_order == 'desc':
+            top_foods_data = top_foods_data.order_by('-count', '-latest_consumed')
+        else:
+            top_foods_data = top_foods_data.order_by('count', '-latest_consumed')
+    elif sort_by == 'name':
+        if sort_order == 'desc':
+            top_foods_data = top_foods_data.order_by('-product_name')
+        else:
+            top_foods_data = top_foods_data.order_by('product_name')
+    elif sort_by == 'calories':
+        if sort_order == 'desc':
+            top_foods_data = top_foods_data.order_by('-total_calories', '-count')
+        else:
+            top_foods_data = top_foods_data.order_by('total_calories', '-count')
+    elif sort_by == 'latest':
+        if sort_order == 'desc':
+            top_foods_data = top_foods_data.order_by('-latest_consumed')
+        else:
+            top_foods_data = top_foods_data.order_by('latest_consumed')
+    else:
+        # Default to count descending
+        top_foods_data = top_foods_data.order_by('-count', '-latest_consumed')
+    
+    # Implement pagination
+    paginator = Paginator(top_foods_data, 10)  # Show 10 items per page
+    try:
+        top_foods_page = paginator.page(page_number)
+    except:
+        top_foods_page = paginator.page(1)
+
     context = {
         'form': form,
         'food_items': food_items,
@@ -278,8 +347,150 @@ def food_tracker(request):
         'averages': averages if show_averages else {}, # Pass the averages to the template
         'start_date_str': start_date_str, # Pass the start date string to the template
         'end_date_str': end_date_str, # Pass the end date string to the template
+        'top_foods_page': top_foods_page,  # Paginated top foods data
+        'current_sort': sort_by,  # Current sort field
+        'current_order': sort_order,  # Current sort order
     }
     return render(request, 'count_calories_app/food_tracker.html', context)
+
+def top_foods(request):
+    """
+    View for displaying top foods eaten with pagination, date filtering, and sorting.
+    """
+    time_range = request.GET.get('range', 'today')
+    selected_date_str = request.GET.get('date')
+    start_date_str = request.GET.get('start_date')
+    end_date_str = request.GET.get('end_date')
+    page_number = request.GET.get('page', 1)
+    sort_by = request.GET.get('sort', 'count')  # Default sort by count
+    sort_order = request.GET.get('order', 'desc')  # Default descending order
+    
+    now = timezone.now()
+    start_date = now
+    end_date = None
+    selected_date = None
+    date_range_selected = False
+    
+    # Handle date filtering logic (same as food_tracker view)
+    if start_date_str and end_date_str:
+        try:
+            from datetime import datetime
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+
+            start_date = timezone.make_aware(datetime.combine(start_date, datetime.min.time()))
+            end_date = timezone.make_aware(datetime.combine(end_date, datetime.max.time()))
+
+            time_range = 'date_range'
+            date_range_selected = True
+        except (ValueError, TypeError):
+            start_date_str = None
+            end_date_str = None
+
+    elif selected_date_str:
+        try:
+            from datetime import datetime
+            selected_date = datetime.strptime(selected_date_str, '%Y-%m-%d').date()
+
+            today_date = now.date()
+            if selected_date == today_date:
+                start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+                end_date = start_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+                time_range = 'today_specific'
+            else:
+                start_date = timezone.make_aware(datetime.combine(selected_date, datetime.min.time()))
+                end_date = timezone.make_aware(datetime.combine(selected_date, datetime.max.time()))
+                time_range = 'specific_date'
+        except (ValueError, TypeError):
+            selected_date = None
+
+    if not selected_date and not date_range_selected:
+        if time_range == 'today':
+            start_date = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            end_date = start_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+        elif time_range == 'week':
+            start_date = now - timedelta(days=now.weekday())
+            start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+            end_date = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+        elif time_range == 'month':
+            start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            end_date = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+    from django.db.models.functions import TruncDate
+
+    # Get the queryset for top foods based on date filtering
+    if end_date:
+        if time_range == 'specific_date' or time_range == 'today_specific' or time_range == 'today':
+            if selected_date:
+                if hasattr(selected_date, 'date'):
+                    date_to_filter = selected_date.date()
+                else:
+                    date_to_filter = selected_date
+            else:
+                date_to_filter = now.date()
+            
+            top_foods_queryset = FoodItem.objects.annotate(
+                consumed_date=TruncDate('consumed_at')
+            ).filter(consumed_date=date_to_filter)
+        else:
+            top_foods_queryset = FoodItem.objects.filter(consumed_at__gte=start_date, consumed_at__lte=end_date)
+    else:
+        top_foods_queryset = FoodItem.objects.filter(consumed_at__gte=start_date)
+    
+    # Aggregate top foods by product name with counts and totals
+    top_foods_data = top_foods_queryset.values('product_name').annotate(
+        count=Count('id'),
+        total_calories=Sum('calories'),
+        avg_calories=Avg('calories'),
+        total_fat=Sum('fat'),
+        total_carbs=Sum('carbohydrates'),
+        total_protein=Sum('protein'),
+        latest_consumed=Max('consumed_at')
+    )
+    
+    # Apply sorting
+    if sort_by == 'count':
+        if sort_order == 'desc':
+            top_foods_data = top_foods_data.order_by('-count', '-latest_consumed')
+        else:
+            top_foods_data = top_foods_data.order_by('count', '-latest_consumed')
+    elif sort_by == 'name':
+        if sort_order == 'desc':
+            top_foods_data = top_foods_data.order_by('-product_name')
+        else:
+            top_foods_data = top_foods_data.order_by('product_name')
+    elif sort_by == 'calories':
+        if sort_order == 'desc':
+            top_foods_data = top_foods_data.order_by('-total_calories', '-count')
+        else:
+            top_foods_data = top_foods_data.order_by('total_calories', '-count')
+    elif sort_by == 'latest':
+        if sort_order == 'desc':
+            top_foods_data = top_foods_data.order_by('-latest_consumed')
+        else:
+            top_foods_data = top_foods_data.order_by('latest_consumed')
+    else:
+        # Default to count descending
+        top_foods_data = top_foods_data.order_by('-count', '-latest_consumed')
+    
+    # Implement pagination
+    paginator = Paginator(top_foods_data, 10)  # Show 10 items per page
+    try:
+        top_foods_page = paginator.page(page_number)
+    except:
+        top_foods_page = paginator.page(1)
+
+    context = {
+        'top_foods_page': top_foods_page,
+        'selected_range': time_range,
+        'selected_date': selected_date,
+        'start_date_str': start_date_str,
+        'end_date_str': end_date_str,
+        'current_sort': sort_by,
+        'current_order': sort_order,
+    }
+    
+    return render(request, 'count_calories_app/top_foods.html', context)
 
 def get_calories_trend_data(request):
     end_date = timezone.now()

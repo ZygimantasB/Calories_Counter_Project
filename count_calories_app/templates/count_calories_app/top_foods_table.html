@@ -1,0 +1,108 @@
+<!-- Top Foods Table -->
+<div class="card shadow-sm rounded mb-4">
+  <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+    <h2 class="h5 mb-0">
+      {% if selected_date %}
+        Top Foods Eaten ({{ selected_date|date:"F d, Y" }})
+      {% elif start_date_str and end_date_str %}
+        Top Foods Eaten ({{ start_date_str }} to {{ end_date_str }})
+      {% else %}
+        Top Foods Eaten ({{ selected_range|title }})
+      {% endif %}
+    </h2>
+    <div class="btn-group btn-group-sm">
+      <a href="?{% if selected_date %}date={{ selected_date|date:'Y-m-d' }}&{% elif start_date_str and end_date_str %}start_date={{ start_date_str }}&end_date={{ end_date_str }}&{% else %}range={{ selected_range }}&{% endif %}sort=count&order={% if current_sort == 'count' and current_order == 'desc' %}asc{% else %}desc{% endif %}" 
+         class="btn btn-outline-light btn-sm {% if current_sort == 'count' %}active{% endif %}">
+        Count {% if current_sort == 'count' %}{% if current_order == 'desc' %}↓{% else %}↑{% endif %}{% endif %}
+      </a>
+      <a href="?{% if selected_date %}date={{ selected_date|date:'Y-m-d' }}&{% elif start_date_str and end_date_str %}start_date={{ start_date_str }}&end_date={{ end_date_str }}&{% else %}range={{ selected_range }}&{% endif %}sort=name&order={% if current_sort == 'name' and current_order == 'desc' %}asc{% else %}desc{% endif %}" 
+         class="btn btn-outline-light btn-sm {% if current_sort == 'name' %}active{% endif %}">
+        Name {% if current_sort == 'name' %}{% if current_order == 'desc' %}↓{% else %}↑{% endif %}{% endif %}
+      </a>
+      <a href="?{% if selected_date %}date={{ selected_date|date:'Y-m-d' }}&{% elif start_date_str and end_date_str %}start_date={{ start_date_str }}&end_date={{ end_date_str }}&{% else %}range={{ selected_range }}&{% endif %}sort=calories&order={% if current_sort == 'calories' and current_order == 'desc' %}asc{% else %}desc{% endif %}" 
+         class="btn btn-outline-light btn-sm {% if current_sort == 'calories' %}active{% endif %}">
+        Calories {% if current_sort == 'calories' %}{% if current_order == 'desc' %}↓{% else %}↑{% endif %}{% endif %}
+      </a>
+    </div>
+  </div>
+  {% if top_foods_page.object_list %}
+    <div class="table-responsive">
+      <table class="table table-hover mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Food Name</th>
+            <th class="text-center">Times Eaten</th>
+            <th class="text-center">Total Calories</th>
+            <th class="text-center">Avg Calories</th>
+            <th class="text-center">Total Macros</th>
+            <th class="text-center">Last Eaten</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for food in top_foods_page.object_list %}
+            <tr>
+              <td><strong>{{ food.product_name }}</strong></td>
+              <td class="text-center">
+                <span class="badge bg-primary rounded-pill">{{ food.count }}</span>
+              </td>
+              <td class="text-center">{{ food.total_calories|floatformat:0 }} kcal</td>
+              <td class="text-center">{{ food.avg_calories|floatformat:0 }} kcal</td>
+              <td class="text-center">
+                <small class="text-muted">
+                  F: {{ food.total_fat|floatformat:1 }}g<br>
+                  C: {{ food.total_carbs|floatformat:1 }}g<br>
+                  P: {{ food.total_protein|floatformat:1 }}g
+                </small>
+              </td>
+              <td class="text-center">
+                <small class="text-muted">{{ food.latest_consumed|date:"M d, Y" }}</small>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    
+    <!-- Pagination -->
+    {% if top_foods_page.has_other_pages %}
+      <div class="card-footer">
+        <nav aria-label="Top foods pagination">
+          <ul class="pagination pagination-sm justify-content-center mb-0">
+            {% if top_foods_page.has_previous %}
+              <li class="page-item">
+                <a class="page-link" href="?{% if selected_date %}date={{ selected_date|date:'Y-m-d' }}&{% elif start_date_str and end_date_str %}start_date={{ start_date_str }}&end_date={{ end_date_str }}&{% else %}range={{ selected_range }}&{% endif %}sort={{ current_sort }}&order={{ current_order }}&page={{ top_foods_page.previous_page_number }}">Previous</a>
+              </li>
+            {% endif %}
+            
+            {% for num in top_foods_page.paginator.page_range %}
+              {% if top_foods_page.number == num %}
+                <li class="page-item active">
+                  <span class="page-link">{{ num }}</span>
+                </li>
+              {% elif num > top_foods_page.number|add:'-3' and num < top_foods_page.number|add:'3' %}
+                <li class="page-item">
+                  <a class="page-link" href="?{% if selected_date %}date={{ selected_date|date:'Y-m-d' }}&{% elif start_date_str and end_date_str %}start_date={{ start_date_str }}&end_date={{ end_date_str }}&{% else %}range={{ selected_range }}&{% endif %}sort={{ current_sort }}&order={{ current_order }}&page={{ num }}">{{ num }}</a>
+                </li>
+              {% endif %}
+            {% endfor %}
+            
+            {% if top_foods_page.has_next %}
+              <li class="page-item">
+                <a class="page-link" href="?{% if selected_date %}date={{ selected_date|date:'Y-m-d' }}&{% elif start_date_str and end_date_str %}start_date={{ start_date_str }}&end_date={{ end_date_str }}&{% else %}range={{ selected_range }}&{% endif %}sort={{ current_sort }}&order={{ current_order }}&page={{ top_foods_page.next_page_number }}">Next</a>
+              </li>
+            {% endif %}
+          </ul>
+        </nav>
+        <div class="text-center mt-2">
+          <small class="text-muted">
+            Showing {{ top_foods_page.start_index }} to {{ top_foods_page.end_index }} of {{ top_foods_page.paginator.count }} foods
+          </small>
+        </div>
+      </div>
+    {% endif %}
+  {% else %}
+    <div class="card-body text-center text-muted">
+      No foods recorded for this period.
+    </div>
+  {% endif %}
+</div>
