@@ -1086,6 +1086,13 @@
         const selectedType = measurementType.value;
         const selectedChartType = chartType.value;
         console.log('Chart type:', selectedChartType, 'Measurement type:', selectedType);
+        
+        // Enhanced debugging for Right Forearm selection
+        if (selectedType === 'right_forearm') {
+          console.log('Right Forearm selected - data preview:', data.right_forearm ? data.right_forearm.slice(0, 5) : 'No data');
+          console.log('Available data keys:', Object.keys(data));
+          console.log('Dates for reference:', data.dates ? data.dates.slice(0, 5) : 'No dates');
+        }
 
         let datasets = [];
         const colors = [
