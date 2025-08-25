@@ -1,0 +1,155 @@
+<!-- Gemini Chat Interface -->
+<div class="row mt-4">
+  <div class="col-md-6 offset-md-3">
+    <div class="card shadow-sm rounded">
+      <div class="card-header bg-warning text-dark">
+        <h2 class="h5 mb-0">🤖 AI Food Assistant</h2>
+        <small class="text-muted">Describe what you ate and I'll fill the form for you!</small>
+      </div>
+      <div class="card-body">
+        <!-- Chat messages area -->
+        <div id="chat-messages" class="mb-3" style="max-height: 200px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 0.375rem; padding: 10px; background-color: #f8f9fa;">
+          <div class="text-muted text-center">
+            <small>💬 Tell me what you ate, for example: "I had 150g grilled chicken breast" or "I ate a medium apple"</small>
+          </div>
+        </div>
+        
+        <!-- Chat input -->
+        <div class="input-group">
+          <input type="text" id="chat-input" class="form-control" placeholder="Describe what you ate..." maxlength="500">
+          <button class="btn btn-warning" type="button" onclick="sendChatMessage()">
+            <span id="send-btn-text">Send</span>
+            <span id="send-btn-spinner" class="spinner-border spinner-border-sm d-none" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </span>
+          </button>
+        </div>
+        
+        <!-- Status area -->
+        <div id="chat-status" class="mt-2"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Gemini Chat Functionality
+function addMessageToChat(message, isUser = false) {
+    const chatMessages = document.getElementById('chat-messages');
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `mb-2 ${isUser ? 'text-end' : 'text-start'}`;
+    
+    const messageBubble = document.createElement('div');
+    messageBubble.className = `d-inline-block px-3 py-2 rounded ${isUser ? 'bg-warning text-dark' : 'bg-light'}`;
+    messageBubble.style.maxWidth = '80%';
+    messageBubble.textContent = message;
+    
+    messageDiv.appendChild(messageBubble);
+    chatMessages.appendChild(messageDiv);
+    
+    // Scroll to bottom
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+
+function fillForm(data) {
+    // Fill the form fields with data from Gemini
+    const productNameField = document.getElementById('id_product_name');
+    const caloriesField = document.getElementById('id_calories');
+    const fatField = document.getElementById('id_fat');
+    const carbsField = document.getElementById('id_carbohydrates');
+    const proteinField = document.getElementById('id_protein');
+    
+    if (productNameField) productNameField.value = data.product_name || '';
+    if (caloriesField) caloriesField.value = data.calories || '';
+    if (fatField) fatField.value = data.fat || '';
+    if (carbsField) carbsField.value = data.carbohydrates || '';
+    if (proteinField) proteinField.value = data.protein || '';
+    
+    // Set current date/time for consumed_at if field exists
+    const consumedAtField = document.getElementById('id_consumed_at');
+    if (consumedAtField) {
+        const now = new Date();
+        const offset = now.getTimezoneOffset() * 60000;
+        const localISOTime = (new Date(now - offset)).toISOString().slice(0, 16);
+        consumedAtField.value = localISOTime;
+    }
+}
+
+function sendChatMessage() {
+    const chatInput = document.getElementById('chat-input');
+    const sendBtnText = document.getElementById('send-btn-text');
+    const sendBtnSpinner = document.getElementById('send-btn-spinner');
+    const chatStatus = document.getElementById('chat-status');
+    const sendBtn = document.getElementById('send-chat-btn');
+    
+    const message = chatInput.value.trim();
+    if (!message) return;
+    
+    // Add user message to chat
+    addMessageToChat(message, true);
+    
+    // Show loading state
+    sendBtn.disabled = true;
+    sendBtnText.classList.add('d-none');
+    sendBtnSpinner.classList.remove('d-none');
+    chatStatus.innerHTML = '<div class="text-info">🤖 Analyzing your food...</div>';
+    
+    // Clear input
+    chatInput.value = '';
+    
+    // Send request to Gemini API
+    fetch('/api/gemini-nutrition/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        },
+        body: JSON.stringify({
+            food_name: message
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Add AI response to chat
+            addMessageToChat(`Found nutrition info for ${data.data.product_name}! Filling the form...`, false);
+            
+            // Fill the form
+            fillForm(data.data);
+            
+            chatStatus.innerHTML = '<div class="text-success">✅ Form filled successfully! You can now add the item.</div>';
+        } else {
+            addMessageToChat(`Sorry, I couldn't get nutrition info: ${data.error}`, false);
+            chatStatus.innerHTML = '<div class="text-danger">❌ Failed to get nutrition information.</div>';
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        addMessageToChat('Sorry, something went wrong. Please try again.', false);
+        chatStatus.innerHTML = '<div class="text-danger">❌ Error occurred. Please try again.</div>';
+    })
+    .finally(() => {
+        // Reset button state
+        sendBtn.disabled = false;
+        sendBtnText.classList.remove('d-none');
+        sendBtnSpinner.classList.add('d-none');
+        
+        // Clear status after 5 seconds
+        setTimeout(() => {
+            chatStatus.innerHTML = '';
+        }, 5000);
+    });
+}
+
+// Allow sending message with Enter key
+document.addEventListener('DOMContentLoaded', function() {
+    const chatInput = document.getElementById('chat-input');
+    if (chatInput) {
+        chatInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                sendChatMessage();
+            }
+        });
+    }
+});
+</script>
