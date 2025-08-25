@@ -1,80 +1,84 @@
-# HealthTracker Pro: Your Comprehensive Fitness & Nutrition Dashboard
+# HealthTracker Pro
+Your Comprehensive Fitness & Nutrition Dashboard
 
 ![HealthTracker Pro](https://via.placeholder.com/1200x400?text=HealthTracker+Pro)
 
-## 🚀 Next-Gen Health & Fitness Tracking
+<p align="center">
+  <a href="https://www.python.org/downloads/release/python-380/"><img alt="Python" src="https://img.shields.io/badge/Python-3.8%2B-3776AB?logo=python&logoColor=white"></a>
+  <a href="https://www.djangoproject.com/"><img alt="Django" src="https://img.shields.io/badge/Django-5.1-092E20?logo=django&logoColor=white"></a>
+  <a href="#license"><img alt="License" src="https://img.shields.io/badge/License-MIT-green.svg"></a>
+  <a href="#-contributing"><img alt="PRs Welcome" src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg"></a>
+</p>
 
-HealthTracker Pro is an all-in-one solution for monitoring and optimizing your health and fitness journey. This comprehensive web application provides powerful tools for tracking nutrition, workouts, body measurements, and more, all within a sleek, user-friendly interface.
+HealthTracker Pro is an all‑in‑one web app to monitor and optimize your health journey. Track nutrition, workouts, runs, weight, and body measurements with clear visuals and a clean, user‑friendly UI.
 
-## ✨ Key Features
+---
+
+## Table of Contents
+- [Features](#-features)
+- [Tech Stack](#-tech-stack)
+- [Prerequisites](#-prerequisites)
+- [Quick Start](#-quick-start)
+- [Usage](#-usage)
+- [Roadmap](#-roadmap)
+- [Screenshots](#-screenshots)
+- [Contributing](#-contributing)
+- [License](#-license)
+- [Contact](#-contact)
+
+## ✨ Features
 
 ### 🍎 Nutrition Tracking
-- **Food Diary**: Log your meals with detailed nutritional information
-- **Macronutrient Analysis**: Track calories, protein, carbs, and fat intake
-- **Quick-Add Functionality**: Easily add frequently consumed items
-- **Visual Analytics**: Interactive charts showing nutrition trends over time
+- Food Diary: log meals with detailed nutrition
+- Macronutrient analysis: calories, protein, carbs, fat
+- Quick‑add frequently eaten items
+- Visual analytics for daily/weekly/monthly trends
 
 ### 💪 Workout Management
-- **Exercise Library**: Comprehensive database of exercises with descriptions
-- **Workout Sessions**: Record complete workout sessions with sets, reps, and weights
-- **Workout Tables**: Create and save custom workout routines
-- **Progress Tracking**: Monitor strength gains and workout frequency
+- Exercise library with descriptions
+- Record sessions: sets, reps, weights
+- Custom workout tables/routines
+- Progress tracking for strength and frequency
 
 ### 🏃‍♂️ Running Tracker
-- **Run Logging**: Record distance, duration, and notes for each run
-- **Performance Analytics**: Track pace, distance, and frequency over time
-- **Visual Progress**: Interactive charts showing running improvements
+- Log distance, duration, notes for each run
+- Analytics for pace, distance, frequency
+- Charts to visualize improvements over time
 
 ### ⚖️ Weight Tracking
-- **Weight Journal**: Log your weight measurements over time
-- **Trend Analysis**: Visualize weight changes with interactive charts
-- **Goal Setting**: Monitor progress toward weight goals
+- Weight journal with history
+- Trend analysis via interactive charts
+- Goal tracking and progress monitoring
 
 ### 📏 Body Measurements
-- **Comprehensive Tracking**: Record measurements for multiple body parts
-- **Symmetry Analysis**: Compare left and right side measurements
-- **Progress Visualization**: Track changes in body composition over time
+- Track multiple body parts
+- Symmetry comparisons (left vs right)
+- Composition and measurement change visuals
 
-## 🔮 Future Enhancements
+## 🛠 Tech Stack
+**Backend**
+- Django 5.1
+- SQLite
+- python‑decouple for environment config
+- Structured logging configuration
 
-HealthTracker Pro is continuously evolving with planned features including:
-
-- **AI-Powered Insights**: Personalized recommendations based on your data
-- **Wearable Integration**: Sync with fitness trackers and smartwatches
-- **Meal Planning**: AI-generated meal plans based on your nutritional goals
-- **Social Features**: Share achievements and compete with friends
-- **Voice Input**: Log meals and workouts using voice commands
-- **AR Workout Guide**: Visual exercise guidance using augmented reality
-- **Predictive Analytics**: Forecast your fitness progress based on current trends
-
-## 🛠️ Technologies
-
-### Backend
-- **Django 5.1**: High-level Python web framework
-- **SQLite**: Lightweight database for data storage
-- **Python-Decouple**: Secure configuration management
-- **Logging**: Comprehensive logging configuration for debugging and monitoring
-
-### Frontend
-- **Bootstrap 5**: Responsive design framework
-- **Chart.js**: Interactive data visualization
-- **Font Awesome**: Icon library
+**Frontend**
+- Bootstrap 5
+- Chart.js
+- Font Awesome
 
 ## 📋 Prerequisites
-
 - Python 3.8+
-- pip (Python package manager)
+- pip
 - Virtual environment tool (recommended)
 
-## 🔧 Installation
-
-1. **Clone the repository**
+## ⚡ Quick Start
+1) Clone the repository
    ```bash
    git clone https://github.com/ZygimantasB/Calories_Counter_Project.git
    cd Calories_Counter_Project
    ```
-
-2. **Create and activate a virtual environment**
+2) Create and activate a virtual environment
    ```bash
    # Windows
    python -m venv venv
@@ -84,75 +88,74 @@ HealthTracker Pro is continuously evolving with planned features including:
    python3 -m venv venv
    source venv/bin/activate
    ```
-
-3. **Install dependencies**
+3) Install dependencies
    ```bash
-   # Note: The project currently doesn't include a requirements.txt file.
-   # You'll need to install the following packages manually:
+   # Note: The project currently doesn't include a requirements.txt file
    pip install django python-decouple
    ```
-
-4. **Set up environment variables**
-   Create a `.env` file in the project root with:
+4) Create a .env file in the project root
    ```
    DJANGO_SECRET_KEY=your_secret_key_here
    ```
-
-5. **Run migrations**
+5) Apply migrations and run the server
    ```bash
    python manage.py migrate
-   ```
-
-6. **Start the development server**
-   ```bash
    python manage.py runserver
    ```
-
-7. **Access the application**
-   Open your browser and navigate to `http://127.0.0.1:8000/`
+6) Open http://127.0.0.1:8000/ in your browser
 
 ## 🚀 Usage
+- Dashboard: overview of your current stats
+- Food Tracking: log meals and review nutrition analytics
+- Workout Tracking: record exercises and assess progress
+- Body Stats: add weight and body measurements
 
-### Getting Started
-
-1. **Dashboard**: View your health overview on the home page
-2. **Food Tracking**: Log meals and view nutrition analytics
-3. **Workout Tracking**: Record exercises and monitor progress
-4. **Body Stats**: Track weight and body measurements
-
-> **Note**: The Django admin interface is not configured in the current implementation. All data management is handled through the custom user interface.
+Note: The Django admin is not configured in the current implementation; use the app’s built‑in UI to manage your data.
 
 ### Data Visualization
-
-HealthTracker Pro provides comprehensive analytics through interactive charts:
-- Daily/weekly/monthly nutrition breakdowns
+- Nutrition breakdowns (daily/weekly/monthly)
 - Weight trends over time
 - Workout frequency and progress
 - Running performance metrics
 - Body measurement changes
 
-## 🤝 Contributing
+## 🔮 Roadmap
+Planned enhancements include:
+- AI‑powered insights for personalized recommendations
+- Wearable integration (fitness trackers, smartwatches)
+- Meal planning guided by your nutrition goals
+- Social features (share achievements, friendly challenges)
+- Voice input for hands‑free logging
+- AR workout guidance
+- Predictive analytics to forecast progress
 
-Contributions are welcome! Here's how you can help:
+## 🖼️ Screenshots
+> Replace placeholders with real screenshots when available.
+
+| Dashboard | Nutrition | Workouts |
+| --- | --- | --- |
+| ![Dashboard](https://via.placeholder.com/300x180?text=Dashboard) | ![Nutrition](https://via.placeholder.com/300x180?text=Nutrition) | ![Workouts](https://via.placeholder.com/300x180?text=Workouts) |
+
+## 🤝 Contributing
+Contributions are welcome!
 
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Commit your changes: `git commit -m "feat: add amazing feature"`
+4. Push the branch: `git push origin feature/amazing-feature`
 5. Open a Pull Request
 
-Please ensure your code follows the project's style guidelines and includes appropriate tests.
+Please follow the project’s coding style and include appropriate tests when applicable.
 
 ## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
+This project is licensed under the MIT License — see the LICENSE file for details.
 
 ## 📬 Contact
-
-Project Link: [https://github.com/yourusername/Calories_Counter_Project](https://github.com/yourusername/Calories_Counter_Project)
+- Repository: https://github.com/ZygimantasB/Calories_Counter_Project
+- Issues: https://github.com/ZygimantasB/Calories_Counter_Project/issues
 
 ---
 
-<p align="center">
-  <strong>Transform your health journey with data-driven insights</strong>
-</p>
+<p align="center"><strong>Transform your health journey with data‑driven insights</strong></p>
+
+<sub>Last updated: 2025-08-25</sub>
