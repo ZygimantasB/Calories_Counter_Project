@@ -1,4 +1,4 @@
-from django.shortcuts import render, redirect, get_object_or_404
+﻿from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from datetime import timedelta
 from django.db.models import Sum, Count, Avg, Max, Min
@@ -15,7 +15,6 @@ from django.conf import settings
 
 logger = logging.getLogger('count_calories_app')
 
-# Configure Gemini API
 genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
 
 def home(request):
@@ -90,14 +89,10 @@ def get_gemini_nutrition(request):
         if not food_name:
             return JsonResponse({'error': 'Food name is required'}, status=400)
         
-        # Configure Gemini API key
         genai.configure(api_key=settings.GEMINI_API_KEY)
         
-        # Create the Gemini model (using Gemini 2.5 Pro as requested)
         model = genai.GenerativeModel('gemini-2.5-flash')
-        # model = genai.GenerativeModel('gemini-2.5-pro')
 
-        # Create a detailed prompt for nutritional information
         prompt = f"""
         You are a nutrition expert. Analyze this food description: "{food_name}"
         
@@ -109,7 +104,7 @@ def get_gemini_nutrition(request):
         - Lithuanian or foreign language food names, identify the foods and provide accurate values
         - No specific quantity, assume a typical serving size for that food
         
-        For complex meals like "itališkas kapotos vištienos maltinukas, šviežių daržovių salotos, virtas bulguras (iLunch)", 
+        For complex meals like "italiÅ¡kas kapotos viÅ¡tienos maltinukas, Å¡vieÅ¾iÅ³ darÅ¾oviÅ³ salotos, virtas bulguras (iLunch)", 
         break it down into components:
         - Italian chicken cutlet/meatballs
         - Fresh vegetable salad  
@@ -134,15 +129,11 @@ def get_gemini_nutrition(request):
         - Be accurate with Lithuanian food translations
         """
         
-        # Generate response from Gemini
         response = model.generate_content(prompt)
         
-        # Parse the response text to extract JSON
         response_text = response.text.strip()
         
-        # Try to extract JSON from the response
         try:
-            # Remove any markdown code block formatting
             if response_text.startswith('```json'):
                 response_text = response_text[7:]
             if response_text.endswith('```'):
@@ -150,13 +141,11 @@ def get_gemini_nutrition(request):
             
             nutrition_data = json.loads(response_text.strip())
             
-            # Validate the required fields
             required_fields = ['product_name', 'calories', 'fat', 'carbohydrates', 'protein']
             for field in required_fields:
                 if field not in nutrition_data:
                     raise ValueError(f"Missing field: {field}")
             
-            # Ensure numeric values
             for field in ['calories', 'fat', 'carbohydrates', 'protein']:
                 nutrition_data[field] = float(nutrition_data[field])
             
@@ -358,15 +347,11 @@ def food_tracker(request):
             messages.warning(request, "Please correct the errors in the form.")
     else:
         if selected_date:
-            # Create a datetime at the beginning of the selected date
             initial_datetime = timezone.make_aware(datetime.combine(selected_date, datetime.min.time()))
             form = FoodItemForm(initial={'consumed_at': initial_datetime})
-        # If selected_date is not set but selected_date_str is available, use that
         elif selected_date_str:
             try:
-                # Parse the date string into a date object
                 selected_date_from_str = datetime.strptime(selected_date_str, '%Y-%m-%d').date()
-                # Create a datetime at the beginning of the selected date
                 initial_datetime = timezone.make_aware(datetime.combine(selected_date_from_str, datetime.min.time()))
                 form = FoodItemForm(initial={'consumed_at': initial_datetime})
             except (ValueError, TypeError):
@@ -375,13 +360,10 @@ def food_tracker(request):
         else:
             form = FoodItemForm() # Create an empty form
 
-    # Top Foods Table with Pagination
-    # Get pagination parameters
     page_number = request.GET.get('page', 1)
     sort_by = request.GET.get('sort', 'count')  # Default sort by count
     sort_order = request.GET.get('order', 'desc')  # Default descending order
     
-    # Get date range for top foods (same as main food items)
     if end_date:
         if time_range == 'specific_date' or time_range == 'today_specific' or time_range == 'today':
             if selected_date:
@@ -400,7 +382,6 @@ def food_tracker(request):
     else:
         top_foods_queryset = FoodItem.objects.filter(consumed_at__gte=start_date)
     
-    # Aggregate top foods by product name with counts and totals
     top_foods_data = top_foods_queryset.values('product_name').annotate(
         count=Count('id'),
         total_calories=Sum('calories'),
@@ -411,7 +392,6 @@ def food_tracker(request):
         latest_consumed=Max('consumed_at')
     )
     
-    # Apply sorting
     if sort_by == 'count':
         if sort_order == 'desc':
             top_foods_data = top_foods_data.order_by('-count', '-latest_consumed')
@@ -433,10 +413,8 @@ def food_tracker(request):
         else:
             top_foods_data = top_foods_data.order_by('latest_consumed')
     else:
-        # Default to count descending
         top_foods_data = top_foods_data.order_by('-count', '-latest_consumed')
     
-    # Implement pagination
     paginator = Paginator(top_foods_data, 10)  # Show 10 items per page
     try:
         top_foods_page = paginator.page(page_number)
@@ -478,7 +456,6 @@ def top_foods(request):
     selected_date = None
     date_range_selected = False
     
-    # Handle date filtering logic (same as food_tracker view)
     if start_date_str and end_date_str:
         try:
             from datetime import datetime
@@ -525,7 +502,6 @@ def top_foods(request):
 
     from django.db.models.functions import TruncDate
 
-    # Get the queryset for top foods based on date filtering
     if end_date:
         if time_range == 'specific_date' or time_range == 'today_specific' or time_range == 'today':
             if selected_date:
@@ -544,7 +520,6 @@ def top_foods(request):
     else:
         top_foods_queryset = FoodItem.objects.filter(consumed_at__gte=start_date)
     
-    # Aggregate top foods by product name with counts and totals
     top_foods_data = top_foods_queryset.values('product_name').annotate(
         count=Count('id'),
         total_calories=Sum('calories'),
@@ -555,7 +530,6 @@ def top_foods(request):
         latest_consumed=Max('consumed_at')
     )
     
-    # Apply sorting
     if sort_by == 'count':
         if sort_order == 'desc':
             top_foods_data = top_foods_data.order_by('-count', '-latest_consumed')
@@ -577,10 +551,8 @@ def top_foods(request):
         else:
             top_foods_data = top_foods_data.order_by('latest_consumed')
     else:
-        # Default to count descending
         top_foods_data = top_foods_data.order_by('-count', '-latest_consumed')
     
-    # Implement pagination
     paginator = Paginator(top_foods_data, 10)  # Show 10 items per page
     try:
         top_foods_page = paginator.page(page_number)
@@ -679,7 +651,6 @@ def get_weight_data(request):
         else:
             weight_data['stats']['change_rate'] = 0
 
-        # Calculate BMI (assuming height of 175cm - this could be made configurable in user settings)
         height_in_meters = 1.75  # Default height
         latest_weight_value = float(latest_weight.weight) if latest_weight else 0
         if latest_weight_value > 0:
@@ -688,7 +659,6 @@ def get_weight_data(request):
         else:
             weight_data['stats']['bmi'] = 0
 
-        # Calculate weight consistency (standard deviation)
         if len(weights) >= 3:
             import numpy as np
             weight_values = [float(w.weight) for w in weights]
@@ -696,21 +666,17 @@ def get_weight_data(request):
         else:
             weight_data['stats']['consistency'] = 0
 
-        # Calculate projected weight in 4 weeks based on current trend
         if weight_data['stats']['change_rate'] != 0:
             projected_weight = latest_weight_value + (weight_data['stats']['change_rate'] * 4)
             weight_data['stats']['projected_weight'] = round(projected_weight, 1)
         else:
             weight_data['stats']['projected_weight'] = latest_weight_value
 
-        # Calculate weight goal metrics (assuming goal is to lose weight to 70kg)
         weight_goal = 70.0  # Default goal weight
         if latest_weight_value > weight_goal and weight_data['stats']['change_rate'] < 0:
-            # If losing weight and current weight is above goal
             weeks_to_goal = (latest_weight_value - weight_goal) / abs(weight_data['stats']['change_rate'])
             weight_data['stats']['weeks_to_goal'] = round(weeks_to_goal, 1)
 
-            # Calculate goal date
             import datetime
             goal_date = latest_weight.recorded_at + datetime.timedelta(weeks=weeks_to_goal)
             weight_data['stats']['goal_date'] = goal_date.strftime('%Y-%m-%d')
@@ -857,17 +823,14 @@ def exercise_list(request):
     return render(request, 'count_calories_app/exercise_list.html', context)
 
 def get_workout_frequency_data(request):
-    # Get the last 90 days of data
     end_date = timezone.now()
     start_date = end_date - timedelta(days=90)
 
-    # Get all workouts in the date range
     workouts = WorkoutSession.objects.filter(
         date__gte=start_date,
         date__lte=end_date
     ).order_by('date')
 
-    # Group by day and count workouts
     from django.db.models.functions import TruncDate
     daily_workouts = workouts.annotate(
         day=TruncDate('date')
@@ -875,7 +838,6 @@ def get_workout_frequency_data(request):
         count=Count('id')
     ).order_by('day')
 
-    # Prepare data for chart
     workout_data = {
         'labels': [item['day'].strftime('%Y-%m-%d') for item in daily_workouts],
         'data': [item['count'] for item in daily_workouts]
@@ -893,22 +855,18 @@ def get_exercise_progress_data(request, exercise_id=None):
     if not exercise_id:
         return JsonResponse({'error': 'No exercise ID provided'}, status=400)
 
-    # Get the exercise or return 404
     exercise = get_object_or_404(Exercise, id=exercise_id)
 
-    # Get all workout exercises for this exercise
     workout_exercises = WorkoutExercise.objects.filter(
         exercise_id=exercise_id
     ).order_by('workout__date')
 
-    # Prepare data for chart
     progress_data = {
         'exercise_name': exercise.name,
         'labels': [we.workout.date.strftime('%Y-%m-%d') for we in workout_exercises],
         'weight': [float(we.weight) if we.weight else 0 for we in workout_exercises],
         'sets': [we.sets for we in workout_exercises],
         'reps': [we.reps for we in workout_exercises],
-        # Calculate volume (weight * sets * reps)
         'volume': [float(we.weight) * we.sets * we.reps if we.weight else 0 for we in workout_exercises]
     }
 
@@ -918,20 +876,15 @@ def edit_food_item(request, food_item_id):
     """
     View for editing a food item.
     """
-    # Get the food item or return 404 if not found
     food_item = get_object_or_404(FoodItem, id=food_item_id)
 
     if request.method == 'POST':
-        # Handle form submission
         form = FoodItemForm(request.POST, instance=food_item)
         if form.is_valid():
             form.save()
             messages.success(request, 'Food item updated successfully!')
-            # Redirect to the food tracker page
             return redirect('food_tracker')
-        # If form is invalid, it will be re-rendered with errors below
     else:
-        # Handle GET request (displaying the page)
         form = FoodItemForm(instance=food_item)
 
     context = {
@@ -945,14 +898,11 @@ def delete_food_item(request, food_item_id):
     """
     View for deleting a food item.
     """
-    # Get the food item or return 404 if not found
     food_item = get_object_or_404(FoodItem, id=food_item_id)
 
     if request.method == 'POST':
-        # Delete the food item
         food_item.delete()
         messages.success(request, 'Food item deleted successfully!')
-        # Redirect to the food tracker page
         return redirect('food_tracker')
 
     context = {
@@ -964,20 +914,15 @@ def edit_weight(request, weight_id):
     """
     View for editing a weight measurement.
     """
-    # Get the weight measurement or return 404 if not found
     weight = get_object_or_404(Weight, id=weight_id)
 
     if request.method == 'POST':
-        # Handle form submission
         form = WeightForm(request.POST, instance=weight)
         if form.is_valid():
             form.save()
             messages.success(request, 'Weight measurement updated successfully!')
-            # Redirect to the weight tracker page
             return redirect('weight_tracker')
-        # If form is invalid, it will be re-rendered with errors below
     else:
-        # Handle GET request (displaying the page)
         form = WeightForm(instance=weight)
 
     context = {
@@ -991,14 +936,11 @@ def delete_weight(request, weight_id):
     """
     View for deleting a weight measurement.
     """
-    # Get the weight measurement or return 404 if not found
     weight = get_object_or_404(Weight, id=weight_id)
 
     if request.method == 'POST':
-        # Delete the weight measurement
         weight.delete()
         messages.success(request, 'Weight measurement deleted successfully!')
-        # Redirect to the weight tracker page
         return redirect('weight_tracker')
 
     context = {
@@ -1011,7 +953,6 @@ def workout_table(request):
     View for the Excel-like workout table interface.
     Allows users to create and manage workout tables with exercises and workout data.
     """
-    # Get all workout tables, ordered by date (newest first)
     workout_tables = WorkoutTable.objects.all().order_by('-created_at')
 
     context = {
@@ -1033,7 +974,6 @@ def save_workout_table(request):
             table_data = data.get('data', {})
 
             if table_id:
-                # Update existing table
                 try:
                     table = WorkoutTable.objects.get(id=table_id)
                     table.name = table_name
@@ -1045,7 +985,6 @@ def save_workout_table(request):
                     logger.error(f"Workout table not found: {table_id}")
                     return JsonResponse({'success': False, 'message': 'Workout table not found'}, status=404)
             else:
-                # Create new table
                 table = WorkoutTable.objects.create(
                     name=table_name,
                     table_data=table_data
@@ -1068,38 +1007,29 @@ def get_workout_tables(request):
         tables_data = []
 
         for table in workout_tables:
-            # Log the raw table data for debugging
             logger.info(f"Raw table_data for table {table.id}: {table.table_data}")
 
-            # Ensure table_data is properly parsed as JSON
             table_data = table.table_data
 
-            # If table_data is a string (which might happen if it wasn't properly parsed),
-            # try to parse it as JSON
             if isinstance(table_data, str):
                 try:
                     table_data = json.loads(table_data)
                     logger.info(f"Successfully parsed table_data as JSON for table {table.id}")
                 except json.JSONDecodeError:
                     logger.error(f"Error parsing table_data as JSON for table {table.id}")
-                    # If parsing fails, use the original data
                     pass
 
-            # Check if the data might be double-encoded
             if isinstance(table_data, dict) and 'workouts' in table_data and 'exercises' in table_data:
                 logger.info(f"Table {table.id} has proper structure with workouts and exercises")
             else:
                 logger.warning(f"Table {table.id} data structure might be incorrect: {table_data}")
-                # Try to fix the data structure if possible
                 if isinstance(table_data, str):
                     try:
-                        # Try parsing again in case it's double-encoded
                         table_data = json.loads(table_data)
                         logger.info(f"Fixed double-encoded JSON for table {table.id}")
                     except json.JSONDecodeError:
                         logger.error(f"Failed to fix double-encoded JSON for table {table.id}")
 
-                # If table_data is still not a dict with the expected structure, try to create a valid structure
                 if not isinstance(table_data, dict) or 'workouts' not in table_data or 'exercises' not in table_data:
                     logger.warning(f"Creating default structure for table {table.id}")
                     table_data = {
@@ -1144,27 +1074,18 @@ def workout_detail(request, workout_id):
     View for a specific workout session.
     Displays details of the workout and a form to add exercises to it.
     """
-    # Get the workout session or return 404 if not found
     workout = get_object_or_404(WorkoutSession, id=workout_id)
 
-    # Get all exercises in this workout
     workout_exercises = WorkoutExercise.objects.filter(workout=workout).order_by('id')
 
     if request.method == 'POST':
-        # Handle form submission
         form = WorkoutExerciseForm(request.POST)
         if form.is_valid():
-            # Save the form but don't commit to database yet
             workout_exercise = form.save(commit=False)
-            # Set the workout field to the current workout
             workout_exercise.workout = workout
-            # Now save to database
             workout_exercise.save()
-            # Redirect to the same page (using GET) to prevent form resubmission
             return redirect('workout_detail', workout_id=workout_id)
-        # If form is invalid, it will be re-rendered with errors below
     else:
-        # Handle GET request (displaying the page)
         form = WorkoutExerciseForm()  # Create an empty form
 
     context = {
@@ -1180,17 +1101,14 @@ def running_tracker(request):
     Handles displaying the form, list of running sessions, and charts,
     as well as processing form submissions.
     """
-    # Get the minimum distance filter from the request, default to 3 km
     min_distance = request.GET.get('min_distance', 3)
     try:
         min_distance = float(min_distance)
     except ValueError:
         min_distance = 3
 
-    # Get running sessions with distance >= min_distance, ordered by date (newest first)
     running_sessions = RunningSession.objects.filter(distance__gte=min_distance).order_by('-date')
 
-    # Calculate speed for each running session
     running_sessions_with_speed = []
     highest_speed_session = None
     lowest_speed_session = None
@@ -1203,14 +1121,12 @@ def running_tracker(request):
             'speed': 0  # Default value
         }
 
-        # Calculate speed in km/h
         duration_seconds = session.duration.total_seconds()
         if duration_seconds > 0:  # Avoid division by zero
             hours = duration_seconds / 3600  # Convert seconds to hours
             speed = float(session.distance) / hours
             session_data['speed'] = round(speed, 1)  # Round to 1 decimal place
 
-            # Track highest and lowest speed sessions
             if speed > highest_speed:
                 highest_speed = speed
                 highest_speed_session = session_data
@@ -1221,7 +1137,6 @@ def running_tracker(request):
         running_sessions_with_speed.append(session_data)
 
     if request.method == 'POST':
-        # Handle form submission
         logger.info(f"Processing running session form submission: {request.POST}")
         form = RunningSessionForm(request.POST)
         if form.is_valid():
@@ -1229,7 +1144,6 @@ def running_tracker(request):
                 running_session = form.save()
                 logger.info(f"Running session saved successfully: {running_session.id} - {running_session.distance} km")
                 messages.success(request, f"Running session of {running_session.distance} km added successfully!")
-                # Redirect to the same page (using GET) to prevent form resubmission
                 return redirect('running_tracker')
             except Exception as e:
                 logger.error(f"Error saving running session: {str(e)}")
@@ -1237,9 +1151,7 @@ def running_tracker(request):
         else:
             logger.warning(f"Invalid running session form: {form.errors}")
             messages.warning(request, "Please correct the errors in the form.")
-        # If form is invalid, it will be re-rendered with errors below
     else:
-        # Handle GET request (displaying the page)
         form = RunningSessionForm(initial={'date': timezone.now()})  # Create an empty form with current date/time
 
     context = {
@@ -1255,20 +1167,15 @@ def edit_running_session(request, running_session_id):
     """
     View for editing a running session.
     """
-    # Get the running session or return 404 if not found
     running_session = get_object_or_404(RunningSession, id=running_session_id)
 
     if request.method == 'POST':
-        # Handle form submission
         form = RunningSessionForm(request.POST, instance=running_session)
         if form.is_valid():
             form.save()
             messages.success(request, 'Running session updated successfully!')
-            # Redirect to the running tracker page
             return redirect('running_tracker')
-        # If form is invalid, it will be re-rendered with errors below
     else:
-        # Handle GET request (displaying the page)
         form = RunningSessionForm(instance=running_session)
 
     context = {
@@ -1282,14 +1189,11 @@ def delete_running_session(request, running_session_id):
     """
     View for deleting a running session.
     """
-    # Get the running session or return 404 if not found
     running_session = get_object_or_404(RunningSession, id=running_session_id)
 
     if request.method == 'POST':
-        # Delete the running session
         running_session.delete()
         messages.success(request, 'Running session deleted successfully!')
-        # Redirect to the running tracker page
         return redirect('running_tracker')
 
     context = {
@@ -1301,52 +1205,42 @@ def hide_from_quick_list(request, food_item_id):
     """
     View for hiding a food item from the quick list.
     """
-    # Get the food item or return 404 if not found
     food_item = get_object_or_404(FoodItem, id=food_item_id)
 
-    # Set hide_from_quick_list to True
     food_item.hide_from_quick_list = True
     food_item.save()
 
-    # Check if this is an AJAX request
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
     if is_ajax:
-        # Return a JSON response for AJAX requests
         return JsonResponse({
             'success': True,
             'message': f"'{food_item.product_name}' has been hidden from the quick list."
         })
     else:
-        # Return a success message for regular requests
         messages.success(request, f"'{food_item.product_name}' has been hidden from the quick list.")
 
-        # Redirect back to the food tracker page
         return redirect('food_tracker')
 
 def get_running_data(request):
     """
     API endpoint to get running data for charts
     """
-    # Get the last 90 days of data
     end_date = timezone.now()
     start_date = end_date - timedelta(days=90)
 
-    # Get the minimum distance filter from the request, default to 3 km
     min_distance = request.GET.get('min_distance', 3)
     try:
         min_distance = float(min_distance)
     except ValueError:
         min_distance = 3
 
-    # Get running sessions in the date range with distance >= min_distance
     running_sessions = RunningSession.objects.filter(
         date__gte=start_date,
         date__lte=end_date,
         distance__gte=min_distance
     ).order_by('date')
 
-    # Calculate stats
     stats = {
         'total_distance': 0,
         'total_sessions': 0,
@@ -1362,7 +1256,6 @@ def get_running_data(request):
         'fastest_pace': 0,  # Fastest pace (min/km)
     }
 
-    # Prepare data for chart
     labels = []
     distances = []
     durations = []
@@ -1370,15 +1263,12 @@ def get_running_data(request):
     speeds = []  # Speed in km/h
     calories = []  # Estimated calories burned
 
-    # For weekly and monthly aggregation
     weekly_distances = {}
     monthly_distances = {}
 
-    # For pace improvement calculation
     first_pace = None
     last_pace = None
 
-    # For fastest pace and longest run
     fastest_pace_value = float('inf')
     longest_run_distance = 0
 
@@ -1386,54 +1276,44 @@ def get_running_data(request):
         labels.append(session.date.strftime('%Y-%m-%d'))
         distances.append(float(session.distance))
 
-        # Convert duration to minutes for the chart
         duration_minutes = session.duration.total_seconds() / 60
         durations.append(duration_minutes)
 
-        # Calculate pace (minutes per km)
         if float(session.distance) > 0:
             pace = duration_minutes / float(session.distance)
             paces.append(pace)
 
-            # Track first and last pace for improvement calculation
             if first_pace is None:
                 first_pace = pace
             last_pace = pace
 
-            # Track fastest pace
             if pace < fastest_pace_value:
                 fastest_pace_value = pace
         else:
             paces.append(0)
 
-        # Calculate speed (km/h)
         if duration_minutes > 0:
             speed = float(session.distance) / (duration_minutes / 60)
             speeds.append(speed)
         else:
             speeds.append(0)
 
-        # Estimate calories burned (rough estimate: ~60 calories per km)
         calorie_estimate = float(session.distance) * 60
         calories.append(calorie_estimate)
 
-        # Track longest run
         if float(session.distance) > longest_run_distance:
             longest_run_distance = float(session.distance)
 
-        # Aggregate by week
         week_key = session.date.strftime('%Y-%W')
         if week_key not in weekly_distances:
             weekly_distances[week_key] = 0
         weekly_distances[week_key] += float(session.distance)
 
-        # Aggregate by month
         month_key = session.date.strftime('%Y-%m')
         if month_key not in monthly_distances:
             monthly_distances[month_key] = 0
         monthly_distances[month_key] += float(session.distance)
 
-    # Calculate stats if we have data
     if running_sessions:
         stats['total_distance'] = sum(distances)
         stats['total_sessions'] = len(running_sessions)
@@ -1441,33 +1321,25 @@ def get_running_data(request):
         total_duration_minutes = sum(durations)
         stats['avg_duration'] = total_duration_minutes / stats['total_sessions']
 
-        # Calculate average speed in km/h
-        # Convert duration from minutes to hours for speed calculation
         total_duration_hours = total_duration_minutes / 60
         if total_duration_hours > 0:  # Avoid division by zero
             stats['avg_speed'] = stats['total_distance'] / total_duration_hours
 
-        # Calculate average pace in min/km
         if stats['total_distance'] > 0:
             stats['avg_pace'] = total_duration_minutes / stats['total_distance']
 
-        # Calculate total calories burned
         stats['total_calories'] = sum(calories)
 
-        # Calculate weekly and monthly averages
         if weekly_distances:
             stats['weekly_distance'] = sum(weekly_distances.values()) / len(weekly_distances)
 
         if monthly_distances:
             stats['monthly_distance'] = sum(monthly_distances.values()) / len(monthly_distances)
 
-        # Calculate pace improvement (if we have at least 2 sessions)
         if first_pace is not None and last_pace is not None and first_pace > 0:
-            # Negative value means improvement (less time per km)
             improvement_percentage = ((last_pace - first_pace) / first_pace) * 100
             stats['pace_improvement'] = -improvement_percentage  # Invert so positive means improvement
 
-        # Set longest run and fastest pace
         stats['longest_run'] = longest_run_distance
         stats['fastest_pace'] = fastest_pace_value if fastest_pace_value != float('inf') else 0
 
@@ -1488,10 +1360,8 @@ def body_measurements_tracker(request):
     View for the body measurements tracker page.
     """
     try:
-        # Get all body measurements ordered by date (newest first)
         measurements = BodyMeasurement.objects.all().order_by('-date')
 
-        # Handle form submission for adding new measurements
         if request.method == 'POST':
             form = BodyMeasurementForm(request.POST)
             if form.is_valid():
@@ -1499,13 +1369,10 @@ def body_measurements_tracker(request):
                 messages.success(request, 'Body measurements added successfully!')
                 return redirect('body_measurements_tracker')
         else:
-            # Pre-populate the date field with the current date and time
             form = BodyMeasurementForm(initial={'date': timezone.now()})
 
-        # Get all weight measurements
         weights = Weight.objects.all()
 
-        # Calculate comparison data for arrows
         measurements_with_arrows = []
         for i, measurement in enumerate(measurements):
             measurement_data = {
@@ -1514,18 +1381,14 @@ def body_measurements_tracker(request):
                 'weight': None
             }
 
-            # Find weight for the same date
-            # Get just the date part, handling both datetime and date objects
             measurement_date = measurement.date.date() if hasattr(measurement.date, 'date') else measurement.date
             matching_weight = weights.filter(recorded_at__date=measurement_date).first()
             if matching_weight:
                 measurement_data['weight'] = matching_weight.weight
 
-            # If there's a next measurement (chronologically previous), compare values
             if i < len(measurements) - 1:
                 next_measurement = measurements[i + 1]
 
-                # Compare each field
                 for field in ['neck', 'chest', 'belly', 'left_biceps', 'right_biceps', 
                              'left_triceps', 'right_triceps', 'left_forearm', 'right_forearm',
                              'left_thigh', 'right_thigh', 'left_lower_leg', 'right_lower_leg', 'butt']:
@@ -1538,9 +1401,7 @@ def body_measurements_tracker(request):
                         elif current_value < next_value:
                             measurement_data['arrows'][field] = 'down'
 
-            # Compare weight if available
             if i < len(measurements) - 1 and measurement_data['weight'] is not None:
-                # Get just the date part, handling both datetime and date objects
                 next_measurement_date = measurements[i + 1].date.date() if hasattr(measurements[i + 1].date, 'date') else measurements[i + 1].date
                 next_matching_weight = weights.filter(recorded_at__date=next_measurement_date).first()
                 if next_matching_weight:
@@ -1551,17 +1412,14 @@ def body_measurements_tracker(request):
 
             measurements_with_arrows.append(measurement_data)
 
-        # Paginate the measurements
         from django.core.paginator import Paginator
         paginator = Paginator(measurements_with_arrows, 10)  # Show 10 measurements per page
 
         page_number = request.GET.get('page')
         page_obj = paginator.get_page(page_number)
 
-        # Get table_view parameter from request
         table_view = request.GET.get('table_view', 'false')
 
-        # Render the template with the form and measurements
         return render(request, 'count_calories_app/body_measurements_tracker.html', {
             'form': form,
             'measurements_with_arrows': measurements_with_arrows,  # Keep the full list for charts
@@ -1579,10 +1437,8 @@ def edit_body_measurement(request, measurement_id):
     View for editing an existing body measurement.
     """
     try:
-        # Get the measurement to edit
         measurement = get_object_or_404(BodyMeasurement, id=measurement_id)
 
-        # Handle form submission
         if request.method == 'POST':
             form = BodyMeasurementForm(request.POST, instance=measurement)
             if form.is_valid():
@@ -1592,7 +1448,6 @@ def edit_body_measurement(request, measurement_id):
         else:
             form = BodyMeasurementForm(instance=measurement)
 
-        # Render the template with the form
         return render(request, 'count_calories_app/edit_body_measurement.html', {
             'form': form,
             'measurement': measurement,
@@ -1608,16 +1463,13 @@ def delete_body_measurement(request, measurement_id):
     View for deleting a body measurement.
     """
     try:
-        # Get the measurement to delete
         measurement = get_object_or_404(BodyMeasurement, id=measurement_id)
 
-        # Handle form submission
         if request.method == 'POST':
             measurement.delete()
             messages.success(request, 'Body measurements deleted successfully!')
             return redirect('body_measurements_tracker')
 
-        # Render the confirmation template
         return render(request, 'count_calories_app/delete_body_measurement.html', {
             'measurement': measurement,
             'page_title': 'Delete Body Measurements',
@@ -1632,10 +1484,8 @@ def get_body_measurements_data(request):
     API endpoint to get body measurements data for charts.
     """
     try:
-        # Get all body measurements ordered by date
         measurements = BodyMeasurement.objects.all().order_by('date')
 
-        # Check if there are any measurements
         if not measurements.exists():
             return JsonResponse({
                 'dates': [],
@@ -1656,10 +1506,8 @@ def get_body_measurements_data(request):
                 'butt': [],
             })
 
-        # Get all weight measurements
         weights = Weight.objects.all()
 
-        # Prepare data for charts
         dates = [m.date.strftime('%Y-%m-%d') for m in measurements]
         neck_data = [float(m.neck) if m.neck else None for m in measurements]
         chest_data = [float(m.chest) if m.chest else None for m in measurements]
@@ -1676,10 +1524,8 @@ def get_body_measurements_data(request):
         right_lower_leg_data = [float(m.right_lower_leg) if m.right_lower_leg else None for m in measurements]
         butt_data = [float(m.butt) if m.butt else None for m in measurements]
 
-        # Get weight data for each measurement date
         weight_data = []
         for m in measurements:
-            # Get just the date part, handling both datetime and date objects
             measurement_date = m.date.date() if hasattr(m.date, 'date') else m.date
             matching_weight = weights.filter(recorded_at__date=measurement_date).first()
             if matching_weight:
@@ -1687,7 +1533,6 @@ def get_body_measurements_data(request):
             else:
                 weight_data.append(None)
 
-        # Return the data as JSON
         return JsonResponse({
             'dates': dates,
             'weight': weight_data,

@@ -1,5 +1,4 @@
-# F:\Python GitHub ZygimantasB\Calories_Counter_Project\count_calories_app\forms.py
-from django import forms
+﻿from django import forms
 from .models import FoodItem, Weight, Exercise, WorkoutSession, WorkoutExercise, RunningSession, BodyMeasurement
 
 class FoodItemForm(forms.ModelForm):
@@ -9,7 +8,6 @@ class FoodItemForm(forms.ModelForm):
     class Meta:
         model = FoodItem
         fields = ['product_name', 'calories', 'fat', 'carbohydrates', 'protein', 'consumed_at']
-        # You can customize widgets if needed, e.g., using NumberInput for numeric fields
         widgets = {
             'product_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'e.g., Apple, Chicken Breast'}),
             'calories': forms.NumberInput(attrs={'class': 'form-control', 'min': '0', 'step': '0.01'}),

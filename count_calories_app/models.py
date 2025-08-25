@@ -1,4 +1,4 @@
-from django.db import models
+﻿from django.db import models
 from django.utils import timezone
 import json
 
@@ -109,7 +109,6 @@ class WorkoutTable(models.Model):
     """
     name = models.CharField(max_length=200, help_text="Name of the workout table")
     created_at = models.DateTimeField(default=timezone.now, help_text="Date and time the table was created")
-    # Store the table data as JSON
     table_data = models.JSONField(help_text="JSON representation of the table data")
 
     def __str__(self):

@@ -1,4 +1,4 @@
-from django.test import TestCase, Client
+﻿from django.test import TestCase, Client
 from django.urls import reverse
 from django.utils import timezone
 from datetime import timedelta, datetime
@@ -25,7 +25,6 @@ from .forms import (
     BodyMeasurementForm
 )
 
-# Model Tests
 class FoodItemModelTest(TestCase):
     def setUp(self):
         self.food_item = FoodItem.objects.create(
@@ -205,7 +204,6 @@ class BodyMeasurementModelTest(TestCase):
         expected_str = f"Body measurements on {self.body_measurement.date.strftime('%Y-%m-%d')}"
         self.assertEqual(str(self.body_measurement), expected_str)
 
-# Form Tests
 class FoodItemFormTest(TestCase):
     def test_valid_form(self):
         data = {
@@ -220,7 +218,6 @@ class FoodItemFormTest(TestCase):
         self.assertTrue(form.is_valid())
 
     def test_invalid_form(self):
-        # Missing required field 'product_name'
         data = {
             'calories': 100.5,
             'fat': 5.25,
@@ -243,7 +240,6 @@ class WeightFormTest(TestCase):
         self.assertTrue(form.is_valid())
 
     def test_invalid_form(self):
-        # Missing required field 'weight'
         data = {
             'recorded_at': timezone.now(),
             'notes': 'Test weight measurement'
@@ -263,7 +259,6 @@ class ExerciseFormTest(TestCase):
         self.assertTrue(form.is_valid())
 
     def test_invalid_form(self):
-        # Missing required field 'name'
         data = {
             'muscle_group': 'Chest',
             'description': 'Lie on a bench and press the weight upward'
@@ -283,7 +278,6 @@ class WorkoutSessionFormTest(TestCase):
         self.assertTrue(form.is_valid())
 
     def test_valid_form_without_name(self):
-        # Name is optional
         data = {
             'date': timezone.now(),
             'notes': 'Test workout session'
@@ -292,7 +286,6 @@ class WorkoutSessionFormTest(TestCase):
         self.assertTrue(form.is_valid())
 
     def test_invalid_form(self):
-        # Missing required field 'date'
         data = {
             'name': 'Morning Workout',
             'notes': 'Test workout session'
@@ -320,7 +313,6 @@ class WorkoutExerciseFormTest(TestCase):
         self.assertTrue(form.is_valid())
 
     def test_valid_form_without_weight(self):
-        # Weight is optional
         data = {
             'exercise': self.exercise.id,
             'sets': 3,
@@ -331,7 +323,6 @@ class WorkoutExerciseFormTest(TestCase):
         self.assertTrue(form.is_valid())
 
     def test_invalid_form(self):
-        # Missing required field 'exercise'
         data = {
             'sets': 3,
             'reps': 10,
@@ -354,7 +345,6 @@ class RunningSessionFormTest(TestCase):
         self.assertTrue(form.is_valid())
 
     def test_invalid_form_missing_distance(self):
-        # Missing required field 'distance'
         data = {
             'date': timezone.now(),
             'duration': '00:30:00',
@@ -365,7 +355,6 @@ class RunningSessionFormTest(TestCase):
         self.assertIn('distance', form.errors)
 
     def test_invalid_form_missing_duration(self):
-        # Missing required field 'duration'
         data = {
             'date': timezone.now(),
             'distance': 5.5,
@@ -392,7 +381,6 @@ class BodyMeasurementFormTest(TestCase):
         self.assertTrue(form.is_valid())
 
     def test_valid_form_with_partial_data(self):
-        # All measurement fields are optional
         data = {
             'date': timezone.now(),
             'neck': 40.5,
@@ -403,7 +391,6 @@ class BodyMeasurementFormTest(TestCase):
         self.assertTrue(form.is_valid())
 
     def test_invalid_form(self):
-        # Missing required field 'date'
         data = {
             'neck': 40.5,
             'chest': 100.5,
@@ -414,7 +401,6 @@ class BodyMeasurementFormTest(TestCase):
         self.assertFalse(form.is_valid())
         self.assertIn('date', form.errors)
 
-# View Tests
 class HomeViewTest(TestCase):
     def setUp(self):
         self.client = Client()
@@ -460,7 +446,6 @@ class FoodTrackerViewTest(TestCase):
         self.assertTrue(FoodItem.objects.filter(product_name='New Test Food').exists())
 
     def test_food_tracker_post_invalid(self):
-        # Missing required field 'product_name'
         data = {
             'calories': 200.5,
             'fat': 10.25,
@@ -502,7 +487,6 @@ class WeightTrackerViewTest(TestCase):
         self.assertTrue(Weight.objects.filter(weight=80.5).exists())
 
     def test_weight_tracker_post_invalid(self):
-        # Missing required field 'weight'
         data = {
             'recorded_at': timezone.now().strftime('%Y-%m-%d %H:%M:%S'),
             'notes': 'New test weight measurement'
@@ -540,7 +524,6 @@ class WorkoutTrackerViewTest(TestCase):
         self.assertTrue(WorkoutSession.objects.filter(name='New Test Workout').exists())
 
     def test_workout_tracker_post_invalid(self):
-        # Missing required field 'date'
         data = {
             'name': 'New Test Workout',
             'notes': 'New test workout session'
@@ -580,7 +563,6 @@ class RunningTrackerViewTest(TestCase):
         self.assertTrue(RunningSession.objects.filter(distance=10.5).exists())
 
     def test_running_tracker_post_invalid(self):
-        # Missing required field 'distance'
         data = {
             'date': timezone.now().strftime('%Y-%m-%d %H:%M:%S'),
             'duration': '00:45:00',
@@ -623,7 +605,6 @@ class BodyMeasurementsTrackerViewTest(TestCase):
         self.assertTrue(BodyMeasurement.objects.filter(neck=41.5).exists())
 
     def test_body_measurements_tracker_post_invalid(self):
-        # Missing required field 'date'
         data = {
             'neck': 41.5,
             'chest': 101.5,
@@ -634,7 +615,6 @@ class BodyMeasurementsTrackerViewTest(TestCase):
         self.assertEqual(response.status_code, 200)  # Stay on the same page
         self.assertFalse(BodyMeasurement.objects.filter(neck=41.5).exists())
 
-# API Endpoint Tests
 class NutritionDataAPITest(TestCase):
     def setUp(self):
         self.client = Client()
@@ -642,7 +622,6 @@ class NutritionDataAPITest(TestCase):
         self.today = timezone.now()
         self.yesterday = self.today - timedelta(days=1)
 
-        # Create food items for today
         FoodItem.objects.create(
             product_name="Today Food 1",
             calories=100.50,
@@ -660,7 +639,6 @@ class NutritionDataAPITest(TestCase):
             consumed_at=self.today
         )
 
-        # Create food items for yesterday
         FoodItem.objects.create(
             product_name="Yesterday Food",
             calories=150.50,
@@ -678,7 +656,6 @@ class NutritionDataAPITest(TestCase):
         self.assertIn('data', data)
         self.assertEqual(data['labels'], ['Protein', 'Carbs', 'Fat'])
 
-        # Check that only today's food items are included
         today_protein = 8.50 + 15.50
         today_carbs = 10.75 + 20.75
         today_fat = 5.25 + 10.25
@@ -692,14 +669,11 @@ class NutritionDataAPITest(TestCase):
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
 
-        # Instead of checking exact values, which might be affected by date filtering,
-        # verify that the data structure is correct and values are positive
         self.assertIn('labels', data)
         self.assertIn('data', data)
         self.assertEqual(data['labels'], ['Protein', 'Carbs', 'Fat'])
         self.assertEqual(len(data['data']), 3)
 
-        # Verify that all values are positive numbers
         for value in data['data']:
             self.assertGreater(value, 0)
 
@@ -708,7 +682,6 @@ class WeightDataAPITest(TestCase):
         self.client = Client()
         self.url = reverse('weight_data')
 
-        # Create weight measurements
         self.weight1 = Weight.objects.create(
             weight=75.5,
             recorded_at=timezone.now() - timedelta(days=10),
@@ -734,11 +707,9 @@ class WeightDataAPITest(TestCase):
         self.assertIn('data', data)
         self.assertIn('stats', data)
 
-        # Check that all weight measurements are included
         self.assertEqual(len(data['labels']), 3)
         self.assertEqual(len(data['data']), 3)
 
-        # Check stats
         self.assertEqual(data['stats']['avg'], float((75.5 + 74.5 + 73.5) / 3))
         self.assertEqual(data['stats']['max'], 75.5)
         self.assertEqual(data['stats']['min'], 73.5)
@@ -749,7 +720,6 @@ class RunningDataAPITest(TestCase):
         self.client = Client()
         self.url = reverse('running_data')
 
-        # Create running sessions
         self.running1 = RunningSession.objects.create(
             date=timezone.now() - timedelta(days=10),
             distance=5.0,
@@ -781,11 +751,9 @@ class RunningDataAPITest(TestCase):
         self.assertIn('speeds', data)
         self.assertIn('stats', data)
 
-        # Check that all running sessions are included
         self.assertEqual(len(data['labels']), 3)
         self.assertEqual(len(data['distances']), 3)
 
-        # Check stats
         self.assertEqual(data['stats']['total_distance'], 22.5)
         self.assertEqual(data['stats']['total_sessions'], 3)
         self.assertEqual(data['stats']['avg_distance'], 7.5)
@@ -796,7 +764,6 @@ class BodyMeasurementsDataAPITest(TestCase):
         self.client = Client()
         self.url = reverse('body_measurements_data')
 
-        # Create body measurements
         self.measurement1 = BodyMeasurement.objects.create(
             date=timezone.now() - timedelta(days=10),
             neck=40.0,
@@ -829,13 +796,11 @@ class BodyMeasurementsDataAPITest(TestCase):
         self.assertIn('chest', data)
         self.assertIn('belly', data)
 
-        # Check that all measurements are included
         self.assertEqual(len(data['dates']), 3)
         self.assertEqual(len(data['neck']), 3)
         self.assertEqual(len(data['chest']), 3)
         self.assertEqual(len(data['belly']), 3)
 
-        # Check values
         self.assertEqual(data['neck'][0], 40.0)
         self.assertEqual(data['neck'][1], 39.5)
         self.assertEqual(data['neck'][2], 39.0)
