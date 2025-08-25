@@ -9,8 +9,14 @@ from .models import FoodItem, Weight, Exercise, WorkoutSession, WorkoutExercise,
 from .forms import FoodItemForm, WeightForm, ExerciseForm, WorkoutSessionForm, WorkoutExerciseForm, RunningSessionForm, BodyMeasurementForm
 import logging
 import json
+import google.generativeai as genai
+import os
+from django.conf import settings
 
 logger = logging.getLogger('count_calories_app')
+
+# Configure Gemini API
+genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
 
 def home(request):
     return render(request, 'count_calories_app/home.html')
@@ -69,6 +75,107 @@ def get_nutrition_data(request):
     }
 
     return JsonResponse(nutrition_data)
+
+def get_gemini_nutrition(request):
+    """
+    API endpoint to get nutritional information from Gemini AI
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Only POST method allowed'}, status=405)
+    
+    try:
+        data = json.loads(request.body)
+        food_name = data.get('food_name', '').strip()
+        
+        if not food_name:
+            return JsonResponse({'error': 'Food name is required'}, status=400)
+        
+        # Configure Gemini API key
+        genai.configure(api_key=settings.GEMINI_API_KEY)
+        
+        # Create the Gemini model (using Gemini 2.5 Pro as requested)
+        model = genai.GenerativeModel('gemini-2.5-flash')
+        # model = genai.GenerativeModel('gemini-2.5-pro')
+
+        # Create a detailed prompt for nutritional information
+        prompt = f"""
+        You are a nutrition expert. Analyze this food description: "{food_name}"
+        
+        IMPORTANT: Calculate nutritional values for the EXACT quantity mentioned in the description, not per 100g.
+        
+        If the description contains:
+        - A specific quantity (like "150g", "2 pieces", "1 cup"), calculate for that exact amount
+        - Multiple foods or a complex meal, sum up the nutrition from all components
+        - Lithuanian or foreign language food names, identify the foods and provide accurate values
+        - No specific quantity, assume a typical serving size for that food
+        
+        For complex meals like "itališkas kapotos vištienos maltinukas, šviežių daržovių salotos, virtas bulguras (iLunch)", 
+        break it down into components:
+        - Italian chicken cutlet/meatballs
+        - Fresh vegetable salad  
+        - Cooked bulgur
+        And sum the nutritional values of all components for a typical meal portion.
+        
+        Return ONLY this JSON format with no additional text:
+        {{
+            "product_name": "{food_name}",
+            "calories": <total_calories_for_specified_amount>,
+            "fat": <total_fat_grams_for_specified_amount>,
+            "carbohydrates": <total_carbs_grams_for_specified_amount>,
+            "protein": <total_protein_grams_for_specified_amount>
+        }}
+        
+        Rules:
+        - All values must be numbers (not strings)
+        - Calculate for the ACTUAL quantity/serving mentioned, not per 100g
+        - For complex meals, sum all components
+        - If quantity is unclear, use realistic serving sizes
+        - Fat, carbs, protein in grams; calories in kcal
+        - Be accurate with Lithuanian food translations
+        """
+        
+        # Generate response from Gemini
+        response = model.generate_content(prompt)
+        
+        # Parse the response text to extract JSON
+        response_text = response.text.strip()
+        
+        # Try to extract JSON from the response
+        try:
+            # Remove any markdown code block formatting
+            if response_text.startswith('```json'):
+                response_text = response_text[7:]
+            if response_text.endswith('```'):
+                response_text = response_text[:-3]
+            
+            nutrition_data = json.loads(response_text.strip())
+            
+            # Validate the required fields
+            required_fields = ['product_name', 'calories', 'fat', 'carbohydrates', 'protein']
+            for field in required_fields:
+                if field not in nutrition_data:
+                    raise ValueError(f"Missing field: {field}")
+            
+            # Ensure numeric values
+            for field in ['calories', 'fat', 'carbohydrates', 'protein']:
+                nutrition_data[field] = float(nutrition_data[field])
+            
+            return JsonResponse({
+                'success': True,
+                'data': nutrition_data
+            })
+            
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.error(f"Error parsing Gemini response: {e}, Response: {response_text}")
+            return JsonResponse({
+                'error': 'Failed to parse nutritional information from AI response'
+            }, status=500)
+            
+    except Exception as e:
+        logger.error(f"Error getting nutrition from Gemini: {e}")
+        return JsonResponse({
+            'error': 'Failed to get nutritional information'
+        }, status=500)
 
 def food_tracker(request):
     time_range = request.GET.get('range', 'today')
