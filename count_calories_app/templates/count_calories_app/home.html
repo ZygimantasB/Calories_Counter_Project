@@ -1,197 +1,154 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Calories Counter - Home{% endblock %}
+{% block title %}Home{% endblock %}
 
 {% block css_files %}
   {{ block.super }}
   <link rel="stylesheet" href="{% static 'count_calories_app/count_calories_app.css' %}">
-  <style>
-    .feature-icon {
-      font-size: 2.5rem;
-      color: #28a745;
-      margin-bottom: 1rem;
-    }
-    .feature-card {
-      transition: transform 0.3s ease;
-    }
-    .feature-card:hover {
-      transform: translateY(-5px);
-    }
-    .hero-section {
-      background-color: #f8f9fa;
-      padding: 3rem 0;
-      border-radius: 0.5rem;
-    }
-  </style>
 {% endblock %}
 
 {% block content %}
-  <!-- Hero Section -->
-  <div class="hero-section mb-5">
-    <div class="container">
-      <div class="row align-items-center">
-        <div class="col-lg-6">
-          <h1 class="display-4 fw-bold mb-3">Welcome to Calories Counter</h1>
-          <p class="lead mb-4">Your comprehensive health and fitness tracking solution to help you achieve your wellness goals.</p>
-          <div class="d-grid gap-2 d-md-flex justify-content-md-start">
-            <a href="{% url 'food_tracker' %}" class="btn btn-primary btn-lg px-4 me-md-2">Get Started with Food Tracking</a>
+<div class="container-fluid">
+  <div class="py-3">
+    <h1 class="h3 mb-1">Welcome back</h1>
+    <p class="text-muted mb-4">Quick access to your trackers and the latest features.</p>
+  </div>
+
+  <div class="row g-3">
+    <!-- Food Tracker -->
+    <div class="col-12 col-lg-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+          <div>
+            <h2 class="h5 mb-0">Food Tracker</h2>
+            <small class="text-white-50">AI assistant, charts, daily/weekly/monthly filters</small>
+          </div>
+          <div class="btn-group btn-group-sm">
+            <a class="btn btn-warning text-dark" href="{% url 'food_tracker' %}?range=today&export=csv">Download Today CSV</a>
+            <a class="btn btn-light" href="{% url 'food_tracker' %}">Open</a>
           </div>
         </div>
-        <div class="col-lg-6 d-flex justify-content-center">
-          <div class="text-center">
-            <i class="fas fa-heartbeat fa-7x text-success mb-3"></i>
-            <h3>Track. Analyze. Improve.</h3>
+        <div class="card-body">
+          <ul class="mb-0">
+            <li>Describe meals with the AI Food Assistant to auto‑fill nutrients.</li>
+            <li>View nutrition overview with macro charts and trends.</li>
+            <li>Filter by Today, Week, Month, specific date, or custom range.</li>
+            <li>Quick add frequently used foods and hide from quick list.</li>
+            <li>Export filtered entries to CSV for analysis.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Top Foods -->
+    <div class="col-12 col-lg-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+          <div>
+            <h2 class="h5 mb-0">Top Foods</h2>
+            <small class="text-white-50">Counts, calories, sorting and pagination</small>
           </div>
+          <div class="btn-group btn-group-sm">
+            <a class="btn btn-warning text-dark" href="{% url 'top_foods' %}?range=today&export=csv">Download Today CSV</a>
+            <a class="btn btn-light" href="{% url 'top_foods' %}">Open</a>
+          </div>
+        </div>
+        <div class="card-body">
+          <ul class="mb-0">
+            <li>See the most frequently eaten foods for any period.</li>
+            <li>Sort by count, name, total calories, or latest consumed.</li>
+            <li>Paginated table with quick CSV export of current view.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Weight Tracker -->
+    <div class="col-12 col-lg-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+          <div>
+            <h2 class="h5 mb-0">Weight Tracker</h2>
+            <small class="text-white-50">Charts, stats, trend and CSV export</small>
+          </div>
+          <div class="btn-group btn-group-sm">
+            <a class="btn btn-warning text-dark" href="{% url 'weight_tracker' %}?export=csv">Download CSV</a>
+            <a class="btn btn-light" href="{% url 'weight_tracker' %}">Open</a>
+          </div>
+        </div>
+        <div class="card-body">
+          <ul class="mb-0">
+            <li>Visualize history and key stats (avg, min, max, latest, BMI).</li>
+            <li>Change rate, consistency, and goal projections.</li>
+            <li>Export all or date‑filtered data to CSV.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Workouts -->
+    <div class="col-12 col-lg-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+          <div>
+            <h2 class="h5 mb-0">Workouts</h2>
+            <small class="text-white-50">Sessions, tables and exercise list</small>
+          </div>
+          <div class="btn-group btn-group-sm">
+            <a class="btn btn-light" href="{% url 'workout_tracker' %}">Sessions</a>
+            <a class="btn btn-light" href="{% url 'workout_table' %}">Tables</a>
+            <a class="btn btn-light" href="{% url 'exercise_list' %}">Exercises</a>
+          </div>
+        </div>
+        <div class="card-body">
+          <ul class="mb-0">
+            <li>Track workouts with exercises, sets, reps and weights.</li>
+            <li>Create and manage workout tables for structured plans.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Running Tracker -->
+    <div class="col-12 col-lg-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center">
+          <div>
+            <h2 class="h5 mb-0">Running Tracker</h2>
+            <small class="text-muted">Distance, duration and notes</small>
+          </div>
+          <div class="btn-group btn-group-sm">
+            <a class="btn btn-dark" href="{% url 'running_tracker' %}">Open</a>
+          </div>
+        </div>
+        <div class="card-body">
+          <ul class="mb-0">
+            <li>Log running sessions and monitor progress.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Body Measurements -->
+    <div class="col-12 col-lg-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+          <div>
+            <h2 class="h5 mb-0">Body Measurements</h2>
+            <small class="text-white-50">Track measurements over time</small>
+          </div>
+          <div class="btn-group btn-group-sm">
+            <a class="btn btn-light" href="{% url 'body_measurements_tracker' %}">Open</a>
+          </div>
+        </div>
+        <div class="card-body">
+          <ul class="mb-0">
+            <li>Record multiple measurements (neck, chest, waist, limbs, etc.).</li>
+          </ul>
         </div>
       </div>
     </div>
   </div>
-
-  <!-- Features Section -->
-  <div class="container mb-5">
-    <h2 class="text-center mb-4">What You Can Do</h2>
-    <div class="row g-4">
-      <div class="col-md-6 col-lg-3">
-        <div class="card h-100 shadow-sm feature-card">
-          <div class="card-body text-center">
-            <div class="feature-icon">
-              <i class="fas fa-utensils"></i>
-            </div>
-            <h3 class="h5">Food Tracker</h3>
-            <p>Log your meals, track calories and macronutrients, and monitor your daily intake.</p>
-            <a href="{% url 'food_tracker' %}" class="btn btn-outline-success">Track Food</a>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-6 col-lg-3">
-        <div class="card h-100 shadow-sm feature-card">
-          <div class="card-body text-center">
-            <div class="feature-icon">
-              <i class="fas fa-weight"></i>
-            </div>
-            <h3 class="h5">Weight Tracker</h3>
-            <p>Record your weight measurements and visualize your progress over time.</p>
-            <a href="{% url 'weight_tracker' %}" class="btn btn-outline-success">Track Weight</a>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-6 col-lg-3">
-        <div class="card h-100 shadow-sm feature-card">
-          <div class="card-body text-center">
-            <div class="feature-icon">
-              <i class="fas fa-dumbbell"></i>
-            </div>
-            <h3 class="h5">Workout Tracker</h3>
-            <p>Log your workouts, track exercises, and monitor your strength progress.</p>
-            <a href="{% url 'workout_tracker' %}" class="btn btn-outline-success">Track Workouts</a>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-6 col-lg-3">
-        <div class="card h-100 shadow-sm feature-card">
-          <div class="card-body text-center">
-            <div class="feature-icon">
-              <i class="fas fa-running"></i>
-            </div>
-            <h3 class="h5">Running Tracker</h3>
-            <p>Record your runs, track distance, time, and calories burned.</p>
-            <a href="{% url 'running_tracker' %}" class="btn btn-outline-success">Track Running</a>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-6 col-lg-3">
-        <div class="card h-100 shadow-sm feature-card">
-          <div class="card-body text-center">
-            <div class="feature-icon">
-              <i class="fas fa-ruler-combined"></i>
-            </div>
-            <h3 class="h5">Body Measurements</h3>
-            <p>Track your body measurements and visualize your progress over time.</p>
-            <a href="{% url 'body_measurements_tracker' %}" class="btn btn-outline-success">Track Measurements</a>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- About Section -->
-  <div class="container mb-5">
-    <div class="row">
-      <div class="col-lg-8 mx-auto">
-        <div class="card shadow-sm">
-          <div class="card-header bg-success text-white">
-            <h2 class="h4 mb-0">About Calories Counter</h2>
-          </div>
-          <div class="card-body">
-            <p>Calories Counter is a comprehensive health and fitness tracking application designed to help you monitor and improve your overall wellness. Whether you're looking to lose weight, gain muscle, or simply maintain a healthy lifestyle, our app provides the tools you need to track your progress and achieve your goals.</p>
-
-            <h3 class="h5 mt-4">Why Use Calories Counter?</h3>
-            <ul>
-              <li><strong>All-in-One Solution:</strong> Track your food intake, weight, workouts, running activities, and body measurements all in one place.</li>
-              <li><strong>Data Visualization:</strong> View your progress through intuitive charts and graphs.</li>
-              <li><strong>Personalized Tracking:</strong> Set your own goals and track your progress towards them.</li>
-              <li><strong>Easy to Use:</strong> Simple and intuitive interface makes tracking your health and fitness easy.</li>
-            </ul>
-
-            <h3 class="h5 mt-4">How to Get Started</h3>
-            <p>Getting started with Calories Counter is easy! Simply click on one of the tracking features above to begin logging your data. You can start with food tracking to monitor your calorie intake, or jump straight to tracking your workouts or runs.</p>
-
-            <div class="text-center mt-4">
-              <a href="{% url 'food_tracker' %}" class="btn btn-success">Start Tracking Now</a>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Testimonials Section (Placeholder) -->
-  <div class="container mb-5">
-    <h2 class="text-center mb-4">What Our Users Say</h2>
-    <div class="row">
-      <div class="col-md-4 mb-4">
-        <div class="card h-100 shadow-sm">
-          <div class="card-body">
-            <div class="d-flex justify-content-center mb-3">
-              <i class="fas fa-quote-left fa-2x text-muted"></i>
-            </div>
-            <p class="card-text text-center">"Calories Counter has helped me lose 10 pounds in just 2 months! The food tracking feature is so easy to use, and I love being able to see my progress over time."</p>
-            <div class="text-center">
-              <h5 class="card-title mb-0">John D.</h5>
-              <small class="text-muted">User since 2023</small>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-4 mb-4">
-        <div class="card h-100 shadow-sm">
-          <div class="card-body">
-            <div class="d-flex justify-content-center mb-3">
-              <i class="fas fa-quote-left fa-2x text-muted"></i>
-            </div>
-            <p class="card-text text-center">"I've tried many fitness apps, but Calories Counter is by far the most comprehensive. I can track everything in one place, which makes staying on top of my health goals so much easier."</p>
-            <div class="text-center">
-              <h5 class="card-title mb-0">Sarah M.</h5>
-              <small class="text-muted">User since 2022</small>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-4 mb-4">
-        <div class="card h-100 shadow-sm">
-          <div class="card-body">
-            <div class="d-flex justify-content-center mb-3">
-              <i class="fas fa-quote-left fa-2x text-muted"></i>
-            </div>
-            <p class="card-text text-center">"The workout tracking feature has been a game-changer for my fitness routine. I can see my progress over time, which keeps me motivated to continue pushing myself."</p>
-            <div class="text-center">
-              <h5 class="card-title mb-0">Michael T.</h5>
-              <small class="text-muted">User since 2023</small>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+</div>
 {% endblock %}
