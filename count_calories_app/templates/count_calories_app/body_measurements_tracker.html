@@ -107,7 +107,14 @@
 
 {% block content %}
   <div class="container mt-4">
-    <h1 class="mb-4">Body Measurements Tracker</h1>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h1 class="mb-0">Body Measurements Tracker</h1>
+      <div class="btn-group">
+        <a href="{% url 'export_body_measurements_csv' %}" class="btn btn-success">
+          <i class="fas fa-file-csv me-1"></i> Download CSV
+        </a>
+      </div>
+    </div>
 
     <!-- Main Tabs -->
     <ul class="nav nav-tabs mb-4" id="measurementTabs" role="tablist">

@@ -1658,3 +1658,58 @@ def get_body_measurements_data(request):
     except Exception as e:
         logger.error(f"Error in get_body_measurements_data: {str(e)}")
         return JsonResponse({'error': str(e)}, status=500)
+
+
+
+def export_body_measurements_csv(request):
+    """
+    Export all body measurements as CSV with a matched weight column by date.
+    """
+    try:
+        measurements = BodyMeasurement.objects.all().order_by('-date')
+        weights = Weight.objects.all()
+
+        response = HttpResponse(content_type='text/csv')
+        filename = timezone.now().strftime('body_measurements_%Y-%m-%d.csv')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+
+        writer = csv.writer(response)
+        header = [
+            'Date', 'Weight (kg)', 'Neck (cm)', 'Chest (cm)', 'Belly/Waist (cm)',
+            'Left Biceps (cm)', 'Right Biceps (cm)', 'Left Triceps (cm)', 'Right Triceps (cm)',
+            'Left Forearm (cm)', 'Right Forearm (cm)', 'Left Thigh (cm)', 'Right Thigh (cm)',
+            'Left Lower Leg (cm)', 'Right Lower Leg (cm)', 'Butt/Glutes (cm)', 'Notes'
+        ]
+        writer.writerow(header)
+
+        for m in measurements:
+            measurement_date = m.date.date() if hasattr(m.date, 'date') else m.date
+            matching_weight = weights.filter(recorded_at__date=measurement_date).first()
+            weight_value = float(matching_weight.weight) if matching_weight else ''
+
+            row = [
+                m.date.strftime('%Y-%m-%d'),
+                weight_value,
+                float(m.neck) if m.neck is not None else '',
+                float(m.chest) if m.chest is not None else '',
+                float(m.belly) if m.belly is not None else '',
+                float(m.left_biceps) if m.left_biceps is not None else '',
+                float(m.right_biceps) if m.right_biceps is not None else '',
+                float(m.left_triceps) if m.left_triceps is not None else '',
+                float(m.right_triceps) if m.right_triceps is not None else '',
+                float(m.left_forearm) if m.left_forearm is not None else '',
+                float(m.right_forearm) if m.right_forearm is not None else '',
+                float(m.left_thigh) if m.left_thigh is not None else '',
+                float(m.right_thigh) if m.right_thigh is not None else '',
+                float(m.left_lower_leg) if m.left_lower_leg is not None else '',
+                float(m.right_lower_leg) if m.right_lower_leg is not None else '',
+                float(m.butt) if m.butt is not None else '',
+                (m.notes or '').replace('\r', ' ').replace('\n', ' ').strip()
+            ]
+            writer.writerow(row)
+
+        return response
+    except Exception as e:
+        logger.error(f"Error exporting body measurements CSV: {str(e)}")
+        messages.error(request, f"An error occurred while exporting CSV: {str(e)}")
+        return redirect('body_measurements_tracker')
