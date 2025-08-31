@@ -2,7 +2,7 @@
 from django.utils import timezone
 from datetime import timedelta
 from django.db.models import Sum, Count, Avg, Max, Min
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.contrib import messages
 from django.core.paginator import Paginator
 from .models import FoodItem, Weight, Exercise, WorkoutSession, WorkoutExercise, RunningSession, WorkoutTable, BodyMeasurement
@@ -11,6 +11,7 @@ import logging
 import json
 import google.generativeai as genai
 import os
+import csv
 from django.conf import settings
 
 logger = logging.getLogger('count_calories_app')
@@ -245,6 +246,35 @@ def food_tracker(request):
     else:
         food_items = FoodItem.objects.filter(consumed_at__gte=start_date)
 
+    # CSV export for Food Tracker (respects current filters)
+    export = request.GET.get('export')
+    if export == 'csv':
+        # Build filename based on selected filters
+        def _date_label():
+            try:
+                if start_date_str and end_date_str:
+                    return f"{start_date_str}_to_{end_date_str}"
+                if selected_date_str:
+                    return str(selected_date_str)
+                return time_range
+            except Exception:
+                return time_range
+        filename = f"food_items_{_date_label()}.csv"
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        writer = csv.writer(response)
+        writer.writerow(['Consumed At', 'Product Name', 'Calories', 'Fat (g)', 'Carbs (g)', 'Protein (g)'])
+        for fi in food_items.order_by('consumed_at').iterator():
+            writer.writerow([
+                fi.consumed_at.strftime('%Y-%m-%d %H:%M:%S') if fi.consumed_at else '',
+                fi.product_name,
+                float(fi.calories or 0),
+                float(fi.fat or 0),
+                float(fi.carbohydrates or 0),
+                float(fi.protein or 0),
+            ])
+        return response
+
     from django.db.models import Max
     product_names = FoodItem.objects.filter(
         hide_from_quick_list=False
@@ -449,6 +479,7 @@ def top_foods(request):
     page_number = request.GET.get('page', 1)
     sort_by = request.GET.get('sort', 'count')  # Default sort by count
     sort_order = request.GET.get('order', 'desc')  # Default descending order
+    export = request.GET.get('export')  # If 'csv', return CSV
     
     now = timezone.now()
     start_date = now
@@ -552,6 +583,36 @@ def top_foods(request):
             top_foods_data = top_foods_data.order_by('latest_consumed')
     else:
         top_foods_data = top_foods_data.order_by('-count', '-latest_consumed')
+
+    # CSV export (fast, respects current filters and sorting)
+    if export == 'csv':
+        # Build filename based on selected filters
+        def _date_label():
+            try:
+                if start_date_str and end_date_str:
+                    return f"{start_date_str}_to_{end_date_str}"
+                if selected_date_str:
+                    return str(selected_date_str)
+                return time_range
+            except Exception:
+                return time_range
+        filename = f"top_foods_{_date_label()}.csv"
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        writer = csv.writer(response)
+        writer.writerow(['Product Name', 'Times Eaten', 'Total Calories', 'Average Calories', 'Total Fat (g)', 'Total Carbs (g)', 'Total Protein (g)', 'Latest Consumed'])
+        for item in top_foods_data.iterator():
+            writer.writerow([
+                item['product_name'],
+                item['count'],
+                float(item['total_calories'] or 0),
+                float(item['avg_calories'] or 0),
+                float(item['total_fat'] or 0),
+                float(item['total_carbs'] or 0),
+                float(item['total_protein'] or 0),
+                item['latest_consumed'].strftime('%Y-%m-%d %H:%M:%S') if item['latest_consumed'] else ''
+            ])
+        return response
     
     paginator = Paginator(top_foods_data, 10)  # Show 10 items per page
     try:
@@ -757,7 +818,50 @@ def get_weight_calories_correlation(request):
     })
 
 def weight_tracker(request):
+    # Optional CSV export for fast download
+    export = request.GET.get('export')
+    start_date_str = request.GET.get('start_date')
+    end_date_str = request.GET.get('end_date')
+
     weights_list = Weight.objects.all().order_by('-recorded_at')
+
+    # Apply optional date filtering for export convenience (YYYY-MM-DD)
+    if export == 'csv' and (start_date_str or end_date_str):
+        try:
+            from datetime import datetime
+            if start_date_str:
+                sd = datetime.strptime(start_date_str, '%Y-%m-%d')
+                from django.utils.timezone import make_aware
+                from datetime import time
+                weights_list = weights_list.filter(recorded_at__gte=make_aware(datetime.combine(sd.date(), time.min)))
+            if end_date_str:
+                ed = datetime.strptime(end_date_str, '%Y-%m-%d')
+                from django.utils.timezone import make_aware
+                from datetime import time
+                weights_list = weights_list.filter(recorded_at__lte=make_aware(datetime.combine(ed.date(), time.max)))
+        except Exception:
+            pass
+
+    if export == 'csv':
+        # Export in chronological order for analysis
+        qs = weights_list.order_by('recorded_at').values_list('recorded_at', 'weight', 'notes')
+        def _date_label():
+            if start_date_str and end_date_str:
+                return f"{start_date_str}_to_{end_date_str}"
+            return 'all'
+        filename = f"weights_{_date_label()}.csv"
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        writer = csv.writer(response)
+        writer.writerow(['Recorded At', 'Weight (kg)', 'Notes'])
+        for recorded_at, weight, notes in qs.iterator():
+            writer.writerow([
+                recorded_at.strftime('%Y-%m-%d %H:%M:%S') if recorded_at else '',
+                float(weight) if weight is not None else '',
+                notes or ''
+            ])
+        return response
+
     from django.core.paginator import Paginator
     paginator = Paginator(weights_list, 10)
 

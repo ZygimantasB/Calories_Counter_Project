@@ -23,6 +23,9 @@
          class="btn btn-outline-light btn-sm {% if current_sort == 'calories' %}active{% endif %}">
         Calories {% if current_sort == 'calories' %}{% if current_order == 'desc' %}↓{% else %}↑{% endif %}{% endif %}
       </a>
+      <a href="?{% if selected_date %}date={{ selected_date|date:'Y-m-d' }}&{% elif start_date_str and end_date_str %}start_date={{ start_date_str }}&end_date={{ end_date_str }}&{% else %}range={{ selected_range }}&{% endif %}sort={{ current_sort }}&order={{ current_order }}&export=csv" class="btn btn-warning btn-sm">
+        Download CSV
+      </a>
     </div>
   </div>
   {% if top_foods_page.object_list %}

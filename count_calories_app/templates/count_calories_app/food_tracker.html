@@ -198,8 +198,9 @@
 
       <!-- Nutrition Charts -->
       <div class="card shadow-sm rounded mb-4">
-        <div class="card-header bg-success text-white">
+        <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
           <h2 class="h5 mb-0">Nutrition Overview</h2>
+          <a href="?{% if selected_date %}date={{ selected_date|date:'Y-m-d' }}&{% elif start_date_str and end_date_str %}start_date={{ start_date_str }}&end_date={{ end_date_str }}&{% else %}range={{ selected_range }}&{% endif %}export=csv" class="btn btn-warning btn-sm text-dark">Download CSV</a>
         </div>
         <div class="card-body">
           <div class="chart-container">
