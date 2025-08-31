@@ -28,6 +28,10 @@
       color: red;
       margin-left: 5px;
     }
+    .arrow-equal {
+      color: #6c757d;
+      margin-left: 5px;
+    }
     .card {
       box-shadow: 0 4px 8px rgba(0,0,0,0.1);
       transition: transform 0.3s;
@@ -618,6 +622,8 @@
                             <i class="fas fa-arrow-up arrow-up"></i>
                           {% elif measurement_data.arrows.weight == 'down' %}
                             <i class="fas fa-arrow-down arrow-down"></i>
+                          {% elif measurement_data.arrows.weight == 'equal' %}
+                            <span class="arrow-equal">=</span>
                           {% endif %}
                         </td>
                         <td>
@@ -626,6 +632,8 @@
                             <i class="fas fa-arrow-up arrow-up"></i>
                           {% elif measurement_data.arrows.neck == 'down' %}
                             <i class="fas fa-arrow-down arrow-down"></i>
+                          {% elif measurement_data.arrows.neck == 'equal' %}
+                            <span class="arrow-equal">=</span>
                           {% endif %}
                         </td>
                         <td>
@@ -634,6 +642,8 @@
                             <i class="fas fa-arrow-up arrow-up"></i>
                           {% elif measurement_data.arrows.chest == 'down' %}
                             <i class="fas fa-arrow-down arrow-down"></i>
+                          {% elif measurement_data.arrows.chest == 'equal' %}
+                            <span class="arrow-equal">=</span>
                           {% endif %}
                         </td>
                         <td>
@@ -642,6 +652,8 @@
                             <i class="fas fa-arrow-up arrow-up"></i>
                           {% elif measurement_data.arrows.belly == 'down' %}
                             <i class="fas fa-arrow-down arrow-down"></i>
+                          {% elif measurement_data.arrows.belly == 'equal' %}
+                            <span class="arrow-equal">=</span>
                           {% endif %}
                         </td>
                         <td>
@@ -650,6 +662,8 @@
                             <i class="fas fa-arrow-up arrow-up"></i>
                           {% elif measurement_data.arrows.left_biceps == 'down' %}
                             <i class="fas fa-arrow-down arrow-down"></i>
+                          {% elif measurement_data.arrows.left_biceps == 'equal' %}
+                            <span class="arrow-equal">=</span>
                           {% endif %}
                         </td>
                         <td>
@@ -658,6 +672,8 @@
                             <i class="fas fa-arrow-up arrow-up"></i>
                           {% elif measurement_data.arrows.right_biceps == 'down' %}
                             <i class="fas fa-arrow-down arrow-down"></i>
+                          {% elif measurement_data.arrows.right_biceps == 'equal' %}
+                            <span class="arrow-equal">=</span>
                           {% endif %}
                         </td>
                         <td>
@@ -666,6 +682,8 @@
                             <i class="fas fa-arrow-up arrow-up"></i>
                           {% elif measurement_data.arrows.left_triceps == 'down' %}
                             <i class="fas fa-arrow-down arrow-down"></i>
+                          {% elif measurement_data.arrows.left_triceps == 'equal' %}
+                            <span class="arrow-equal">=</span>
                           {% endif %}
                         </td>
                         <td>
@@ -674,6 +692,8 @@
                             <i class="fas fa-arrow-up arrow-up"></i>
                           {% elif measurement_data.arrows.right_triceps == 'down' %}
                             <i class="fas fa-arrow-down arrow-down"></i>
+                          {% elif measurement_data.arrows.right_triceps == 'equal' %}
+                            <span class="arrow-equal">=</span>
                           {% endif %}
                         </td>
                         <td>
@@ -682,6 +702,8 @@
                             <i class="fas fa-arrow-up arrow-up"></i>
                           {% elif measurement_data.arrows.left_forearm == 'down' %}
                             <i class="fas fa-arrow-down arrow-down"></i>
+                          {% elif measurement_data.arrows.left_forearm == 'equal' %}
+                            <span class="arrow-equal">=</span>
                           {% endif %}
                         </td>
                         <td>
@@ -690,6 +712,8 @@
                             <i class="fas fa-arrow-up arrow-up"></i>
                           {% elif measurement_data.arrows.right_forearm == 'down' %}
                             <i class="fas fa-arrow-down arrow-down"></i>
+                          {% elif measurement_data.arrows.right_forearm == 'equal' %}
+                            <span class="arrow-equal">=</span>
                           {% endif %}
                         </td>
                         <td>
@@ -698,6 +722,8 @@
                             <i class="fas fa-arrow-up arrow-up"></i>
                           {% elif measurement_data.arrows.left_thigh == 'down' %}
                             <i class="fas fa-arrow-down arrow-down"></i>
+                          {% elif measurement_data.arrows.left_thigh == 'equal' %}
+                            <span class="arrow-equal">=</span>
                           {% endif %}
                         </td>
                         <td>
@@ -706,6 +732,8 @@
                             <i class="fas fa-arrow-up arrow-up"></i>
                           {% elif measurement_data.arrows.right_thigh == 'down' %}
                             <i class="fas fa-arrow-down arrow-down"></i>
+                          {% elif measurement_data.arrows.right_thigh == 'equal' %}
+                            <span class="arrow-equal">=</span>
                           {% endif %}
                         </td>
                         <td>
@@ -714,6 +742,8 @@
                             <i class="fas fa-arrow-up arrow-up"></i>
                           {% elif measurement_data.arrows.left_lower_leg == 'down' %}
                             <i class="fas fa-arrow-down arrow-down"></i>
+                          {% elif measurement_data.arrows.left_lower_leg == 'equal' %}
+                            <span class="arrow-equal">=</span>
                           {% endif %}
                         </td>
                         <td>
@@ -722,6 +752,8 @@
                             <i class="fas fa-arrow-up arrow-up"></i>
                           {% elif measurement_data.arrows.right_lower_leg == 'down' %}
                             <i class="fas fa-arrow-down arrow-down"></i>
+                          {% elif measurement_data.arrows.right_lower_leg == 'equal' %}
+                            <span class="arrow-equal">=</span>
                           {% endif %}
                         </td>
                         <td>
@@ -730,6 +762,8 @@
                             <i class="fas fa-arrow-up arrow-up"></i>
                           {% elif measurement_data.arrows.butt == 'down' %}
                             <i class="fas fa-arrow-down arrow-down"></i>
+                          {% elif measurement_data.arrows.butt == 'equal' %}
+                            <span class="arrow-equal">=</span>
                           {% endif %}
                         </td>
                         <td>

@@ -1504,6 +1504,8 @@ def body_measurements_tracker(request):
                             measurement_data['arrows'][field] = 'up'
                         elif current_value < next_value:
                             measurement_data['arrows'][field] = 'down'
+                        else:
+                            measurement_data['arrows'][field] = 'equal'
 
             if i < len(measurements) - 1 and measurement_data['weight'] is not None:
                 next_measurement_date = measurements[i + 1].date.date() if hasattr(measurements[i + 1].date, 'date') else measurements[i + 1].date
@@ -1513,6 +1515,8 @@ def body_measurements_tracker(request):
                         measurement_data['arrows']['weight'] = 'up'
                     elif measurement_data['weight'] < next_matching_weight.weight:
                         measurement_data['arrows']['weight'] = 'down'
+                    else:
+                        measurement_data['arrows']['weight'] = 'equal'
 
             measurements_with_arrows.append(measurement_data)
 
