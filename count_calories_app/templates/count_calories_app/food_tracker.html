@@ -529,6 +529,45 @@
         }
       };
 
+      // Elided pagination helpers
+      const DOTS = '…';
+      const range = (start, end) => Array.from({ length: end - start + 1 }, (_, i) => i + start);
+
+      const getPaginationRange = (totalPages, currentPage, siblingCount = 1, boundaryCount = 1) => {
+        // Total visible page buttons (first/last boundaries + current +/- siblings + 2 ellipses + current)
+        const totalPageNumbers = boundaryCount * 2 + siblingCount * 2 + 3;
+
+        // If the number of pages is small, show all
+        if (totalPageNumbers >= totalPages) {
+          return range(1, totalPages);
+        }
+
+        const leftSiblingIndex = Math.max(currentPage - siblingCount, boundaryCount + 2);
+        const rightSiblingIndex = Math.min(currentPage + siblingCount, totalPages - boundaryCount - 1);
+
+        const showLeftDots = leftSiblingIndex > boundaryCount + 2;
+        const showRightDots = rightSiblingIndex < totalPages - boundaryCount - 1;
+
+        const firstPages = range(1, boundaryCount);
+        const lastPages = range(totalPages - boundaryCount + 1, totalPages);
+
+        if (!showLeftDots && showRightDots) {
+          // No left dots, but right dots
+          const leftRange = range(1, rightSiblingIndex);
+          return [...leftRange, DOTS, ...lastPages];
+        } else if (showLeftDots && !showRightDots) {
+          // Left dots, but no right dots
+          const rightRange = range(leftSiblingIndex, totalPages);
+          return [...firstPages, DOTS, ...rightRange];
+        } else {
+          // Both sides have dots
+          const middleRange = range(leftSiblingIndex, rightSiblingIndex);
+          return [...firstPages, DOTS, ...middleRange, DOTS, ...lastPages];
+        }
+      };
+
+      const paginationRange = getPaginationRange(totalPages, currentPage, 1, 1);
+
       const handleQuickAdd = (item) => {
         // Create a form and submit it
         const form = document.createElement('form');
@@ -656,13 +695,22 @@
                     </button>
                   </li>
 
-                  {[...Array(totalPages)].map((_, index) => (
-                    <li key={index} className={`page-item ${currentPage === index + 1 ? 'active' : ''}`}>
-                      <button className="page-link" onClick={() => paginate(index + 1)}>
-                        {index + 1}
-                      </button>
-                    </li>
-                  ))}
+                  {paginationRange.map((page, idx) => {
+                    if (page === DOTS) {
+                      return (
+                        <li key={`dots-${idx}`} className="page-item disabled">
+                          <span className="page-link">&hellip;</span>
+                        </li>
+                      );
+                    }
+                    return (
+                      <li key={`p-${page}`} className={`page-item ${currentPage === page ? 'active' : ''}`}>
+                        <button className="page-link" onClick={() => paginate(page)}>
+                          {page}
+                        </button>
+                      </li>
+                    );
+                  })}
 
                   <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
                     <button className="page-link" onClick={goToNextPage} aria-label="Next">
