@@ -82,16 +82,16 @@ def get_gemini_nutrition(request):
     """
     if request.method != 'POST':
         return JsonResponse({'error': 'Only POST method allowed'}, status=405)
-    
+
     try:
         data = json.loads(request.body)
         food_name = data.get('food_name', '').strip()
-        
+
         if not food_name:
             return JsonResponse({'error': 'Food name is required'}, status=400)
-        
+
         genai.configure(api_key=settings.GEMINI_API_KEY)
-        
+
         model = genai.GenerativeModel('gemini-2.5-flash')
 
         prompt = f"""
@@ -105,7 +105,7 @@ def get_gemini_nutrition(request):
         - Lithuanian or foreign language food names, identify the foods and provide accurate values
         - No specific quantity, assume a typical serving size for that food
         
-        For complex meals like "italiÅ¡kas kapotos viÅ¡tienos maltinukas, Å¡vieÅ¾iÅ³ darÅ¾oviÅ³ salotos, virtas bulguras (iLunch)", 
+        For complex meals like "italiÅ¡kas kapotos viÅ¡tienos maltinukas, Å¡vieÅ¾iÅ¾ darÅ¾oviÅ³ salotos, virtas bulguras (iLunch)", 
         break it down into components:
         - Italian chicken cutlet/meatballs
         - Fresh vegetable salad  
@@ -129,38 +129,38 @@ def get_gemini_nutrition(request):
         - Fat, carbs, protein in grams; calories in kcal
         - Be accurate with Lithuanian food translations
         """
-        
+
         response = model.generate_content(prompt)
-        
+
         response_text = response.text.strip()
-        
+
         try:
             if response_text.startswith('```json'):
                 response_text = response_text[7:]
             if response_text.endswith('```'):
                 response_text = response_text[:-3]
-            
+
             nutrition_data = json.loads(response_text.strip())
-            
+
             required_fields = ['product_name', 'calories', 'fat', 'carbohydrates', 'protein']
             for field in required_fields:
                 if field not in nutrition_data:
                     raise ValueError(f"Missing field: {field}")
-            
+
             for field in ['calories', 'fat', 'carbohydrates', 'protein']:
                 nutrition_data[field] = float(nutrition_data[field])
-            
+
             return JsonResponse({
                 'success': True,
                 'data': nutrition_data
             })
-            
+
         except (json.JSONDecodeError, ValueError) as e:
             logger.error(f"Error parsing Gemini response: {e}, Response: {response_text}")
             return JsonResponse({
                 'error': 'Failed to parse nutritional information from AI response'
             }, status=500)
-            
+
     except Exception as e:
         logger.error(f"Error getting nutrition from Gemini: {e}")
         return JsonResponse({
@@ -393,7 +393,7 @@ def food_tracker(request):
     page_number = request.GET.get('page', 1)
     sort_by = request.GET.get('sort', 'count')  # Default sort by count
     sort_order = request.GET.get('order', 'desc')  # Default descending order
-    
+
     if end_date:
         if time_range == 'specific_date' or time_range == 'today_specific' or time_range == 'today':
             if selected_date:
@@ -403,7 +403,7 @@ def food_tracker(request):
                     date_to_filter = selected_date
             else:
                 date_to_filter = now.date()
-            
+
             top_foods_queryset = FoodItem.objects.annotate(
                 consumed_date=TruncDate('consumed_at')
             ).filter(consumed_date=date_to_filter)
@@ -411,7 +411,7 @@ def food_tracker(request):
             top_foods_queryset = FoodItem.objects.filter(consumed_at__gte=start_date, consumed_at__lte=end_date)
     else:
         top_foods_queryset = FoodItem.objects.filter(consumed_at__gte=start_date)
-    
+
     top_foods_data = top_foods_queryset.values('product_name').annotate(
         count=Count('id'),
         total_calories=Sum('calories'),
@@ -421,7 +421,7 @@ def food_tracker(request):
         total_protein=Sum('protein'),
         latest_consumed=Max('consumed_at')
     )
-    
+
     if sort_by == 'count':
         if sort_order == 'desc':
             top_foods_data = top_foods_data.order_by('-count', '-latest_consumed')
@@ -444,7 +444,7 @@ def food_tracker(request):
             top_foods_data = top_foods_data.order_by('latest_consumed')
     else:
         top_foods_data = top_foods_data.order_by('-count', '-latest_consumed')
-    
+
     paginator = Paginator(top_foods_data, 10)  # Show 10 items per page
     try:
         top_foods_page = paginator.page(page_number)
@@ -480,13 +480,13 @@ def top_foods(request):
     sort_by = request.GET.get('sort', 'count')  # Default sort by count
     sort_order = request.GET.get('order', 'desc')  # Default descending order
     export = request.GET.get('export')  # If 'csv', return CSV
-    
+
     now = timezone.now()
     start_date = now
     end_date = None
     selected_date = None
     date_range_selected = False
-    
+
     if start_date_str and end_date_str:
         try:
             from datetime import datetime
@@ -542,7 +542,7 @@ def top_foods(request):
                     date_to_filter = selected_date
             else:
                 date_to_filter = now.date()
-            
+
             top_foods_queryset = FoodItem.objects.annotate(
                 consumed_date=TruncDate('consumed_at')
             ).filter(consumed_date=date_to_filter)
@@ -550,7 +550,7 @@ def top_foods(request):
             top_foods_queryset = FoodItem.objects.filter(consumed_at__gte=start_date, consumed_at__lte=end_date)
     else:
         top_foods_queryset = FoodItem.objects.filter(consumed_at__gte=start_date)
-    
+
     top_foods_data = top_foods_queryset.values('product_name').annotate(
         count=Count('id'),
         total_calories=Sum('calories'),
@@ -560,7 +560,7 @@ def top_foods(request):
         total_protein=Sum('protein'),
         latest_consumed=Max('consumed_at')
     )
-    
+
     if sort_by == 'count':
         if sort_order == 'desc':
             top_foods_data = top_foods_data.order_by('-count', '-latest_consumed')
@@ -613,7 +613,7 @@ def top_foods(request):
                 item['latest_consumed'].strftime('%Y-%m-%d %H:%M:%S') if item['latest_consumed'] else ''
             ])
         return response
-    
+
     paginator = Paginator(top_foods_data, 10)  # Show 10 items per page
     try:
         top_foods_page = paginator.page(page_number)
@@ -629,7 +629,7 @@ def top_foods(request):
         'current_sort': sort_by,
         'current_order': sort_order,
     }
-    
+
     return render(request, 'count_calories_app/top_foods.html', context)
 
 def get_calories_trend_data(request):
@@ -679,7 +679,11 @@ def get_macros_trend_data(request):
     return JsonResponse(macros_data)
 
 def get_weight_data(request):
-    weights = Weight.objects.all().order_by('recorded_at')
+    # Filter for the last 90 days
+    end_date = timezone.now()
+    start_date = end_date - timedelta(days=90)
+    weights = Weight.objects.filter(recorded_at__gte=start_date).order_by('recorded_at')
+
     weight_data = {
         'labels': [w.recorded_at.strftime('%Y-%m-%d') for w in weights],
         'data': [float(w.weight) for w in weights]
@@ -818,43 +822,45 @@ def get_weight_calories_correlation(request):
     })
 
 def weight_tracker(request):
-    # Optional CSV export for fast download
     export = request.GET.get('export')
     start_date_str = request.GET.get('start_date')
     end_date_str = request.GET.get('end_date')
 
-    weights_list = Weight.objects.all().order_by('-recorded_at')
+    # Default to the last 90 days
+    end_date = timezone.now()
+    start_date = end_date - timedelta(days=90)
 
-    # Apply optional date filtering for export convenience (YYYY-MM-DD)
-    if export == 'csv' and (start_date_str or end_date_str):
-        try:
-            from datetime import datetime
-            if start_date_str:
-                sd = datetime.strptime(start_date_str, '%Y-%m-%d')
-                from django.utils.timezone import make_aware
-                from datetime import time
-                weights_list = weights_list.filter(recorded_at__gte=make_aware(datetime.combine(sd.date(), time.min)))
-            if end_date_str:
-                ed = datetime.strptime(end_date_str, '%Y-%m-%d')
-                from django.utils.timezone import make_aware
-                from datetime import time
-                weights_list = weights_list.filter(recorded_at__lte=make_aware(datetime.combine(ed.date(), time.max)))
-        except Exception:
-            pass
+    # Base queryset for the page and default CSV export
+    weights_query = Weight.objects.filter(recorded_at__gte=start_date).order_by('-recorded_at')
 
+    # Handle CSV export
     if export == 'csv':
-        # Export in chronological order for analysis
-        qs = weights_list.order_by('recorded_at').values_list('recorded_at', 'weight', 'notes')
-        def _date_label():
-            if start_date_str and end_date_str:
-                return f"{start_date_str}_to_{end_date_str}"
-            return 'all'
-        filename = f"weights_{_date_label()}.csv"
+        # If a date range is provided for the export, use it
+        if start_date_str and end_date_str:
+            try:
+                from datetime import datetime, time
+                from django.utils.timezone import make_aware
+
+                start_date_csv = make_aware(datetime.combine(datetime.strptime(start_date_str, '%Y-%m-%d').date(), time.min))
+                end_date_csv = make_aware(datetime.combine(datetime.strptime(end_date_str, '%Y-%m-%d').date(), time.max))
+                # Use a different queryset for the ranged export
+                export_query = Weight.objects.filter(recorded_at__gte=start_date_csv, recorded_at__lte=end_date_csv).order_by('recorded_at')
+                filename_label = f"{start_date_str}_to_{end_date_str}"
+            except (ValueError, TypeError):
+                # Fallback to the default 90-day export if dates are invalid
+                export_query = weights_query.order_by('recorded_at')
+                filename_label = 'last_90_days'
+        else:
+            # Default CSV export is the last 90 days
+            export_query = weights_query.order_by('recorded_at')
+            filename_label = 'last_90_days'
+
+        filename = f"weights_{filename_label}.csv"
         response = HttpResponse(content_type='text/csv')
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         writer = csv.writer(response)
         writer.writerow(['Recorded At', 'Weight (kg)', 'Notes'])
-        for recorded_at, weight, notes in qs.iterator():
+        for recorded_at, weight, notes in export_query.values_list('recorded_at', 'weight', 'notes').iterator():
             writer.writerow([
                 recorded_at.strftime('%Y-%m-%d %H:%M:%S') if recorded_at else '',
                 float(weight) if weight is not None else '',
@@ -862,9 +868,8 @@ def weight_tracker(request):
             ])
         return response
 
-    from django.core.paginator import Paginator
-    paginator = Paginator(weights_list, 10)
-
+    # Pagination for the main page view (last 90 days)
+    paginator = Paginator(weights_query, 10)
     page_number = request.GET.get('page')
     weights = paginator.get_page(page_number)
 
@@ -1493,9 +1498,9 @@ def body_measurements_tracker(request):
             if i < len(measurements) - 1:
                 next_measurement = measurements[i + 1]
 
-                for field in ['neck', 'chest', 'belly', 'left_biceps', 'right_biceps', 
-                             'left_triceps', 'right_triceps', 'left_forearm', 'right_forearm',
-                             'left_thigh', 'right_thigh', 'left_lower_leg', 'right_lower_leg', 'butt']:
+                for field in ['neck', 'chest', 'belly', 'left_biceps', 'right_biceps',
+                              'left_triceps', 'right_triceps', 'left_forearm', 'right_forearm',
+                              'left_thigh', 'right_thigh', 'left_lower_leg', 'right_lower_leg', 'butt']:
                     current_value = getattr(measurement, field)
                     next_value = getattr(next_measurement, field)
 
@@ -1689,7 +1694,7 @@ def export_body_measurements_csv(request):
         for m in measurements:
             measurement_date = m.date.date() if hasattr(m.date, 'date') else m.date
             matching_weight = weights.filter(recorded_at__date=measurement_date).first()
-            weight_value = float(matching_weight.weight) if matching_weight else ''
+            weight_value = float(matching_weight.weight) if matching_.weight else ''
 
             row = [
                 m.date.strftime('%Y-%m-%d'),
