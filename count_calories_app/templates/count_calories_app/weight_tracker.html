@@ -7,12 +7,12 @@
   {{ block.super }}
   <link rel="stylesheet" href="{% static 'count_calories_app/count_calories_app.css' %}">
   <style>
-    .chart-container {
-      position: relative;
-      height: 300px;
-      width: 100%;
-      margin-bottom: 20px;
-    }
+      .chart-container {
+          position: relative;
+          height: 300px;
+          width: 100%;
+          margin-bottom: 20px;
+      }
   </style>
 {% endblock %}
 
@@ -61,7 +61,7 @@
     <div class="col-md-8">
       <div class="card shadow-sm rounded mb-4">
         <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
-          <h2 class="h5 mb-0">Weight History</h2>
+          <h2 class="h5 mb-0">Weight History (Last 90 Days)</h2>
           <a href="?export=csv" class="btn btn-warning btn-sm text-dark">Download CSV</a>
         </div>
         <div class="card-body">
@@ -89,10 +89,9 @@
         </div>
       </div>
 
-      <!-- Weight Change Rate Chart -->
       <div class="card shadow-sm rounded mb-4">
         <div class="card-header bg-info text-white">
-          <h2 class="h5 mb-0">Weight Change Analysis</h2>
+          <h2 class="h5 mb-0">Weight Change Analysis (Last 90 Days)</h2>
         </div>
         <div class="card-body">
           <div class="row text-center mb-3">
@@ -127,7 +126,6 @@
         </div>
       </div>
 
-      <!-- Health Metrics -->
       <div class="card shadow-sm rounded mb-4">
         <div class="card-header bg-warning text-dark">
           <h2 class="h5 mb-0">Health Metrics</h2>
@@ -154,7 +152,6 @@
         </div>
       </div>
 
-      <!-- Weight Projections -->
       <div class="card shadow-sm rounded mb-4">
         <div class="card-header bg-primary text-white">
           <h2 class="h5 mb-0">Weight Projections</h2>
@@ -189,7 +186,6 @@
         </div>
       </div>
 
-      <!-- Weight and Calories Correlation -->
       <div class="card shadow-sm rounded mb-4">
         <div class="card-header bg-success text-white">
           <h2 class="h5 mb-0">Weight Changes vs. Calorie Intake</h2>
@@ -198,24 +194,21 @@
           <div class="table-responsive">
             <table class="table table-striped table-hover" id="weight-calories-table">
               <thead>
-                <tr>
-                  <th>Period</th>
-                  <th>Weight Change</th>
-                  <th>Days</th>
-                  <th>Total Calories</th>
-                </tr>
+              <tr>
+                <th>Period</th>
+                <th>Weight Change</th>
+                <th>Days</th>
+                <th>Total Calories</th>
+              </tr>
               </thead>
               <tbody>
-                <!-- Table rows will be populated by JavaScript -->
-                <tr>
-                  <td colspan="4" class="text-center">Loading data...</td>
-                </tr>
+              <tr>
+                <td colspan="4" class="text-center">Loading data...</td>
+              </tr>
               </tbody>
             </table>
           </div>
-          <!-- Pagination controls -->
           <div class="pagination-controls mt-3 d-flex justify-content-center" id="weight-calories-pagination">
-            <!-- Pagination will be added by JavaScript -->
           </div>
         </div>
       </div>
@@ -249,7 +242,6 @@
               </li>
             {% endfor %}
           </ul>
-          <!-- Pagination controls -->
           <div class="card-footer">
             <nav aria-label="Weight measurements pagination">
               <ul class="pagination justify-content-center mb-0">
@@ -316,331 +308,331 @@
 {% block js_files %}
   {{ block.super }}
   <script>
-    // Chart.js for weight visualization
-    document.addEventListener('DOMContentLoaded', function() {
-      // Fetch weight data for charts and stats
-      fetch('{% url "weight_data" %}')
-        .then(response => response.json())
-        .then(data => {
-          // Update stats
-          if (data.stats) {
-            document.getElementById('latest-weight').textContent = data.stats.latest + ' kg';
-            document.getElementById('avg-weight').textContent = data.stats.avg.toFixed(1) + ' kg';
-            document.getElementById('min-weight').textContent = data.stats.min + ' kg';
-            document.getElementById('max-weight').textContent = data.stats.max + ' kg';
+      // Chart.js for weight visualization
+      document.addEventListener('DOMContentLoaded', function() {
+          // Fetch weight data for charts and stats
+          fetch('{% url "weight_data" %}')
+              .then(response => response.json())
+              .then(data => {
+                  // Update stats
+                  if (data.stats) {
+                      document.getElementById('latest-weight').textContent = data.stats.latest + ' kg';
+                      document.getElementById('avg-weight').textContent = data.stats.avg.toFixed(1) + ' kg';
+                      document.getElementById('min-weight').textContent = data.stats.min + ' kg';
+                      document.getElementById('max-weight').textContent = data.stats.max + ' kg';
 
-            // Update weight change rate
-            const changeRate = data.stats.change_rate.toFixed(2);
-            document.getElementById('weight-change-rate').textContent = changeRate + ' kg/week';
+                      // Update weight change rate
+                      const changeRate = data.stats.change_rate.toFixed(2);
+                      document.getElementById('weight-change-rate').textContent = changeRate + ' kg/week';
 
-            // Update trend direction
-            let trendText = 'Stable';
-            let trendClass = 'text-secondary';
+                      // Update trend direction
+                      let trendText = 'Stable';
+                      let trendClass = 'text-secondary';
 
-            if (changeRate > 0.1) {
-              trendText = 'Gaining';
-              trendClass = 'text-danger';
-            } else if (changeRate < -0.1) {
-              trendText = 'Losing';
-              trendClass = 'text-success';
-            }
-
-            const trendElement = document.getElementById('weight-trend-direction');
-            trendElement.textContent = trendText;
-            trendElement.className = 'fw-bold ' + trendClass;
-
-            // Update weight consistency (standard deviation)
-            if (data.stats.consistency) {
-              document.getElementById('weight-consistency').textContent = data.stats.consistency + ' kg';
-            }
-
-            // Update BMI value and category
-            if (data.stats.bmi) {
-              document.getElementById('bmi-value').textContent = data.stats.bmi;
-
-              // Determine BMI category
-              let bmiCategory = '';
-              let bmiClass = '';
-
-              if (data.stats.bmi < 18.5) {
-                bmiCategory = 'Underweight';
-                bmiClass = 'text-info';
-              } else if (data.stats.bmi < 25) {
-                bmiCategory = 'Normal';
-                bmiClass = 'text-success';
-              } else if (data.stats.bmi < 30) {
-                bmiCategory = 'Overweight';
-                bmiClass = 'text-warning';
-              } else {
-                bmiCategory = 'Obese';
-                bmiClass = 'text-danger';
-              }
-
-              const bmiElement = document.getElementById('bmi-category');
-              bmiElement.textContent = bmiCategory;
-              bmiElement.className = 'fw-bold ' + bmiClass;
-            }
-
-            // Update projected weight
-            if (data.stats.projected_weight) {
-              document.getElementById('projected-weight').textContent = data.stats.projected_weight + ' kg';
-            }
-
-            // Update weeks to goal
-            if (data.stats.weeks_to_goal) {
-              document.getElementById('weeks-to-goal').textContent = data.stats.weeks_to_goal + ' weeks';
-            }
-
-            // Update goal date
-            if (data.stats.goal_date) {
-              document.getElementById('goal-date').textContent = data.stats.goal_date;
-            }
-          }
-
-          // Create weight history chart
-          const ctx = document.getElementById('weightChart').getContext('2d');
-          new Chart(ctx, {
-            type: 'line',
-            data: {
-              labels: data.labels,
-              datasets: [{
-                label: 'Weight (kg)',
-                data: data.data,
-                backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                borderColor: 'rgba(75, 192, 192, 1)',
-                borderWidth: 2,
-                pointBackgroundColor: 'rgba(75, 192, 192, 1)',
-                pointBorderColor: '#fff',
-                pointBorderWidth: 1,
-                pointRadius: 5,
-                tension: 0.1
-              }]
-            },
-            options: {
-              responsive: true,
-              maintainAspectRatio: false,
-              scales: {
-                y: {
-                  beginAtZero: false
-                }
-              },
-              plugins: {
-                legend: {
-                  position: 'top',
-                },
-                title: {
-                  display: true,
-                  text: 'Weight Over Time'
-                }
-              }
-            }
-          });
-
-          // Create weight change chart (if we have enough data points)
-          if (data.labels.length >= 2) {
-            // Calculate weight changes between consecutive measurements
-            const weightChanges = [];
-            const changeLabels = [];
-
-            for (let i = 1; i < data.data.length; i++) {
-              const change = data.data[i] - data.data[i-1];
-              weightChanges.push(change);
-              changeLabels.push(data.labels[i]);
-            }
-
-            const changeCtx = document.getElementById('weightChangeChart').getContext('2d');
-            new Chart(changeCtx, {
-              type: 'bar',
-              data: {
-                labels: changeLabels,
-                datasets: [{
-                  label: 'Weight Change (kg)',
-                  data: weightChanges,
-                  backgroundColor: weightChanges.map(change => 
-                    change > 0 ? 'rgba(255, 99, 132, 0.7)' : 'rgba(75, 192, 192, 0.7)'
-                  ),
-                  borderColor: weightChanges.map(change => 
-                    change > 0 ? 'rgba(255, 99, 132, 1)' : 'rgba(75, 192, 192, 1)'
-                  ),
-                  borderWidth: 1
-                }]
-              },
-              options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                  y: {
-                    title: {
-                      display: true,
-                      text: 'Weight Change (kg)'
-                    }
-                  },
-                  x: {
-                    title: {
-                      display: true,
-                      text: 'Date'
-                    }
-                  }
-                },
-                plugins: {
-                  legend: {
-                    display: false
-                  },
-                  title: {
-                    display: true,
-                    text: 'Weight Changes Between Measurements'
-                  },
-                  tooltip: {
-                    callbacks: {
-                      label: function(context) {
-                        const change = context.parsed.y;
-                        return (change > 0 ? '+' : '') + change.toFixed(2) + ' kg';
+                      if (changeRate > 0.1) {
+                          trendText = 'Gaining';
+                          trendClass = 'text-danger';
+                      } else if (changeRate < -0.1) {
+                          trendText = 'Losing';
+                          trendClass = 'text-success';
                       }
-                    }
+
+                      const trendElement = document.getElementById('weight-trend-direction');
+                      trendElement.textContent = trendText;
+                      trendElement.className = 'fw-bold ' + trendClass;
+
+                      // Update weight consistency (standard deviation)
+                      if (data.stats.consistency) {
+                          document.getElementById('weight-consistency').textContent = data.stats.consistency + ' kg';
+                      }
+
+                      // Update BMI value and category
+                      if (data.stats.bmi) {
+                          document.getElementById('bmi-value').textContent = data.stats.bmi;
+
+                          // Determine BMI category
+                          let bmiCategory = '';
+                          let bmiClass = '';
+
+                          if (data.stats.bmi < 18.5) {
+                              bmiCategory = 'Underweight';
+                              bmiClass = 'text-info';
+                          } else if (data.stats.bmi < 25) {
+                              bmiCategory = 'Normal';
+                              bmiClass = 'text-success';
+                          } else if (data.stats.bmi < 30) {
+                              bmiCategory = 'Overweight';
+                              bmiClass = 'text-warning';
+                          } else {
+                              bmiCategory = 'Obese';
+                              bmiClass = 'text-danger';
+                          }
+
+                          const bmiElement = document.getElementById('bmi-category');
+                          bmiElement.textContent = bmiCategory;
+                          bmiElement.className = 'fw-bold ' + bmiClass;
+                      }
+
+                      // Update projected weight
+                      if (data.stats.projected_weight) {
+                          document.getElementById('projected-weight').textContent = data.stats.projected_weight + ' kg';
+                      }
+
+                      // Update weeks to goal
+                      if (data.stats.weeks_to_goal) {
+                          document.getElementById('weeks-to-goal').textContent = data.stats.weeks_to_goal + ' weeks';
+                      }
+
+                      // Update goal date
+                      if (data.stats.goal_date) {
+                          document.getElementById('goal-date').textContent = data.stats.goal_date;
+                      }
                   }
-                }
-              }
-            });
-          }
-        })
-        .catch(error => console.error('Error fetching weight data:', error));
 
-      // Function to load weight-calories correlation data with pagination
-      function loadWeightCaloriesData(page = 1) {
-        // Fetch weight-calories correlation data for the table
-        fetch(`{% url "weight_calories_correlation" %}?page=${page}`)
-          .then(response => response.json())
-          .then(data => {
-            const tableBody = document.querySelector('#weight-calories-table tbody');
-            const paginationContainer = document.querySelector('#weight-calories-pagination');
+                  // Create weight history chart
+                  const ctx = document.getElementById('weightChart').getContext('2d');
+                  new Chart(ctx, {
+                      type: 'line',
+                      data: {
+                          labels: data.labels,
+                          datasets: [{
+                              label: 'Weight (kg)',
+                              data: data.data,
+                              backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                              borderColor: 'rgba(75, 192, 192, 1)',
+                              borderWidth: 2,
+                              pointBackgroundColor: 'rgba(75, 192, 192, 1)',
+                              pointBorderColor: '#fff',
+                              pointBorderWidth: 1,
+                              pointRadius: 5,
+                              tension: 0.1
+                          }]
+                      },
+                      options: {
+                          responsive: true,
+                          maintainAspectRatio: false,
+                          scales: {
+                              y: {
+                                  beginAtZero: false
+                              }
+                          },
+                          plugins: {
+                              legend: {
+                                  position: 'top',
+                              },
+                              title: {
+                                  display: true,
+                                  text: 'Weight Over Time'
+                              }
+                          }
+                      }
+                  });
 
-            // Clear loading message
-            tableBody.innerHTML = '';
+                  // Create weight change chart (if we have enough data points)
+                  if (data.labels.length >= 2) {
+                      // Calculate weight changes between consecutive measurements
+                      const weightChanges = [];
+                      const changeLabels = [];
 
-            if (data.correlation_data && data.correlation_data.length > 0) {
-              // Populate table with correlation data
-              data.correlation_data.forEach(item => {
-                const row = document.createElement('tr');
+                      for (let i = 1; i < data.data.length; i++) {
+                          const change = data.data[i] - data.data[i-1];
+                          weightChanges.push(change);
+                          changeLabels.push(data.labels[i]);
+                      }
 
-                // Determine color class based on weight change
-                let weightChangeClass = '';
-                if (item.weight_change > 0) {
-                  weightChangeClass = 'text-danger';
-                } else if (item.weight_change < 0) {
-                  weightChangeClass = 'text-success';
-                }
+                      const changeCtx = document.getElementById('weightChangeChart').getContext('2d');
+                      new Chart(changeCtx, {
+                          type: 'bar',
+                          data: {
+                              labels: changeLabels,
+                              datasets: [{
+                                  label: 'Weight Change (kg)',
+                                  data: weightChanges,
+                                  backgroundColor: weightChanges.map(change =>
+                                      change > 0 ? 'rgba(255, 99, 132, 0.7)' : 'rgba(75, 192, 192, 0.7)'
+                                  ),
+                                  borderColor: weightChanges.map(change =>
+                                      change > 0 ? 'rgba(255, 99, 132, 1)' : 'rgba(75, 192, 192, 1)'
+                                  ),
+                                  borderWidth: 1
+                              }]
+                          },
+                          options: {
+                              responsive: true,
+                              maintainAspectRatio: false,
+                              scales: {
+                                  y: {
+                                      title: {
+                                          display: true,
+                                          text: 'Weight Change (kg)'
+                                      }
+                                  },
+                                  x: {
+                                      title: {
+                                          display: true,
+                                          text: 'Date'
+                                      }
+                                  }
+                              },
+                              plugins: {
+                                  legend: {
+                                      display: false
+                                  },
+                                  title: {
+                                      display: true,
+                                      text: 'Weight Changes Between Measurements'
+                                  },
+                                  tooltip: {
+                                      callbacks: {
+                                          label: function(context) {
+                                              const change = context.parsed.y;
+                                              return (change > 0 ? '+' : '') + change.toFixed(2) + ' kg';
+                                          }
+                                      }
+                                  }
+                              }
+                          }
+                      });
+                  }
+              })
+              .catch(error => console.error('Error fetching weight data:', error));
 
-                // Format the period as a date range
-                const period = `${item.start_date} to ${item.end_date}`;
+          // Function to load weight-calories correlation data with pagination
+          function loadWeightCaloriesData(page = 1) {
+              // Fetch weight-calories correlation data for the table
+              fetch(`{% url "weight_calories_correlation" %}?page=${page}`)
+                  .then(response => response.json())
+                  .then(data => {
+                      const tableBody = document.querySelector('#weight-calories-table tbody');
+                      const paginationContainer = document.querySelector('#weight-calories-pagination');
 
-                // Format weight change with + or - sign
-                const weightChangeFormatted = (item.weight_change > 0 ? '+' : '') + item.weight_change + ' kg';
+                      // Clear loading message
+                      tableBody.innerHTML = '';
 
-                // Create table cells
-                row.innerHTML = `
+                      if (data.correlation_data && data.correlation_data.length > 0) {
+                          // Populate table with correlation data
+                          data.correlation_data.forEach(item => {
+                              const row = document.createElement('tr');
+
+                              // Determine color class based on weight change
+                              let weightChangeClass = '';
+                              if (item.weight_change > 0) {
+                                  weightChangeClass = 'text-danger';
+                              } else if (item.weight_change < 0) {
+                                  weightChangeClass = 'text-success';
+                              }
+
+                              // Format the period as a date range
+                              const period = `${item.start_date} to ${item.end_date}`;
+
+                              // Format weight change with + or - sign
+                              const weightChangeFormatted = (item.weight_change > 0 ? '+' : '') + item.weight_change + ' kg';
+
+                              // Create table cells
+                              row.innerHTML = `
                   <td>${period}</td>
                   <td class="${weightChangeClass} fw-bold">${weightChangeFormatted}</td>
                   <td>${item.days_between} days</td>
                   <td>${Math.round(item.total_calories).toLocaleString()} kcal</td>
                 `;
 
-                tableBody.appendChild(row);
-              });
+                              tableBody.appendChild(row);
+                          });
 
-              // Create pagination controls if we have pagination data
-              if (data.pagination) {
-                paginationContainer.innerHTML = '';
+                          // Create pagination controls if we have pagination data
+                          if (data.pagination) {
+                              paginationContainer.innerHTML = '';
 
-                const pagination = document.createElement('nav');
-                pagination.setAttribute('aria-label', 'Weight-calories correlation pagination');
+                              const pagination = document.createElement('nav');
+                              pagination.setAttribute('aria-label', 'Weight-calories correlation pagination');
 
-                const paginationList = document.createElement('ul');
-                paginationList.className = 'pagination';
+                              const paginationList = document.createElement('ul');
+                              paginationList.className = 'pagination';
 
-                // Previous page button
-                const prevItem = document.createElement('li');
-                prevItem.className = `page-item ${!data.pagination.has_prev ? 'disabled' : ''}`;
+                              // Previous page button
+                              const prevItem = document.createElement('li');
+                              prevItem.className = `page-item ${!data.pagination.has_prev ? 'disabled' : ''}`;
 
-                const prevLink = document.createElement('a');
-                prevLink.className = 'page-link';
-                prevLink.href = '#';
-                prevLink.textContent = 'Previous';
+                              const prevLink = document.createElement('a');
+                              prevLink.className = 'page-link';
+                              prevLink.href = '#';
+                              prevLink.textContent = 'Previous';
 
-                if (data.pagination.has_prev) {
-                  prevLink.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    loadWeightCaloriesData(data.pagination.current_page - 1);
+                              if (data.pagination.has_prev) {
+                                  prevLink.addEventListener('click', function(e) {
+                                      e.preventDefault();
+                                      loadWeightCaloriesData(data.pagination.current_page - 1);
+                                  });
+                              }
+
+                              prevItem.appendChild(prevLink);
+                              paginationList.appendChild(prevItem);
+
+                              // Page numbers
+                              for (let i = 1; i <= data.pagination.total_pages; i++) {
+                                  const pageItem = document.createElement('li');
+                                  pageItem.className = `page-item ${i === data.pagination.current_page ? 'active' : ''}`;
+
+                                  const pageLink = document.createElement('a');
+                                  pageLink.className = 'page-link';
+                                  pageLink.href = '#';
+                                  pageLink.textContent = i;
+
+                                  if (i !== data.pagination.current_page) {
+                                      pageLink.addEventListener('click', function(e) {
+                                          e.preventDefault();
+                                          loadWeightCaloriesData(i);
+                                      });
+                                  }
+
+                                  pageItem.appendChild(pageLink);
+                                  paginationList.appendChild(pageItem);
+                              }
+
+                              // Next page button
+                              const nextItem = document.createElement('li');
+                              nextItem.className = `page-item ${!data.pagination.has_next ? 'disabled' : ''}`;
+
+                              const nextLink = document.createElement('a');
+                              nextLink.className = 'page-link';
+                              nextLink.href = '#';
+                              nextLink.textContent = 'Next';
+
+                              if (data.pagination.has_next) {
+                                  nextLink.addEventListener('click', function(e) {
+                                      e.preventDefault();
+                                      loadWeightCaloriesData(data.pagination.current_page + 1);
+                                  });
+                              }
+
+                              nextItem.appendChild(nextLink);
+                              paginationList.appendChild(nextItem);
+
+                              pagination.appendChild(paginationList);
+                              paginationContainer.appendChild(pagination);
+                          }
+                      } else {
+                          // Show message if no data
+                          const row = document.createElement('tr');
+                          row.innerHTML = '<td colspan="4" class="text-center">No data available. Add at least two weight measurements to see correlation.</td>';
+                          tableBody.appendChild(row);
+
+                          // Clear pagination
+                          paginationContainer.innerHTML = '';
+                      }
+                  })
+                  .catch(error => {
+                      console.error('Error fetching weight-calories correlation data:', error);
+                      const tableBody = document.querySelector('#weight-calories-table tbody');
+                      tableBody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Error loading data. Please try again later.</td></tr>';
+
+                      // Clear pagination on error
+                      document.querySelector('#weight-calories-pagination').innerHTML = '';
                   });
-                }
+          }
 
-                prevItem.appendChild(prevLink);
-                paginationList.appendChild(prevItem);
-
-                // Page numbers
-                for (let i = 1; i <= data.pagination.total_pages; i++) {
-                  const pageItem = document.createElement('li');
-                  pageItem.className = `page-item ${i === data.pagination.current_page ? 'active' : ''}`;
-
-                  const pageLink = document.createElement('a');
-                  pageLink.className = 'page-link';
-                  pageLink.href = '#';
-                  pageLink.textContent = i;
-
-                  if (i !== data.pagination.current_page) {
-                    pageLink.addEventListener('click', function(e) {
-                      e.preventDefault();
-                      loadWeightCaloriesData(i);
-                    });
-                  }
-
-                  pageItem.appendChild(pageLink);
-                  paginationList.appendChild(pageItem);
-                }
-
-                // Next page button
-                const nextItem = document.createElement('li');
-                nextItem.className = `page-item ${!data.pagination.has_next ? 'disabled' : ''}`;
-
-                const nextLink = document.createElement('a');
-                nextLink.className = 'page-link';
-                nextLink.href = '#';
-                nextLink.textContent = 'Next';
-
-                if (data.pagination.has_next) {
-                  nextLink.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    loadWeightCaloriesData(data.pagination.current_page + 1);
-                  });
-                }
-
-                nextItem.appendChild(nextLink);
-                paginationList.appendChild(nextItem);
-
-                pagination.appendChild(paginationList);
-                paginationContainer.appendChild(pagination);
-              }
-            } else {
-              // Show message if no data
-              const row = document.createElement('tr');
-              row.innerHTML = '<td colspan="4" class="text-center">No data available. Add at least two weight measurements to see correlation.</td>';
-              tableBody.appendChild(row);
-
-              // Clear pagination
-              paginationContainer.innerHTML = '';
-            }
-          })
-          .catch(error => {
-            console.error('Error fetching weight-calories correlation data:', error);
-            const tableBody = document.querySelector('#weight-calories-table tbody');
-            tableBody.innerHTML = '<tr><td colspan="4" class="text-center text-danger">Error loading data. Please try again later.</td></tr>';
-
-            // Clear pagination on error
-            document.querySelector('#weight-calories-pagination').innerHTML = '';
-          });
-      }
-
-      // Load the first page of data
-      loadWeightCaloriesData(1);
-    });
+          // Load the first page of data
+          loadWeightCaloriesData(1);
+      });
   </script>
 {% endblock %}
