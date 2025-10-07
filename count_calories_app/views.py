@@ -13,10 +13,9 @@ import google.generativeai as genai
 import os
 import csv
 from django.conf import settings
+from google.api_core.exceptions import GoogleAPICallError, PermissionDenied, Unauthenticated, InvalidArgument, FailedPrecondition
 
 logger = logging.getLogger('count_calories_app')
-
-genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
 
 def home(request):
     return render(request, 'count_calories_app/home.html')
@@ -90,7 +89,11 @@ def get_gemini_nutrition(request):
         if not food_name:
             return JsonResponse({'error': 'Food name is required'}, status=400)
 
-        genai.configure(api_key=settings.GEMINI_API_KEY)
+        api_key = getattr(settings, 'GEMINI_API_KEY', None)
+        if not api_key:
+            logger.error("Gemini API key is not configured on the server")
+            return JsonResponse({'error': 'Gemini API key is not configured on the server'}, status=500)
+        genai.configure(api_key=api_key)
 
         model = genai.GenerativeModel('gemini-2.5-flash')
 
@@ -130,7 +133,26 @@ def get_gemini_nutrition(request):
         - Be accurate with Lithuanian food translations
         """
 
-        response = model.generate_content(prompt)
+        try:
+            response = model.generate_content(prompt)
+        except (Unauthenticated, PermissionDenied) as e:
+            logger.error(f"Gemini authentication error: {e}")
+            return JsonResponse({'error': 'Invalid or unauthorized Gemini API key. Please check your API key configuration.', 'code': 'invalid_api_key'}, status=401)
+        except GoogleAPICallError as e:
+            # Check if it's an API key validation error (400 status)
+            error_message = str(e)
+            if "API_KEY_INVALID" in error_message or "API key not valid" in error_message:
+                logger.error(f"Invalid Gemini API key: {e}")
+                return JsonResponse({
+                    'error': 'Invalid Gemini API key. Please obtain a valid API key from https://aistudio.google.com/app/apikey and update it in your .env file.',
+                    'code': 'invalid_api_key'
+                }, status=401)
+            else:
+                logger.error(f"Gemini API error: {e}")
+                return JsonResponse({'error': 'Gemini service error. Please try again later.', 'code': 'gemini_api_error'}, status=502)
+        except (InvalidArgument, FailedPrecondition) as e:
+            logger.error(f"Gemini API error: {e}")
+            return JsonResponse({'error': 'Gemini service error. Please try again later.', 'code': 'gemini_api_error'}, status=502)
 
         response_text = response.text.strip()
 
@@ -1694,7 +1716,7 @@ def export_body_measurements_csv(request):
         for m in measurements:
             measurement_date = m.date.date() if hasattr(m.date, 'date') else m.date
             matching_weight = weights.filter(recorded_at__date=measurement_date).first()
-            weight_value = float(matching_weight.weight) if matching_.weight else ''
+            weight_value = float(matching_weight.weight) if (matching_weight and matching_weight.weight is not None) else ''
 
             row = [
                 m.date.strftime('%Y-%m-%d'),

@@ -30,6 +30,7 @@ HealthTracker Pro is an all‑in‑one web app to monitor and optimize your heal
 
 ### 🍎 Nutrition Tracking
 - Food Diary: log meals with detailed nutrition
+- **AI Food Assistant**: Get nutritional information instantly using Google's Gemini AI
 - Macronutrient analysis: calories, protein, carbs, fat
 - Quick‑add frequently eaten items
 - Visual analytics for daily/weekly/monthly trends
@@ -59,6 +60,7 @@ HealthTracker Pro is an all‑in‑one web app to monitor and optimize your heal
 **Backend**
 - Django 5.1
 - SQLite
+- Google Gemini AI for nutritional information analysis
 - python‑decouple for environment config
 - Structured logging configuration
 
@@ -90,13 +92,43 @@ HealthTracker Pro is an all‑in‑one web app to monitor and optimize your heal
    ```
 3) Install dependencies
    ```bash
-   # Note: The project currently doesn't include a requirements.txt file
-   pip install django python-decouple
+   pip install -r requirements.txt
    ```
-4) Create a .env file in the project root
+4) **Configure Environment Variables**
+   
+   Create a `.env` file in the project root directory (same location as `manage.py`). You can use `.env.exemple` as a template:
+   
+   ```bash
+   # Copy the example file (Windows)
+   copy .env.exemple .env
+   
+   # macOS/Linux
+   cp .env.exemple .env
    ```
+   
+   Then edit the `.env` file and add your configuration:
+   
+   ```env
    DJANGO_SECRET_KEY=your_secret_key_here
+   GEMINI_API_KEY=your_gemini_api_key_here
    ```
+   
+   **Important**: 
+   - **DJANGO_SECRET_KEY**: Generate a secure secret key for Django. You can use [Djecrety](https://djecrety.ir/) or run:
+     ```bash
+     python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+     ```
+   
+   - **GEMINI_API_KEY**: Required for the AI Food Assistant feature. To obtain your API key:
+     1. Visit [Google AI Studio](https://aistudio.google.com/app/apikey)
+     2. Sign in with your Google account
+     3. Click "Create API Key"
+     4. Copy the generated API key and paste it in your `.env` file
+     
+     **Note**: Without a valid Gemini API key, the AI Food Assistant feature will not work, but the rest of the application will function normally.
+   
+   ⚠️ **Security Notice**: Never commit your `.env` file to version control. It's already listed in `.gitignore` to prevent accidental exposure of your API keys.
+
 5) Apply migrations and run the server
    ```bash
    python manage.py migrate
