@@ -178,14 +178,7 @@
                     <span class="delete-btn"><i class="fas fa-times"></i></span>
                   </td>
                   <td class="editable" contenteditable="true"></td>
-                  <td rowspan="2" class="add-column"></td>
-                </tr>
-                <tr>
-                  <td class="exercise-name" contenteditable="true">
-                    Exercise 2
-                    <span class="delete-btn"><i class="fas fa-times"></i></span>
-                  </td>
-                  <td class="editable" contenteditable="true"></td>
+                  <td class="add-column"></td>
                 </tr>
                 <tr id="add-row-row">
                   <td class="add-row" id="add-row" colspan="3">
@@ -834,9 +827,10 @@
       }
 
       // Clear the current table
-      function clearTable() {
+      // If forLoading is true, don't add default rows/columns (used when loading a saved table)
+      function clearTable(forLoading = false) {
         // Reset current table index if not called from loadTable
-        if (arguments.length === 0) {
+        if (!forLoading) {
           currentTableIndex = -1;
           saveTableBtn.innerHTML = `<i class="fas fa-save me-1"></i>Save Workout Table`;
         }
@@ -857,38 +851,45 @@
           headerRow.deleteCell(1);
         }
 
-        // Add a default workout column
-        const newHeaderCell = document.createElement('th');
-        newHeaderCell.className = 'editable';
-        newHeaderCell.contentEditable = true;
-        newHeaderCell.innerHTML = 'Workout 1 <span class="delete-btn"><i class="fas fa-times"></i></span>';
+        // Only add default content if not loading a table
+        if (!forLoading) {
+          // Add a default workout column
+          const newHeaderCell = document.createElement('th');
+          newHeaderCell.className = 'editable';
+          newHeaderCell.contentEditable = true;
+          newHeaderCell.innerHTML = 'Workout 1 <span class="delete-btn"><i class="fas fa-times"></i></span>';
 
-        // Insert before the add column button
-        headerRow.insertBefore(newHeaderCell, headerRow.lastElementChild);
+          // Insert before the add column button
+          headerRow.insertBefore(newHeaderCell, headerRow.lastElementChild);
 
-        // Add a default exercise row
-        const newRow = document.createElement('tr');
-        const exerciseCell = document.createElement('td');
-        exerciseCell.className = 'exercise-name';
-        exerciseCell.contentEditable = true;
-        exerciseCell.innerHTML = 'Exercise 1 <span class="delete-btn"><i class="fas fa-times"></i></span>';
+          // Add a default exercise row
+          const newRow = document.createElement('tr');
+          const exerciseCell = document.createElement('td');
+          exerciseCell.className = 'exercise-name';
+          exerciseCell.contentEditable = true;
+          exerciseCell.innerHTML = 'Exercise 1 <span class="delete-btn"><i class="fas fa-times"></i></span>';
 
-        newRow.appendChild(exerciseCell);
+          newRow.appendChild(exerciseCell);
 
-        // Add workout data cell
-        const workoutCell = document.createElement('td');
-        workoutCell.className = 'editable';
-        workoutCell.contentEditable = true;
-        newRow.appendChild(workoutCell);
+          // Add workout data cell
+          const workoutCell = document.createElement('td');
+          workoutCell.className = 'editable';
+          workoutCell.contentEditable = true;
+          newRow.appendChild(workoutCell);
 
-        // Add empty cell for the add column button
-        const emptyCell = document.createElement('td');
-        emptyCell.className = 'add-column';
-        newRow.appendChild(emptyCell);
+          // Add empty cell for the add column button
+          const emptyCell = document.createElement('td');
+          emptyCell.className = 'add-column';
+          newRow.appendChild(emptyCell);
 
-        // Insert the new row before the add row button
-        const addRowRow = document.getElementById('add-row-row');
-        workoutTable.tBodies[0].insertBefore(newRow, addRowRow);
+          // Insert the new row before the add row button
+          const addRowRow = document.getElementById('add-row-row');
+          workoutTable.tBodies[0].insertBefore(newRow, addRowRow);
+
+          // Reset the column and row input values to match the default table
+          document.getElementById('columns-input').value = '1';
+          document.getElementById('rows-input').value = '1';
+        }
 
         // Update the colspan of the add row button
         const addRowCell = document.getElementById('add-row');
@@ -907,10 +908,6 @@
         // Reset table name
         tableNameInput.value = '';
 
-        // Reset the column and row input values to match the default table
-        document.getElementById('columns-input').value = '1';
-        document.getElementById('rows-input').value = '1';
-
         // Setup delete buttons
         setupDeleteButtons();
       }
@@ -918,13 +915,7 @@
       // New table button
       newTableBtn.addEventListener('click', function() {
         if (confirm('Are you sure you want to create a new table? Any unsaved changes will be lost.')) {
-          // Reset current table index
-          currentTableIndex = -1;
-
-          // Update save button text
-          saveTableBtn.innerHTML = `<i class="fas fa-save me-1"></i>Save Workout Table`;
-
-          clearTable();
+          clearTable(false); // Pass false to create default rows/columns
         }
       });
 

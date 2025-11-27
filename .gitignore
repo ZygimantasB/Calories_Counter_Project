@@ -6,6 +6,7 @@ db.sqlite3
 calories_counter/
 *.iml
 *.driveupload
+*.json
 
 
 ### PyCharm+iml template

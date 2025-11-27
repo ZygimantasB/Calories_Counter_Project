@@ -568,17 +568,56 @@
                               prevItem.appendChild(prevLink);
                               paginationList.appendChild(prevItem);
 
-                              // Page numbers
-                              for (let i = 1; i <= data.pagination.total_pages; i++) {
+                              // Page numbers - show limited range around current page
+                              const currentPage = data.pagination.current_page;
+                              const totalPages = data.pagination.total_pages;
+                              const maxVisible = 5; // Show at most 5 page numbers
+
+                              let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+                              let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+
+                              // Adjust start if we're near the end
+                              if (endPage - startPage + 1 < maxVisible) {
+                                  startPage = Math.max(1, endPage - maxVisible + 1);
+                              }
+
+                              // First page + ellipsis if needed
+                              if (startPage > 1) {
+                                  const firstItem = document.createElement('li');
+                                  firstItem.className = 'page-item';
+                                  const firstLink = document.createElement('a');
+                                  firstLink.className = 'page-link';
+                                  firstLink.href = '#';
+                                  firstLink.textContent = '1';
+                                  firstLink.addEventListener('click', function(e) {
+                                      e.preventDefault();
+                                      loadWeightCaloriesData(1);
+                                  });
+                                  firstItem.appendChild(firstLink);
+                                  paginationList.appendChild(firstItem);
+
+                                  if (startPage > 2) {
+                                      const ellipsisItem = document.createElement('li');
+                                      ellipsisItem.className = 'page-item disabled';
+                                      const ellipsisSpan = document.createElement('span');
+                                      ellipsisSpan.className = 'page-link';
+                                      ellipsisSpan.textContent = '...';
+                                      ellipsisItem.appendChild(ellipsisSpan);
+                                      paginationList.appendChild(ellipsisItem);
+                                  }
+                              }
+
+                              // Page number range
+                              for (let i = startPage; i <= endPage; i++) {
                                   const pageItem = document.createElement('li');
-                                  pageItem.className = `page-item ${i === data.pagination.current_page ? 'active' : ''}`;
+                                  pageItem.className = `page-item ${i === currentPage ? 'active' : ''}`;
 
                                   const pageLink = document.createElement('a');
                                   pageLink.className = 'page-link';
                                   pageLink.href = '#';
                                   pageLink.textContent = i;
 
-                                  if (i !== data.pagination.current_page) {
+                                  if (i !== currentPage) {
                                       pageLink.addEventListener('click', function(e) {
                                           e.preventDefault();
                                           loadWeightCaloriesData(i);
@@ -587,6 +626,32 @@
 
                                   pageItem.appendChild(pageLink);
                                   paginationList.appendChild(pageItem);
+                              }
+
+                              // Ellipsis + last page if needed
+                              if (endPage < totalPages) {
+                                  if (endPage < totalPages - 1) {
+                                      const ellipsisItem = document.createElement('li');
+                                      ellipsisItem.className = 'page-item disabled';
+                                      const ellipsisSpan = document.createElement('span');
+                                      ellipsisSpan.className = 'page-link';
+                                      ellipsisSpan.textContent = '...';
+                                      ellipsisItem.appendChild(ellipsisSpan);
+                                      paginationList.appendChild(ellipsisItem);
+                                  }
+
+                                  const lastItem = document.createElement('li');
+                                  lastItem.className = 'page-item';
+                                  const lastLink = document.createElement('a');
+                                  lastLink.className = 'page-link';
+                                  lastLink.href = '#';
+                                  lastLink.textContent = totalPages;
+                                  lastLink.addEventListener('click', function(e) {
+                                      e.preventDefault();
+                                      loadWeightCaloriesData(totalPages);
+                                  });
+                                  lastItem.appendChild(lastLink);
+                                  paginationList.appendChild(lastItem);
                               }
 
                               // Next page button
