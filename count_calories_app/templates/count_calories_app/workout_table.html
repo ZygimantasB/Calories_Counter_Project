@@ -16,41 +16,43 @@
       border-collapse: collapse;
     }
     .workout-table th, .workout-table td {
-      border: 1px solid #dee2e6;
+      border: 1px solid var(--border-color, #dee2e6);
       padding: 8px;
       position: relative;
     }
     .workout-table th {
-      background-color: #f8f9fa;
+      background-color: var(--bg-tertiary, #f8f9fa);
       font-weight: bold;
       text-align: center;
     }
     .workout-table .exercise-name {
       min-width: 200px;
-      background-color: #f8f9fa;
+      background-color: var(--bg-tertiary, #f8f9fa);
       font-weight: bold;
     }
     .workout-table .editable {
       min-width: 100px;
       cursor: pointer;
+      background-color: var(--bg-card, #fff);
+      color: var(--text-primary, #212529);
     }
     .workout-table .editable:hover {
-      background-color: #f0f0f0;
+      background-color: var(--bg-hover, #f0f0f0);
     }
     .workout-table .editable:focus {
-      outline: 2px solid #007bff;
-      background-color: #fff;
+      outline: 2px solid var(--accent-primary, #007bff);
+      background-color: var(--bg-card, #fff);
     }
     .workout-table .add-row, .workout-table .add-column {
       cursor: pointer;
-      background-color: #d1e7dd;
+      background-color: rgba(34, 197, 94, 0.2);
       text-align: center;
       font-weight: bold;
-      color: #0f5132;
+      color: var(--accent-success, #0f5132);
       transition: all 0.2s;
     }
     .workout-table .add-row:hover, .workout-table .add-column:hover {
-      background-color: #badbcc;
+      background-color: rgba(34, 197, 94, 0.3);
       transform: scale(1.02);
     }
     .workout-table .delete-btn {
@@ -58,11 +60,11 @@
       top: 2px;
       right: 2px;
       cursor: pointer;
-      color: #dc3545;
+      color: var(--accent-danger, #dc3545);
       font-size: 14px;
       opacity: 0.3;
       transition: all 0.2s;
-      background-color: rgba(255, 255, 255, 0.7);
+      background-color: var(--bg-card, rgba(255, 255, 255, 0.7));
       border-radius: 50%;
       width: 20px;
       height: 20px;
@@ -74,7 +76,7 @@
       opacity: 1;
     }
     .workout-table .delete-btn:hover {
-      background-color: #dc3545;
+      background-color: var(--accent-danger, #dc3545);
       color: white;
       transform: scale(1.1);
     }

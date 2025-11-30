@@ -2,8 +2,8 @@
 
 /* General styling improvements */
 body {
-    background-color: #f8f9fa;
-    color: #343a40;
+    background-color: var(--bg-primary, #f8f9fa);
+    color: var(--text-primary, #343a40);
 }
 
 .container {
@@ -39,7 +39,7 @@ body {
 .totals-summary .stat {
     padding: 10px;
     border-radius: 5px;
-    background-color: #f8f9fa; /* Light background for stats */
+    background-color: var(--bg-tertiary, #f8f9fa); /* Light background for stats */
     margin-bottom: 10px;
 }
 
@@ -51,7 +51,7 @@ body {
 
 .totals-summary .stat-label {
     font-size: 0.9em;
-    color: #6c757d; /* Muted text color */
+    color: var(--text-muted, #6c757d); /* Muted text color */
 }
 
 /* Style the list items */
@@ -63,7 +63,7 @@ body {
 }
 
 .list-group-item:hover {
-    background-color: #f8f9fa;
+    background-color: var(--bg-hover, #f8f9fa);
 }
 
 .list-group-item:first-child {
@@ -85,13 +85,13 @@ body {
 /* Style form inputs */
 .form-control {
     border-radius: 0.25rem;
-    border: 1px solid #ced4da;
+    border: 1px solid var(--border-light, #ced4da);
     padding: 0.5rem 0.75rem;
     transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
 }
 
 .form-control:focus {
-    border-color: #80bdff;
+    border-color: var(--accent-primary, #80bdff);
     box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
 }
 
@@ -142,7 +142,7 @@ body {
 
 .quick-add-btn:hover {
     transform: translateX(5px);
-    background-color: #f8f9fa;
+    background-color: var(--bg-hover, #f8f9fa);
 }
 
 .quick-add-btn:last-child {
@@ -151,7 +151,7 @@ body {
 
 .quick-add-btn i {
     font-size: 1.2rem;
-    color: #28a745;
+    color: var(--accent-success, #28a745);
 }
 
 /* Chart container styling */

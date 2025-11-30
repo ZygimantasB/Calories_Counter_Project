@@ -13,7 +13,7 @@
     }
     .quick-add-btn:hover {
       transform: scale(1.05);
-      background-color: #f8f9fa;
+      background-color: var(--bg-hover, #f8f9fa);
     }
     .chart-container {
       position: relative;
@@ -75,7 +75,7 @@
         </div>
         <div class="card-body">
           <!-- Chat messages area -->
-          <div id="chat-messages" class="mb-3" style="max-height: 200px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 0.375rem; padding: 10px; background-color: #f8f9fa;">
+          <div id="chat-messages" class="mb-3" style="max-height: 200px; overflow-y: auto; border: 1px solid var(--border-color, #dee2e6); border-radius: 0.375rem; padding: 10px;">
             <div class="text-muted text-center">
               <small>💬 Tell me what you ate, for example: "I had 150g grilled chicken breast" or "I ate a medium apple"</small>
             </div>

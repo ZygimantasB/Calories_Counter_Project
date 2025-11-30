@@ -1,7 +1,7 @@
 {% load static %}
 
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport"
@@ -40,6 +40,69 @@
 {% block js_files %}
   <script src="{% static 'js/script.js' %}"></script>
 {% endblock %}
+
+<!-- Theme Toggle Script -->
+<script>
+  // Theme toggle functionality
+  (function() {
+    // Get saved theme or default to light
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.documentElement.setAttribute('data-theme', savedTheme);
+
+    // Toggle theme function
+    window.toggleTheme = function() {
+      const currentTheme = document.documentElement.getAttribute('data-theme');
+      const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+
+      document.documentElement.setAttribute('data-theme', newTheme);
+      localStorage.setItem('theme', newTheme);
+
+      // Update Chart.js colors if charts exist
+      updateChartColors(newTheme);
+    };
+
+    // Update Chart.js colors for theme
+    window.updateChartColors = function(theme) {
+      if (typeof Chart !== 'undefined') {
+        const textColor = theme === 'dark' ? '#9ca3af' : '#666';
+        const gridColor = theme === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)';
+
+        Chart.defaults.color = textColor;
+        Chart.defaults.borderColor = gridColor;
+
+        // Update all existing charts
+        Chart.helpers.each(Chart.instances, function(chart) {
+          if (chart.options.scales) {
+            Object.keys(chart.options.scales).forEach(function(scaleKey) {
+              if (chart.options.scales[scaleKey].grid) {
+                chart.options.scales[scaleKey].grid.color = gridColor;
+              }
+              if (chart.options.scales[scaleKey].ticks) {
+                chart.options.scales[scaleKey].ticks.color = textColor;
+              }
+              if (chart.options.scales[scaleKey].title) {
+                chart.options.scales[scaleKey].title.color = textColor;
+              }
+            });
+          }
+          if (chart.options.plugins && chart.options.plugins.legend) {
+            chart.options.plugins.legend.labels = chart.options.plugins.legend.labels || {};
+            chart.options.plugins.legend.labels.color = textColor;
+          }
+          if (chart.options.plugins && chart.options.plugins.title) {
+            chart.options.plugins.title.color = textColor;
+          }
+          chart.update();
+        });
+      }
+    };
+
+    // Apply theme on page load
+    document.addEventListener('DOMContentLoaded', function() {
+      updateChartColors(savedTheme);
+    });
+  })();
+</script>
 
 {% block extra_body %}
 {% endblock %}

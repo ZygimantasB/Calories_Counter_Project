@@ -1,0 +1,575 @@
+/* Dark Theme for Health Tracker */
+
+/* CSS Variables for theming */
+:root {
+    /* Light theme (default) */
+    --bg-primary: #f8f9fa;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #e9ecef;
+    --bg-card: #ffffff;
+    --bg-input: #ffffff;
+    --bg-hover: #f1f3f5;
+
+    --text-primary: #212529;
+    --text-secondary: #495057;
+    --text-muted: #6c757d;
+    --text-inverse: #ffffff;
+
+    --border-color: #dee2e6;
+    --border-light: #ced4da;
+
+    --shadow-sm: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    --shadow-md: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+
+    /* Bootstrap color overrides */
+    --bs-body-bg: #f8f9fa;
+    --bs-body-color: #212529;
+    --bs-card-bg: #ffffff;
+
+    /* Accent colors */
+    --accent-primary: #0d6efd;
+    --accent-success: #198754;
+    --accent-info: #0dcaf0;
+    --accent-warning: #ffc107;
+    --accent-danger: #dc3545;
+
+    /* Chart colors */
+    --chart-grid: rgba(0, 0, 0, 0.1);
+    --chart-text: #666;
+}
+
+/* Dark theme */
+[data-theme="dark"] {
+    --bg-primary: #1a1a2e;
+    --bg-secondary: #16213e;
+    --bg-tertiary: #0f3460;
+    --bg-card: #1f2937;
+    --bg-input: #374151;
+    --bg-hover: #374151;
+
+    --text-primary: #f3f4f6;
+    --text-secondary: #d1d5db;
+    --text-muted: #9ca3af;
+    --text-inverse: #1f2937;
+
+    --border-color: #4b5563;
+    --border-light: #374151;
+
+    --shadow-sm: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 0.5rem 1rem rgba(0, 0, 0, 0.4);
+
+    /* Bootstrap color overrides for dark */
+    --bs-body-bg: #1a1a2e;
+    --bs-body-color: #f3f4f6;
+    --bs-card-bg: #1f2937;
+
+    /* Accent colors (slightly adjusted for dark mode visibility) */
+    --accent-primary: #3b82f6;
+    --accent-success: #22c55e;
+    --accent-info: #06b6d4;
+    --accent-warning: #f59e0b;
+    --accent-danger: #ef4444;
+
+    /* Chart colors */
+    --chart-grid: rgba(255, 255, 255, 0.1);
+    --chart-text: #9ca3af;
+}
+
+/* Base styles */
+body {
+    background-color: var(--bg-primary) !important;
+    color: var(--text-primary) !important;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Container */
+.container {
+    color: var(--text-primary);
+}
+
+/* Navbar */
+.navbar {
+    background-color: var(--bg-secondary) !important;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.navbar-brand {
+    color: var(--text-primary) !important;
+}
+
+.navbar-nav .nav-link {
+    color: var(--text-secondary) !important;
+}
+
+.navbar-nav .nav-link:hover,
+.navbar-nav .nav-link.active {
+    color: var(--accent-primary) !important;
+}
+
+.navbar-toggler {
+    border-color: var(--border-color) !important;
+}
+
+.navbar-toggler-icon {
+    filter: var(--bs-navbar-toggler-icon-filter, none);
+}
+
+[data-theme="dark"] .navbar-toggler-icon {
+    filter: invert(1);
+}
+
+/* Dropdown menus */
+.dropdown-menu {
+    background-color: var(--bg-card) !important;
+    border-color: var(--border-color) !important;
+}
+
+.dropdown-item {
+    color: var(--text-primary) !important;
+}
+
+.dropdown-item:hover,
+.dropdown-item:focus {
+    background-color: var(--bg-hover) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Cards */
+.card {
+    background-color: var(--bg-card) !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-primary) !important;
+}
+
+.card-header {
+    border-bottom-color: var(--border-color) !important;
+}
+
+.card-footer {
+    background-color: var(--bg-tertiary) !important;
+    border-top-color: var(--border-color) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Keep colored card headers visible */
+.card-header.bg-primary {
+    background-color: var(--accent-primary) !important;
+    color: white !important;
+}
+
+.card-header.bg-success {
+    background-color: var(--accent-success) !important;
+    color: white !important;
+}
+
+.card-header.bg-info {
+    background-color: var(--accent-info) !important;
+    color: var(--text-inverse) !important;
+}
+
+.card-header.bg-warning {
+    background-color: var(--accent-warning) !important;
+    color: var(--text-inverse) !important;
+}
+
+.card-header.bg-danger {
+    background-color: var(--accent-danger) !important;
+    color: white !important;
+}
+
+/* Forms */
+.form-control,
+.form-select {
+    background-color: var(--bg-input) !important;
+    border-color: var(--border-light) !important;
+    color: var(--text-primary) !important;
+}
+
+.form-control:focus,
+.form-select:focus {
+    background-color: var(--bg-input) !important;
+    border-color: var(--accent-primary) !important;
+    color: var(--text-primary) !important;
+    box-shadow: 0 0 0 0.25rem rgba(59, 130, 246, 0.25) !important;
+}
+
+.form-control::placeholder {
+    color: var(--text-muted) !important;
+}
+
+.form-label {
+    color: var(--text-primary) !important;
+}
+
+.form-text {
+    color: var(--text-muted) !important;
+}
+
+/* Input group */
+.input-group-text {
+    background-color: var(--bg-tertiary) !important;
+    border-color: var(--border-light) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Buttons */
+.btn-outline-primary {
+    color: var(--accent-primary) !important;
+    border-color: var(--accent-primary) !important;
+}
+
+.btn-outline-primary:hover {
+    background-color: var(--accent-primary) !important;
+    color: white !important;
+}
+
+.btn-outline-secondary {
+    color: var(--text-secondary) !important;
+    border-color: var(--border-color) !important;
+}
+
+.btn-outline-secondary:hover {
+    background-color: var(--bg-hover) !important;
+    color: var(--text-primary) !important;
+}
+
+.btn-outline-info {
+    color: var(--accent-info) !important;
+    border-color: var(--accent-info) !important;
+}
+
+.btn-outline-info:hover {
+    background-color: var(--accent-info) !important;
+    color: var(--text-inverse) !important;
+}
+
+.btn-outline-dark {
+    color: var(--text-primary) !important;
+    border-color: var(--border-color) !important;
+}
+
+.btn-outline-dark:hover {
+    background-color: var(--text-primary) !important;
+    color: var(--bg-primary) !important;
+}
+
+.btn-outline-danger {
+    color: var(--accent-danger) !important;
+    border-color: var(--accent-danger) !important;
+}
+
+.btn-outline-danger:hover {
+    background-color: var(--accent-danger) !important;
+    color: white !important;
+}
+
+/* List groups */
+.list-group-item {
+    background-color: var(--bg-card) !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-primary) !important;
+}
+
+.list-group-item:hover {
+    background-color: var(--bg-hover) !important;
+}
+
+/* Badges */
+.badge.bg-secondary {
+    background-color: var(--bg-tertiary) !important;
+    color: var(--text-primary) !important;
+}
+
+.badge.bg-light {
+    background-color: var(--bg-tertiary) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Tables */
+.table {
+    color: var(--text-primary) !important;
+    --bs-table-bg: var(--bg-card);
+    --bs-table-striped-bg: var(--bg-tertiary);
+    --bs-table-hover-bg: var(--bg-hover);
+}
+
+.table thead th {
+    background-color: var(--bg-tertiary) !important;
+    color: var(--text-primary) !important;
+    border-bottom-color: var(--border-color) !important;
+}
+
+.table td,
+.table th {
+    border-color: var(--border-color) !important;
+}
+
+.table-striped > tbody > tr:nth-of-type(odd) > * {
+    background-color: var(--bg-tertiary) !important;
+    color: var(--text-primary) !important;
+}
+
+.table-hover > tbody > tr:hover > * {
+    background-color: var(--bg-hover) !important;
+}
+
+/* Alerts */
+.alert {
+    border-color: var(--border-color) !important;
+}
+
+.alert-success {
+    background-color: rgba(34, 197, 94, 0.2) !important;
+    color: var(--accent-success) !important;
+    border-color: var(--accent-success) !important;
+}
+
+.alert-danger {
+    background-color: rgba(239, 68, 68, 0.2) !important;
+    color: var(--accent-danger) !important;
+    border-color: var(--accent-danger) !important;
+}
+
+.alert-warning {
+    background-color: rgba(245, 158, 11, 0.2) !important;
+    color: var(--accent-warning) !important;
+    border-color: var(--accent-warning) !important;
+}
+
+.alert-info {
+    background-color: rgba(6, 182, 212, 0.2) !important;
+    color: var(--accent-info) !important;
+    border-color: var(--accent-info) !important;
+}
+
+/* Modals */
+.modal-content {
+    background-color: var(--bg-card) !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-primary) !important;
+}
+
+.modal-header,
+.modal-footer {
+    border-color: var(--border-color) !important;
+}
+
+.btn-close {
+    filter: var(--bs-btn-close-white-filter, none);
+}
+
+[data-theme="dark"] .btn-close {
+    filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+/* Footer */
+.footer,
+footer {
+    background-color: var(--bg-secondary) !important;
+    border-top: 1px solid var(--border-color);
+    color: var(--text-muted) !important;
+}
+
+/* Pagination */
+.page-link {
+    background-color: var(--bg-card) !important;
+    border-color: var(--border-color) !important;
+    color: var(--text-primary) !important;
+}
+
+.page-link:hover {
+    background-color: var(--bg-hover) !important;
+    color: var(--accent-primary) !important;
+}
+
+.page-item.active .page-link {
+    background-color: var(--accent-primary) !important;
+    border-color: var(--accent-primary) !important;
+    color: white !important;
+}
+
+.page-item.disabled .page-link {
+    background-color: var(--bg-tertiary) !important;
+    color: var(--text-muted) !important;
+}
+
+/* Text utilities */
+.text-muted {
+    color: var(--text-muted) !important;
+}
+
+.text-dark {
+    color: var(--text-primary) !important;
+}
+
+.text-secondary {
+    color: var(--text-secondary) !important;
+}
+
+/* Background utilities */
+.bg-light {
+    background-color: var(--bg-tertiary) !important;
+}
+
+.bg-white {
+    background-color: var(--bg-card) !important;
+}
+
+/* Border utilities */
+.border {
+    border-color: var(--border-color) !important;
+}
+
+.border-bottom {
+    border-bottom-color: var(--border-color) !important;
+}
+
+/* Horizontal rule */
+hr {
+    border-color: var(--border-color) !important;
+    opacity: 0.5;
+}
+
+/* Quick add button specific */
+.quick-add-btn {
+    background-color: var(--bg-card);
+    border-bottom-color: var(--border-color) !important;
+}
+
+.quick-add-btn:hover {
+    background-color: var(--bg-hover) !important;
+}
+
+/* Chat messages area */
+#chat-messages {
+    background-color: var(--bg-tertiary) !important;
+    border-color: var(--border-color) !important;
+}
+
+/* Stat cards */
+.totals-summary .stat {
+    background-color: var(--bg-tertiary) !important;
+}
+
+/* Spinners */
+.spinner-border {
+    color: var(--text-primary);
+}
+
+/* Theme toggle button */
+.theme-toggle {
+    background: none;
+    border: 1px solid var(--border-color);
+    border-radius: 0.375rem;
+    padding: 0.375rem 0.75rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-primary);
+    transition: all 0.2s ease;
+}
+
+.theme-toggle:hover {
+    background-color: var(--bg-hover);
+    border-color: var(--accent-primary);
+}
+
+.theme-toggle i {
+    font-size: 1rem;
+}
+
+/* Sun/moon icons visibility */
+.theme-toggle .fa-sun {
+    display: none;
+}
+
+.theme-toggle .fa-moon {
+    display: inline-block;
+}
+
+[data-theme="dark"] .theme-toggle .fa-sun {
+    display: inline-block;
+}
+
+[data-theme="dark"] .theme-toggle .fa-moon {
+    display: none;
+}
+
+/* Progress bars */
+.progress {
+    background-color: var(--bg-tertiary) !important;
+}
+
+/* Accordion */
+.accordion-item {
+    background-color: var(--bg-card) !important;
+    border-color: var(--border-color) !important;
+}
+
+.accordion-button {
+    background-color: var(--bg-card) !important;
+    color: var(--text-primary) !important;
+}
+
+.accordion-button:not(.collapsed) {
+    background-color: var(--bg-tertiary) !important;
+    color: var(--text-primary) !important;
+}
+
+.accordion-button::after {
+    filter: var(--accordion-icon-filter, none);
+}
+
+[data-theme="dark"] .accordion-button::after {
+    filter: invert(1);
+}
+
+/* Breadcrumb */
+.breadcrumb {
+    background-color: var(--bg-tertiary);
+}
+
+.breadcrumb-item a {
+    color: var(--accent-primary);
+}
+
+.breadcrumb-item.active {
+    color: var(--text-muted);
+}
+
+/* Tooltip and Popover */
+.tooltip-inner {
+    background-color: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.popover {
+    background-color: var(--bg-card);
+    border-color: var(--border-color);
+}
+
+.popover-header {
+    background-color: var(--bg-tertiary);
+    border-bottom-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+.popover-body {
+    color: var(--text-primary);
+}
+
+/* Print styles - always use light theme */
+@media print {
+    body {
+        background-color: white !important;
+        color: black !important;
+    }
+
+    .card,
+    .table,
+    .list-group-item {
+        background-color: white !important;
+        color: black !important;
+    }
+}

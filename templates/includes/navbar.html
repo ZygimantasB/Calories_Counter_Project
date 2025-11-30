@@ -44,10 +44,14 @@
           </ul>
         </li>
       </ul>
-      <div class="d-flex">
+      <div class="d-flex align-items-center">
         <a href="{% url 'food_tracker' %}" class="btn btn-outline-primary me-2">
           <i class="fas fa-chart-pie me-1"></i>Dashboard
         </a>
+        <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode">
+          <i class="fas fa-moon"></i>
+          <i class="fas fa-sun"></i>
+        </button>
       </div>
     </div>
   </div>
