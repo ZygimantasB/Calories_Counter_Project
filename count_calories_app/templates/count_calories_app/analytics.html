@@ -18,6 +18,10 @@
     .insight-card.protein { border-left-color: #198754; }
     .insight-card.carbs { border-left-color: #0d6efd; }
     .insight-card.fat { border-left-color: #ffc107; }
+    .insight-card.weekend { border-left-color: #6f42c1; }
+    .insight-card.consistency { border-left-color: #20c997; }
+    .insight-card.streak { border-left-color: #fd7e14; }
+    .insight-card.milestone { border-left-color: #d63384; }
     .stat-card {
       transition: transform 0.2s;
     }
@@ -31,6 +35,38 @@
       top: 0;
       background: var(--bg-secondary, #f8f9fa);
       z-index: 1;
+    }
+    .progress-ring {
+      width: 120px;
+      height: 120px;
+    }
+    .day-bar {
+      height: 8px;
+      border-radius: 4px;
+      background: var(--bg-tertiary, #e9ecef);
+      overflow: hidden;
+    }
+    .day-bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.3s ease;
+    }
+    .streak-badge {
+      font-size: 2rem;
+    }
+    .macro-bar {
+      height: 30px;
+      border-radius: 5px;
+      overflow: hidden;
+      display: flex;
+    }
+    .macro-segment {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 0.75rem;
+      font-weight: bold;
     }
   </style>
 {% endblock %}
@@ -52,6 +88,70 @@
     </div>
   </div>
 
+  <!-- Streaks & Consistency Row -->
+  {% if streaks or consistency_score %}
+  <div class="row mb-4">
+    {% if streaks %}
+    <div class="col-12 col-md-6 mb-3 mb-md-0">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-warning text-dark">
+          <h2 class="h5 mb-0">Logging Streaks</h2>
+        </div>
+        <div class="card-body">
+          <div class="row text-center">
+            <div class="col-4">
+              <div class="streak-badge">🔥</div>
+              <div class="h3 mb-0">{{ streaks.current_streak }}</div>
+              <small class="text-muted">Current Streak</small>
+            </div>
+            <div class="col-4">
+              <div class="streak-badge">🏆</div>
+              <div class="h3 mb-0">{{ streaks.longest_streak }}</div>
+              <small class="text-muted">Best Streak</small>
+            </div>
+            <div class="col-4">
+              <div class="streak-badge">📊</div>
+              <div class="h3 mb-0">{{ streaks.consistency_rate }}%</div>
+              <small class="text-muted">Consistency</small>
+            </div>
+          </div>
+          <div class="text-center mt-3">
+            <small class="text-muted">{{ streaks.total_days }} total days logged</small>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if consistency_score %}
+    <div class="col-12 col-md-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-info text-white">
+          <h2 class="h5 mb-0">Calorie Consistency Score</h2>
+        </div>
+        <div class="card-body text-center">
+          <div class="h1 mb-2">
+            {% if consistency_score.score >= 80 %}
+              <span class="text-success">{{ consistency_score.score }}</span>
+            {% elif consistency_score.score >= 60 %}
+              <span class="text-warning">{{ consistency_score.score }}</span>
+            {% else %}
+              <span class="text-danger">{{ consistency_score.score }}</span>
+            {% endif %}
+            <small class="text-muted">/100</small>
+          </div>
+          <h5 class="{% if consistency_score.score >= 80 %}text-success{% elif consistency_score.score >= 60 %}text-warning{% else %}text-danger{% endif %}">
+            {{ consistency_score.rating }}
+          </h5>
+          <p class="text-muted mb-0">{{ consistency_score.description }}</p>
+          <small class="text-muted">Coefficient of Variation: {{ consistency_score.cv }}%</small>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
   <!-- Overall Stats -->
   {% if overall_stats %}
   <div class="row mb-4">
@@ -67,6 +167,11 @@
                 <div class="card-body py-3">
                   <div class="h4 mb-0">{{ overall_stats.avg_daily_calories|floatformat:0 }}</div>
                   <small class="text-muted">Avg Daily Calories</small>
+                  {% if overall_stats.calorie_min and overall_stats.calorie_max %}
+                  <div class="small text-muted mt-1">
+                    Range: {{ overall_stats.calorie_min|floatformat:0 }} - {{ overall_stats.calorie_max|floatformat:0 }}
+                  </div>
+                  {% endif %}
                 </div>
               </div>
             </div>
@@ -75,6 +180,9 @@
                 <div class="card-body py-3">
                   <div class="h4 mb-0">{{ overall_stats.avg_daily_protein|floatformat:1 }}g</div>
                   <small class="text-muted">Avg Daily Protein</small>
+                  <div class="small text-muted mt-1">
+                    Total: {{ overall_stats.total_protein|floatformat:0 }}g
+                  </div>
                 </div>
               </div>
             </div>
@@ -83,6 +191,9 @@
                 <div class="card-body py-3">
                   <div class="h4 mb-0">{{ overall_stats.avg_daily_carbs|floatformat:1 }}g</div>
                   <small class="text-muted">Avg Daily Carbs</small>
+                  <div class="small text-muted mt-1">
+                    Total: {{ overall_stats.total_carbs|floatformat:0 }}g
+                  </div>
                 </div>
               </div>
             </div>
@@ -91,6 +202,9 @@
                 <div class="card-body py-3">
                   <div class="h4 mb-0">{{ overall_stats.avg_daily_fat|floatformat:1 }}g</div>
                   <small class="text-muted">Avg Daily Fat</small>
+                  <div class="small text-muted mt-1">
+                    Total: {{ overall_stats.total_fat|floatformat:0 }}g
+                  </div>
                 </div>
               </div>
             </div>
@@ -101,65 +215,287 @@
   </div>
   {% endif %}
 
-  <!-- Weight Analysis -->
-  {% if weight_analysis %}
+  <!-- Macro Analysis -->
+  {% if macro_analysis %}
   <div class="row mb-4">
     <div class="col-12">
       <div class="card shadow-sm">
+        <div class="card-header bg-secondary text-white">
+          <h2 class="h5 mb-0">Macronutrient Distribution</h2>
+        </div>
+        <div class="card-body">
+          <!-- Macro Bar -->
+          <div class="macro-bar mb-3">
+            <div class="macro-segment bg-success" style="width: {{ macro_analysis.protein_percent }}%">
+              P: {{ macro_analysis.protein_percent }}%
+            </div>
+            <div class="macro-segment bg-primary" style="width: {{ macro_analysis.carbs_percent }}%">
+              C: {{ macro_analysis.carbs_percent }}%
+            </div>
+            <div class="macro-segment bg-warning" style="width: {{ macro_analysis.fat_percent }}%">
+              F: {{ macro_analysis.fat_percent }}%
+            </div>
+          </div>
+
+          <div class="row text-center">
+            <div class="col-4">
+              <span class="badge bg-success">Protein</span>
+              <div class="h5 mt-2">{{ macro_analysis.protein_percent }}%</div>
+              {% if macro_analysis.protein_per_kg %}
+              <small class="text-muted">{{ macro_analysis.protein_per_kg }}g/kg body weight</small>
+              {% endif %}
+            </div>
+            <div class="col-4">
+              <span class="badge bg-primary">Carbs</span>
+              <div class="h5 mt-2">{{ macro_analysis.carbs_percent }}%</div>
+              <small class="text-muted">Recommended: 45-65%</small>
+            </div>
+            <div class="col-4">
+              <span class="badge bg-warning text-dark">Fat</span>
+              <div class="h5 mt-2">{{ macro_analysis.fat_percent }}%</div>
+              <small class="text-muted">Recommended: 20-35%</small>
+            </div>
+          </div>
+
+          {% if macro_analysis.balance_notes %}
+          <div class="mt-3">
+            {% for note in macro_analysis.balance_notes %}
+            <div class="alert alert-warning py-2 mb-2">{{ note }}</div>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Day of Week Analysis -->
+  {% if day_of_week_stats %}
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card shadow-sm">
+        <div class="card-header bg-dark text-white">
+          <h2 class="h5 mb-0">Day of Week Analysis</h2>
+        </div>
+        <div class="card-body">
+          {% if weekday_insights %}
+          <div class="row text-center mb-4">
+            <div class="col-6 col-md-3 mb-2">
+              <div class="card border-success">
+                <div class="card-body py-2">
+                  <small class="text-muted">Lowest Day</small>
+                  <div class="h6 text-success mb-0">{{ weekday_insights.lowest_day.name }}</div>
+                  <small>{{ weekday_insights.lowest_day.calories|floatformat:0 }} kcal</small>
+                </div>
+              </div>
+            </div>
+            <div class="col-6 col-md-3 mb-2">
+              <div class="card border-danger">
+                <div class="card-body py-2">
+                  <small class="text-muted">Highest Day</small>
+                  <div class="h6 text-danger mb-0">{{ weekday_insights.highest_day.name }}</div>
+                  <small>{{ weekday_insights.highest_day.calories|floatformat:0 }} kcal</small>
+                </div>
+              </div>
+            </div>
+            <div class="col-6 col-md-3 mb-2">
+              <div class="card border-primary">
+                <div class="card-body py-2">
+                  <small class="text-muted">Weekday Avg</small>
+                  <div class="h6 text-primary mb-0">{{ weekday_insights.weekday_avg|floatformat:0 }}</div>
+                  <small>Mon-Fri</small>
+                </div>
+              </div>
+            </div>
+            <div class="col-6 col-md-3 mb-2">
+              <div class="card {% if weekday_insights.weekend_difference > 0 %}border-warning{% else %}border-success{% endif %}">
+                <div class="card-body py-2">
+                  <small class="text-muted">Weekend Avg</small>
+                  <div class="h6 {% if weekday_insights.weekend_difference > 0 %}text-warning{% else %}text-success{% endif %} mb-0">{{ weekday_insights.weekend_avg|floatformat:0 }}</div>
+                  <small>{% if weekday_insights.weekend_difference > 0 %}+{% endif %}{{ weekday_insights.weekend_difference|floatformat:0 }} vs weekdays</small>
+                </div>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+
+          <!-- Daily breakdown bars -->
+          <div class="row">
+            {% for day, stats in day_of_week_stats.items %}
+            <div class="col-12 col-md-6 col-lg-3 mb-3">
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <span class="fw-bold">{{ day }}</span>
+                <span>{{ stats.avg_calories|floatformat:0 }} kcal</span>
+              </div>
+              <div class="day-bar">
+                <div class="day-bar-fill {% if stats.avg_calories <= weekday_insights.lowest_day.calories %}bg-success{% elif stats.avg_calories >= weekday_insights.highest_day.calories %}bg-danger{% else %}bg-primary{% endif %}"
+                     style="width: {% widthratio stats.avg_calories weekday_insights.highest_day.calories 100 %}%">
+                </div>
+              </div>
+              <small class="text-muted">{{ stats.count }} days logged</small>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Weight Progress & Pace -->
+  {% if weight_analysis or weight_pace %}
+  <div class="row mb-4">
+    {% if weight_analysis %}
+    <div class="col-12 col-lg-6 mb-3 mb-lg-0">
+      <div class="card shadow-sm h-100">
         <div class="card-header bg-success text-white">
           <h2 class="h5 mb-0">Weight Progress</h2>
         </div>
         <div class="card-body">
           <div class="row text-center">
-            <div class="col-6 col-md-2 mb-3">
-              <div class="stat-card card bg-light h-100">
-                <div class="card-body py-3">
-                  <div class="h5 mb-0">{{ weight_analysis.start_weight }} kg</div>
-                  <small class="text-muted">Start Weight</small>
-                </div>
-              </div>
+            <div class="col-4 mb-3">
+              <div class="h5 mb-0">{{ weight_analysis.start_weight }} kg</div>
+              <small class="text-muted">Start Weight</small>
             </div>
-            <div class="col-6 col-md-2 mb-3">
-              <div class="stat-card card bg-light h-100">
-                <div class="card-body py-3">
-                  <div class="h5 mb-0">{{ weight_analysis.end_weight }} kg</div>
-                  <small class="text-muted">Current Weight</small>
-                </div>
-              </div>
+            <div class="col-4 mb-3">
+              <div class="h5 mb-0">{{ weight_analysis.end_weight }} kg</div>
+              <small class="text-muted">Current Weight</small>
             </div>
-            <div class="col-6 col-md-2 mb-3">
-              <div class="stat-card card {% if weight_analysis.total_change < 0 %}bg-success text-white{% elif weight_analysis.total_change > 0 %}bg-danger text-white{% else %}bg-light{% endif %} h-100">
-                <div class="card-body py-3">
-                  <div class="h5 mb-0">{% if weight_analysis.total_change > 0 %}+{% endif %}{{ weight_analysis.total_change }} kg</div>
-                  <small>Total Change</small>
-                </div>
+            <div class="col-4 mb-3">
+              <div class="h5 mb-0 {% if weight_analysis.total_change < 0 %}text-success{% elif weight_analysis.total_change > 0 %}text-danger{% endif %}">
+                {% if weight_analysis.total_change > 0 %}+{% endif %}{{ weight_analysis.total_change }} kg
               </div>
+              <small class="text-muted">Total Change</small>
             </div>
-            <div class="col-6 col-md-2 mb-3">
-              <div class="stat-card card bg-light h-100">
-                <div class="card-body py-3">
-                  <div class="h5 mb-0">{{ weight_analysis.avg_weight }} kg</div>
-                  <small class="text-muted">Average</small>
-                </div>
-              </div>
+            <div class="col-4">
+              <div class="h6 mb-0">{{ weight_analysis.min_weight }} kg</div>
+              <small class="text-muted">Lowest</small>
             </div>
-            <div class="col-6 col-md-2 mb-3">
-              <div class="stat-card card bg-light h-100">
-                <div class="card-body py-3">
-                  <div class="h5 mb-0">{{ weight_analysis.min_weight }} kg</div>
-                  <small class="text-muted">Lowest</small>
-                </div>
-              </div>
+            <div class="col-4">
+              <div class="h6 mb-0">{{ weight_analysis.avg_weight }} kg</div>
+              <small class="text-muted">Average</small>
             </div>
-            <div class="col-6 col-md-2 mb-3">
-              <div class="stat-card card bg-light h-100">
-                <div class="card-body py-3">
-                  <div class="h5 mb-0">{{ weight_analysis.max_weight }} kg</div>
-                  <small class="text-muted">Highest</small>
-                </div>
-              </div>
+            <div class="col-4">
+              <div class="h6 mb-0">{{ weight_analysis.max_weight }} kg</div>
+              <small class="text-muted">Highest</small>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if weight_pace %}
+    <div class="col-12 col-lg-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-info text-white">
+          <h2 class="h5 mb-0">Weight Change Pace</h2>
+        </div>
+        <div class="card-body">
+          <div class="row text-center mb-3">
+            <div class="col-4">
+              <div class="h5 mb-0 {% if weight_pace.weekly_rate < 0 %}text-success{% elif weight_pace.weekly_rate > 0 %}text-danger{% endif %}">
+                {% if weight_pace.weekly_rate > 0 %}+{% endif %}{{ weight_pace.weekly_rate }} kg
+              </div>
+              <small class="text-muted">Per Week</small>
+            </div>
+            <div class="col-4">
+              <div class="h5 mb-0 {% if weight_pace.monthly_rate < 0 %}text-success{% elif weight_pace.monthly_rate > 0 %}text-danger{% endif %}">
+                {% if weight_pace.monthly_rate > 0 %}+{% endif %}{{ weight_pace.monthly_rate }} kg
+              </div>
+              <small class="text-muted">Per Month</small>
+            </div>
+            <div class="col-4">
+              <div class="h5 mb-0">{{ weight_pace.days }}</div>
+              <small class="text-muted">Days Tracked</small>
+            </div>
+          </div>
+
+          <div class="alert {% if weight_pace.status == 'losing' %}alert-success{% elif weight_pace.status == 'gaining' %}alert-warning{% else %}alert-info{% endif %} mb-2">
+            {{ weight_pace.pace_assessment }}
+          </div>
+
+          {% if weight_pace.estimated_daily_deficit %}
+          <div class="text-center">
+            <small class="text-muted">
+              Estimated daily calorie {% if weight_pace.estimated_daily_deficit < 0 %}deficit{% else %}surplus{% endif %}:
+              <strong>{{ weight_pace.estimated_daily_deficit|floatformat:0 }} kcal</strong>
+            </small>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Goal Projections -->
+  {% if projections %}
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card shadow-sm">
+        <div class="card-header bg-purple text-white" style="background-color: #6f42c1;">
+          <h2 class="h5 mb-0">Weight Projections</h2>
+        </div>
+        <div class="card-body">
+          <div class="row text-center mb-3">
+            {% if projections.4_weeks %}
+            <div class="col-4">
+              <div class="card bg-light">
+                <div class="card-body py-3">
+                  <small class="text-muted">In 4 Weeks</small>
+                  <div class="h4 mb-0">{{ projections.4_weeks }} kg</div>
+                </div>
+              </div>
+            </div>
+            {% endif %}
+            {% if projections.8_weeks %}
+            <div class="col-4">
+              <div class="card bg-light">
+                <div class="card-body py-3">
+                  <small class="text-muted">In 8 Weeks</small>
+                  <div class="h4 mb-0">{{ projections.8_weeks }} kg</div>
+                </div>
+              </div>
+            </div>
+            {% endif %}
+            {% if projections.12_weeks %}
+            <div class="col-4">
+              <div class="card bg-light">
+                <div class="card-body py-3">
+                  <small class="text-muted">In 12 Weeks</small>
+                  <div class="h4 mb-0">{{ projections.12_weeks }} kg</div>
+                </div>
+              </div>
+            </div>
+            {% endif %}
+          </div>
+
+          {% if projections.goals %}
+          <h6 class="mb-3">Goal Milestones (at current pace)</h6>
+          <div class="table-responsive">
+            <table class="table table-sm">
+              <thead>
+                <tr>
+                  <th>Goal Weight</th>
+                  <th>Weeks to Reach</th>
+                  <th>Estimated Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for goal in projections.goals %}
+                <tr>
+                  <td><strong>{{ goal.weight }} kg</strong></td>
+                  <td>{{ goal.weeks|floatformat:0 }} weeks</td>
+                  <td>{{ goal.date }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% endif %}
         </div>
       </div>
     </div>
@@ -172,7 +508,7 @@
     <div class="col-12">
       <div class="card shadow-sm">
         <div class="card-header bg-warning text-dark">
-          <h2 class="h5 mb-0">Correlation Insights</h2>
+          <h2 class="h5 mb-0">Personalized Insights ({{ insights|length }})</h2>
         </div>
         <div class="card-body">
           <div class="row">
@@ -185,7 +521,7 @@
                   </h5>
                   <p class="card-text">{{ insight.description }}</p>
                   <div class="alert alert-info mb-0 py-2">
-                    <strong>Recommendation:</strong> {{ insight.recommendation }}
+                    <strong>Tip:</strong> {{ insight.recommendation }}
                   </div>
                 </div>
               </div>
@@ -201,10 +537,10 @@
     <div class="col-12">
       <div class="card shadow-sm">
         <div class="card-header bg-warning text-dark">
-          <h2 class="h5 mb-0">Correlation Insights</h2>
+          <h2 class="h5 mb-0">Personalized Insights</h2>
         </div>
         <div class="card-body text-center text-muted">
-          <p class="mb-0">Not enough data to generate insights yet. Keep logging your food and weight to see personalized recommendations!</p>
+          <p class="mb-0">Keep logging your food and weight to unlock personalized insights!</p>
           <small>Need at least 3 weight measurements and 7 days of food logs.</small>
         </div>
       </div>
@@ -217,17 +553,17 @@
   <div class="row mb-4">
     <div class="col-12">
       <div class="card shadow-sm">
-        <div class="card-header bg-info text-white">
-          <h2 class="h5 mb-0">Best & Worst Days Analysis</h2>
+        <div class="card-header bg-danger text-white">
+          <h2 class="h5 mb-0">Record Days</h2>
         </div>
         <div class="card-body">
           <div class="row">
             {% if best_worst_days.lowest_calorie_day %}
             <div class="col-6 col-md-3 mb-3">
               <div class="card bg-success text-white h-100">
-                <div class="card-body text-center">
-                  <h6 class="card-title">Lowest Calorie Day</h6>
-                  <div class="h4">{{ best_worst_days.lowest_calorie_day.total_calories|floatformat:0 }} kcal</div>
+                <div class="card-body text-center py-3">
+                  <h6 class="card-title mb-1">Lowest Calories</h6>
+                  <div class="h4 mb-1">{{ best_worst_days.lowest_calorie_day.total_calories|floatformat:0 }}</div>
                   <small>{{ best_worst_days.lowest_calorie_day.day|date:"M d, Y" }}</small>
                 </div>
               </div>
@@ -236,9 +572,9 @@
             {% if best_worst_days.highest_calorie_day %}
             <div class="col-6 col-md-3 mb-3">
               <div class="card bg-danger text-white h-100">
-                <div class="card-body text-center">
-                  <h6 class="card-title">Highest Calorie Day</h6>
-                  <div class="h4">{{ best_worst_days.highest_calorie_day.total_calories|floatformat:0 }} kcal</div>
+                <div class="card-body text-center py-3">
+                  <h6 class="card-title mb-1">Highest Calories</h6>
+                  <div class="h4 mb-1">{{ best_worst_days.highest_calorie_day.total_calories|floatformat:0 }}</div>
                   <small>{{ best_worst_days.highest_calorie_day.day|date:"M d, Y" }}</small>
                 </div>
               </div>
@@ -247,9 +583,9 @@
             {% if best_worst_days.highest_protein_day %}
             <div class="col-6 col-md-3 mb-3">
               <div class="card bg-primary text-white h-100">
-                <div class="card-body text-center">
-                  <h6 class="card-title">Highest Protein Day</h6>
-                  <div class="h4">{{ best_worst_days.highest_protein_day.total_protein|floatformat:0 }}g</div>
+                <div class="card-body text-center py-3">
+                  <h6 class="card-title mb-1">Most Protein</h6>
+                  <div class="h4 mb-1">{{ best_worst_days.highest_protein_day.total_protein|floatformat:0 }}g</div>
                   <small>{{ best_worst_days.highest_protein_day.day|date:"M d, Y" }}</small>
                 </div>
               </div>
@@ -258,9 +594,9 @@
             {% if best_worst_days.lowest_protein_day %}
             <div class="col-6 col-md-3 mb-3">
               <div class="card bg-secondary text-white h-100">
-                <div class="card-body text-center">
-                  <h6 class="card-title">Lowest Protein Day</h6>
-                  <div class="h4">{{ best_worst_days.lowest_protein_day.total_protein|floatformat:0 }}g</div>
+                <div class="card-body text-center py-3">
+                  <h6 class="card-title mb-1">Least Protein</h6>
+                  <div class="h4 mb-1">{{ best_worst_days.lowest_protein_day.total_protein|floatformat:0 }}g</div>
                   <small>{{ best_worst_days.lowest_protein_day.day|date:"M d, Y" }}</small>
                 </div>
               </div>

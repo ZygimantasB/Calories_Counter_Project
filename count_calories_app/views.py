@@ -2166,22 +2166,308 @@ def analytics(request):
 
     # Overall stats
     overall_stats = {}
+    calories_list = []
     if daily_stats_list:
-        calories_list = [d['total_calories'] for d in daily_stats_list if d['total_calories']]
+        calories_list = [float(d['total_calories']) for d in daily_stats_list if d['total_calories']]
         if calories_list:
             overall_stats['avg_daily_calories'] = round(statistics.mean(calories_list), 0)
             overall_stats['total_days_logged'] = len(daily_stats_list)
+            overall_stats['total_calories'] = round(sum(calories_list), 0)
 
-            protein_list = [d['total_protein'] for d in daily_stats_list if d['total_protein']]
-            carbs_list = [d['total_carbs'] for d in daily_stats_list if d['total_carbs']]
-            fat_list = [d['total_fat'] for d in daily_stats_list if d['total_fat']]
+            protein_list = [float(d['total_protein']) for d in daily_stats_list if d['total_protein']]
+            carbs_list = [float(d['total_carbs']) for d in daily_stats_list if d['total_carbs']]
+            fat_list = [float(d['total_fat']) for d in daily_stats_list if d['total_fat']]
 
             if protein_list:
                 overall_stats['avg_daily_protein'] = round(statistics.mean(protein_list), 1)
+                overall_stats['total_protein'] = round(sum(protein_list), 0)
             if carbs_list:
                 overall_stats['avg_daily_carbs'] = round(statistics.mean(carbs_list), 1)
+                overall_stats['total_carbs'] = round(sum(carbs_list), 0)
             if fat_list:
                 overall_stats['avg_daily_fat'] = round(statistics.mean(fat_list), 1)
+                overall_stats['total_fat'] = round(sum(fat_list), 0)
+
+            # Calorie variability
+            if len(calories_list) >= 3:
+                overall_stats['calorie_std_dev'] = round(statistics.stdev(calories_list), 0)
+                overall_stats['calorie_min'] = round(min(calories_list), 0)
+                overall_stats['calorie_max'] = round(max(calories_list), 0)
+
+    # === DAY OF WEEK ANALYSIS ===
+    day_of_week_stats = {}
+    day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+
+    if daily_stats_list:
+        for day_num in range(7):
+            day_data = [d for d in daily_stats_list if d['day'] and d['day'].weekday() == day_num]
+            if day_data:
+                day_calories = [float(d['total_calories']) for d in day_data if d['total_calories']]
+                if day_calories:
+                    day_of_week_stats[day_names[day_num]] = {
+                        'avg_calories': round(statistics.mean(day_calories), 0),
+                        'count': len(day_calories),
+                        'total_calories': round(sum(day_calories), 0)
+                    }
+
+    # Find best and worst days of week
+    weekday_insights = {}
+    if day_of_week_stats:
+        sorted_days = sorted(day_of_week_stats.items(), key=lambda x: x[1]['avg_calories'])
+        if sorted_days:
+            weekday_insights['lowest_day'] = {'name': sorted_days[0][0], 'calories': sorted_days[0][1]['avg_calories']}
+            weekday_insights['highest_day'] = {'name': sorted_days[-1][0], 'calories': sorted_days[-1][1]['avg_calories']}
+
+            # Weekend vs Weekday comparison
+            weekday_cals = [v['avg_calories'] for k, v in day_of_week_stats.items() if k in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']]
+            weekend_cals = [v['avg_calories'] for k, v in day_of_week_stats.items() if k in ['Saturday', 'Sunday']]
+
+            if weekday_cals and weekend_cals:
+                weekday_insights['weekday_avg'] = round(statistics.mean(weekday_cals), 0)
+                weekday_insights['weekend_avg'] = round(statistics.mean(weekend_cals), 0)
+                weekday_insights['weekend_difference'] = round(weekday_insights['weekend_avg'] - weekday_insights['weekday_avg'], 0)
+
+    # === LOGGING STREAKS ===
+    streaks = {}
+    if daily_stats_list:
+        # Sort by date
+        sorted_days = sorted([d['day'] for d in daily_stats_list if d['day']])
+
+        if sorted_days:
+            # Current streak
+            current_streak = 0
+            check_date = now.date()
+            for i in range(len(sorted_days)):
+                if check_date in sorted_days or (check_date - timedelta(days=1)) in sorted_days:
+                    # Allow for today or yesterday
+                    pass
+
+            # Calculate current streak (consecutive days ending at most recent log)
+            current_streak = 1
+            for i in range(len(sorted_days) - 1, 0, -1):
+                if (sorted_days[i] - sorted_days[i-1]).days == 1:
+                    current_streak += 1
+                else:
+                    break
+
+            # Calculate longest streak
+            longest_streak = 1
+            temp_streak = 1
+            for i in range(1, len(sorted_days)):
+                if (sorted_days[i] - sorted_days[i-1]).days == 1:
+                    temp_streak += 1
+                    longest_streak = max(longest_streak, temp_streak)
+                else:
+                    temp_streak = 1
+
+            streaks['current_streak'] = current_streak
+            streaks['longest_streak'] = longest_streak
+            streaks['total_days'] = len(sorted_days)
+
+            # Days since first log
+            if sorted_days:
+                days_since_start = (now.date() - sorted_days[0]).days + 1
+                streaks['consistency_rate'] = round((len(sorted_days) / days_since_start) * 100, 1) if days_since_start > 0 else 0
+
+    # === MACRO RATIO ANALYSIS ===
+    macro_analysis = {}
+    if overall_stats.get('avg_daily_protein') and overall_stats.get('avg_daily_carbs') and overall_stats.get('avg_daily_fat'):
+        protein_g = overall_stats['avg_daily_protein']
+        carbs_g = overall_stats['avg_daily_carbs']
+        fat_g = overall_stats['avg_daily_fat']
+
+        # Calculate calories from each macro
+        protein_cal = protein_g * 4
+        carbs_cal = carbs_g * 4
+        fat_cal = fat_g * 9
+
+        total_macro_cal = protein_cal + carbs_cal + fat_cal
+
+        if total_macro_cal > 0:
+            macro_analysis['protein_percent'] = round((protein_cal / total_macro_cal) * 100, 1)
+            macro_analysis['carbs_percent'] = round((carbs_cal / total_macro_cal) * 100, 1)
+            macro_analysis['fat_percent'] = round((fat_cal / total_macro_cal) * 100, 1)
+
+            # Protein per kg body weight (if we have weight data)
+            if weights_list:
+                latest_weight = float(weights_list[-1].weight)
+                macro_analysis['protein_per_kg'] = round(protein_g / latest_weight, 2)
+
+            # Macro balance assessment
+            # Recommended ranges: Protein 10-35%, Carbs 45-65%, Fat 20-35%
+            macro_analysis['balance_notes'] = []
+            if macro_analysis['protein_percent'] < 15:
+                macro_analysis['balance_notes'].append('Protein intake is low (below 15%)')
+            elif macro_analysis['protein_percent'] > 35:
+                macro_analysis['balance_notes'].append('Protein intake is high (above 35%)')
+
+            if macro_analysis['carbs_percent'] < 40:
+                macro_analysis['balance_notes'].append('Carb intake is low (below 40%)')
+            elif macro_analysis['carbs_percent'] > 65:
+                macro_analysis['balance_notes'].append('Carb intake is high (above 65%)')
+
+            if macro_analysis['fat_percent'] < 20:
+                macro_analysis['balance_notes'].append('Fat intake is low (below 20%)')
+            elif macro_analysis['fat_percent'] > 40:
+                macro_analysis['balance_notes'].append('Fat intake is high (above 40%)')
+
+    # === WEIGHT PACE ANALYSIS ===
+    weight_pace = {}
+    if len(weights_list) >= 2:
+        first_weight = float(weights_list[0].weight)
+        last_weight = float(weights_list[-1].weight)
+        first_date = weights_list[0].recorded_at
+        last_date = weights_list[-1].recorded_at
+
+        days_diff = (last_date - first_date).days
+        if days_diff > 0:
+            total_change = last_weight - first_weight
+            weight_pace['total_change'] = round(total_change, 1)
+            weight_pace['days'] = days_diff
+            weight_pace['weekly_rate'] = round((total_change / days_diff) * 7, 2)
+            weight_pace['monthly_rate'] = round((total_change / days_diff) * 30, 1)
+
+            # Healthy weight loss/gain is typically 0.5-1 kg per week
+            if total_change < 0:
+                weight_pace['status'] = 'losing'
+                if abs(weight_pace['weekly_rate']) > 1:
+                    weight_pace['pace_assessment'] = 'Rapid weight loss (>1 kg/week) - may be too fast'
+                elif abs(weight_pace['weekly_rate']) >= 0.5:
+                    weight_pace['pace_assessment'] = 'Healthy weight loss pace (0.5-1 kg/week)'
+                else:
+                    weight_pace['pace_assessment'] = 'Slow but steady weight loss (<0.5 kg/week)'
+            elif total_change > 0:
+                weight_pace['status'] = 'gaining'
+                if weight_pace['weekly_rate'] > 0.5:
+                    weight_pace['pace_assessment'] = 'Rapid weight gain (>0.5 kg/week)'
+                else:
+                    weight_pace['pace_assessment'] = 'Gradual weight gain (<0.5 kg/week)'
+            else:
+                weight_pace['status'] = 'maintaining'
+                weight_pace['pace_assessment'] = 'Weight is stable'
+
+            # Estimated calorie deficit/surplus
+            # 1 kg of body weight ≈ 7700 calories
+            if days_diff >= 7:
+                daily_cal_change = (total_change * 7700) / days_diff
+                weight_pace['estimated_daily_deficit'] = round(daily_cal_change, 0)
+
+    # === GOAL PROJECTIONS ===
+    projections = {}
+    if weight_pace.get('weekly_rate') and weights_list:
+        current_weight = float(weights_list[-1].weight)
+        weekly_rate = weight_pace['weekly_rate']
+
+        # Project weight in 4 weeks, 8 weeks, 12 weeks
+        if weekly_rate != 0:
+            projections['4_weeks'] = round(current_weight + (weekly_rate * 4), 1)
+            projections['8_weeks'] = round(current_weight + (weekly_rate * 8), 1)
+            projections['12_weeks'] = round(current_weight + (weekly_rate * 12), 1)
+
+            # Time to reach common goals (if losing weight)
+            if weekly_rate < 0:
+                goal_weights = [70, 75, 80, 85, 90, 95]
+                projections['goals'] = []
+                for goal in goal_weights:
+                    if goal < current_weight:
+                        weeks_to_goal = (current_weight - goal) / abs(weekly_rate)
+                        if weeks_to_goal <= 52:  # Only show if achievable within a year
+                            target_date = now + timedelta(weeks=weeks_to_goal)
+                            projections['goals'].append({
+                                'weight': goal,
+                                'weeks': round(weeks_to_goal, 0),
+                                'date': target_date.strftime('%B %d, %Y')
+                            })
+
+    # === CALORIE CONSISTENCY SCORE ===
+    consistency_score = {}
+    if calories_list and len(calories_list) >= 7:
+        avg_cal = statistics.mean(calories_list)
+        std_dev = statistics.stdev(calories_list) if len(calories_list) > 1 else 0
+
+        # Coefficient of variation (lower is more consistent)
+        cv = (std_dev / avg_cal) * 100 if avg_cal > 0 else 0
+
+        if cv < 10:
+            consistency_score['rating'] = 'Excellent'
+            consistency_score['description'] = 'Very consistent calorie intake'
+            consistency_score['score'] = 95
+        elif cv < 15:
+            consistency_score['rating'] = 'Good'
+            consistency_score['description'] = 'Fairly consistent calorie intake'
+            consistency_score['score'] = 80
+        elif cv < 25:
+            consistency_score['rating'] = 'Moderate'
+            consistency_score['description'] = 'Some variation in daily calories'
+            consistency_score['score'] = 60
+        else:
+            consistency_score['rating'] = 'Variable'
+            consistency_score['description'] = 'High variation in daily calories'
+            consistency_score['score'] = 40
+
+        consistency_score['cv'] = round(cv, 1)
+
+    # === ADDITIONAL INSIGHTS ===
+    # Add more insights based on data patterns
+
+    # Weekend overeating insight
+    if weekday_insights.get('weekend_difference') and weekday_insights['weekend_difference'] > 200:
+        insights.append({
+            'type': 'weekend',
+            'icon': '📅',
+            'title': 'Weekend Pattern',
+            'description': f'You eat ~{weekday_insights["weekend_difference"]:.0f} more calories on weekends ({weekday_insights["weekend_avg"]:.0f}) vs weekdays ({weekday_insights["weekday_avg"]:.0f}).',
+            'recommendation': 'Plan weekend meals in advance to stay on track.'
+        })
+
+    # Consistency insight
+    if consistency_score.get('rating') == 'Variable':
+        insights.append({
+            'type': 'consistency',
+            'icon': '📊',
+            'title': 'Calorie Variability',
+            'description': f'Your daily calories vary significantly (CV: {consistency_score["cv"]:.1f}%). Range: {overall_stats.get("calorie_min", 0):.0f} - {overall_stats.get("calorie_max", 0):.0f} kcal.',
+            'recommendation': 'Try meal prepping to maintain more consistent intake.'
+        })
+
+    # Protein adequacy insight
+    if macro_analysis.get('protein_per_kg'):
+        if macro_analysis['protein_per_kg'] < 1.2:
+            insights.append({
+                'type': 'protein',
+                'icon': '🥩',
+                'title': 'Protein Intake',
+                'description': f'You\'re getting {macro_analysis["protein_per_kg"]:.2f}g protein per kg body weight. For muscle maintenance, aim for 1.2-1.6g/kg.',
+                'recommendation': f'Consider increasing protein to {round(float(weights_list[-1].weight) * 1.4, 0):.0f}g daily.'
+            })
+        elif macro_analysis['protein_per_kg'] >= 1.6:
+            insights.append({
+                'type': 'protein',
+                'icon': '💪',
+                'title': 'Strong Protein Intake',
+                'description': f'Excellent! You\'re getting {macro_analysis["protein_per_kg"]:.2f}g protein per kg body weight.',
+                'recommendation': 'Keep up the good protein intake for muscle health.'
+            })
+
+    # Streak insight
+    if streaks.get('current_streak', 0) >= 7:
+        insights.append({
+            'type': 'streak',
+            'icon': '🔥',
+            'title': 'Logging Streak',
+            'description': f'Great job! You\'ve logged {streaks["current_streak"]} days in a row. Your longest streak is {streaks["longest_streak"]} days.',
+            'recommendation': 'Keep the momentum going!'
+        })
+
+    # Weight milestone insight
+    if weight_pace.get('total_change') and weight_pace['total_change'] < -5:
+        insights.append({
+            'type': 'milestone',
+            'icon': '🏆',
+            'title': 'Weight Loss Milestone',
+            'description': f'Amazing! You\'ve lost {abs(weight_pace["total_change"]):.1f} kg in {weight_pace["days"]} days.',
+            'recommendation': 'Celebrate your progress and keep going!'
+        })
 
     context = {
         'period': period,
@@ -2191,6 +2477,13 @@ def analytics(request):
         'weight_analysis': weight_analysis,
         'insights': insights,
         'overall_stats': overall_stats,
+        'day_of_week_stats': day_of_week_stats,
+        'weekday_insights': weekday_insights,
+        'streaks': streaks,
+        'macro_analysis': macro_analysis,
+        'weight_pace': weight_pace,
+        'projections': projections,
+        'consistency_score': consistency_score,
     }
 
     return render(request, 'count_calories_app/analytics.html', context)
