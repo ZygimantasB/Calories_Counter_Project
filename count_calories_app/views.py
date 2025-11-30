@@ -25,11 +25,27 @@ def get_nutrition_data(request):
     selected_date_str = request.GET.get('date')
     start_date_str = request.GET.get('start_date')
     end_date_str = request.GET.get('end_date')
+    days_param = request.GET.get('days')
     now = timezone.now()
     start_date = now
     end_date = None
 
-    if selected_date_str:
+    # Handle days parameter (7, 30, 90, 180, 365, or 'all')
+    if days_param:
+        from datetime import datetime
+        if days_param == 'all':
+            start_date = None
+            end_date = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+        else:
+            try:
+                days = int(days_param)
+                start_date = now - timedelta(days=days)
+                start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+                end_date = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+            except ValueError:
+                pass
+
+    elif selected_date_str:
         try:
             from datetime import datetime
             selected_date = datetime.strptime(selected_date_str, '%Y-%m-%d').date()
@@ -59,7 +75,11 @@ def get_nutrition_data(request):
         elif time_range == 'month':
             start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
-    if end_date:
+    # Build query based on start_date and end_date
+    if start_date is None and end_date:
+        # "All" option - no start date filter
+        food_items = FoodItem.objects.filter(consumed_at__lte=end_date)
+    elif end_date:
         food_items = FoodItem.objects.filter(consumed_at__gte=start_date, consumed_at__lte=end_date)
     else:
         food_items = FoodItem.objects.filter(consumed_at__gte=start_date)
@@ -194,14 +214,36 @@ def food_tracker(request):
     selected_date_str = request.GET.get('date')
     start_date_str = request.GET.get('start_date')
     end_date_str = request.GET.get('end_date')
+    days_param = request.GET.get('days')
     now = timezone.now()
     start_date = now
     end_date = None
     selected_date = None
     date_range_selected = False
     show_averages = False
+    current_days = days_param if days_param else None
 
-    if start_date_str and end_date_str:
+    # Handle days parameter (7, 30, 90, 180, 365, or 'all')
+    if days_param:
+        from datetime import datetime
+        if days_param == 'all':
+            # Get all food items
+            start_date = None
+            end_date = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+        else:
+            try:
+                days = int(days_param)
+                start_date = now - timedelta(days=days)
+                start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+                end_date = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+            except ValueError:
+                current_days = None
+        if days_param != 'all' or start_date is None:
+            time_range = 'days_range'
+            date_range_selected = True
+            show_averages = True
+
+    elif start_date_str and end_date_str:
         try:
             from datetime import datetime
             start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
@@ -263,6 +305,9 @@ def food_tracker(request):
             food_items = FoodItem.objects.annotate(
                 consumed_date=TruncDate('consumed_at')
             ).filter(consumed_date=date_to_filter)
+        elif start_date is None:
+            # "All" option - no start date filter
+            food_items = FoodItem.objects.filter(consumed_at__lte=end_date)
         else:
             food_items = FoodItem.objects.filter(consumed_at__gte=start_date, consumed_at__lte=end_date)
     else:
@@ -339,7 +384,18 @@ def food_tracker(request):
     if show_averages and food_items.exists():
         from datetime import datetime
         end_date_obj = end_date.date() if hasattr(end_date, 'date') else end_date
-        start_date_obj = start_date.date() if hasattr(start_date, 'date') else start_date
+
+        # Handle "all" case where start_date is None
+        if start_date is None:
+            # Get the earliest food item date
+            earliest_food = food_items.order_by('consumed_at').first()
+            if earliest_food and earliest_food.consumed_at:
+                start_date_obj = earliest_food.consumed_at.date()
+            else:
+                start_date_obj = end_date_obj
+        else:
+            start_date_obj = start_date.date() if hasattr(start_date, 'date') else start_date
+
         days_in_range = (end_date_obj - start_date_obj).days + 1
 
         if days_in_range > 0:
@@ -429,6 +485,9 @@ def food_tracker(request):
             top_foods_queryset = FoodItem.objects.annotate(
                 consumed_date=TruncDate('consumed_at')
             ).filter(consumed_date=date_to_filter)
+        elif start_date is None:
+            # "All" option - no start date filter
+            top_foods_queryset = FoodItem.objects.filter(consumed_at__lte=end_date)
         else:
             top_foods_queryset = FoodItem.objects.filter(consumed_at__gte=start_date, consumed_at__lte=end_date)
     else:
@@ -487,6 +546,7 @@ def food_tracker(request):
         'top_foods_page': top_foods_page,  # Paginated top foods data
         'current_sort': sort_by,  # Current sort field
         'current_order': sort_order,  # Current sort order
+        'current_days': current_days,  # Current days filter for button highlighting
     }
     return render(request, 'count_calories_app/food_tracker.html', context)
 

@@ -173,10 +173,14 @@
     <div class="col-md-8">
 
       <div class="mb-3">
-        <div class="d-flex justify-content-center justify-content-md-start mb-2">
-          <a href="?range=today" class="btn btn-sm {% if selected_range == 'today' and not selected_date %}btn-info{% else %}btn-outline-info{% endif %} me-2">Today</a>
-          <a href="?range=week" class="btn btn-sm {% if selected_range == 'week' %}btn-info{% else %}btn-outline-info{% endif %} me-2">This Week</a>
-          <a href="?range=month" class="btn btn-sm {% if selected_range == 'month' %}btn-info{% else %}btn-outline-info{% endif %} me-2">This Month</a>
+        <div class="d-flex justify-content-center justify-content-md-start flex-wrap gap-1 mb-2">
+          <a href="?range=today" class="btn btn-sm {% if selected_range == 'today' and not selected_date and not current_days %}btn-info{% else %}btn-outline-info{% endif %}">Today</a>
+          <a href="?days=7" class="btn btn-sm {% if current_days == '7' %}btn-info{% else %}btn-outline-info{% endif %}">7 Days</a>
+          <a href="?days=30" class="btn btn-sm {% if current_days == '30' %}btn-info{% else %}btn-outline-info{% endif %}">1 Month</a>
+          <a href="?days=90" class="btn btn-sm {% if current_days == '90' %}btn-info{% else %}btn-outline-info{% endif %}">90 Days</a>
+          <a href="?days=180" class="btn btn-sm {% if current_days == '180' %}btn-info{% else %}btn-outline-info{% endif %}">6 Months</a>
+          <a href="?days=365" class="btn btn-sm {% if current_days == '365' %}btn-info{% else %}btn-outline-info{% endif %}">1 Year</a>
+          <a href="?days=all" class="btn btn-sm {% if current_days == 'all' %}btn-info{% else %}btn-outline-info{% endif %}">All</a>
         </div>
         <div class="d-flex justify-content-center justify-content-md-start mb-2">
           <form method="get" class="d-flex align-items-center">
@@ -187,11 +191,11 @@
         </div>
         <div class="d-flex justify-content-center justify-content-md-start">
           <form method="get" class="d-flex align-items-center flex-wrap">
-            <label for="start-date" class="me-2">Date Range:</label>
+            <label for="start-date" class="me-2">Custom:</label>
             <input type="date" id="start-date" name="start_date" class="form-control form-control-sm me-2" value="{{ start_date_str }}" required>
             <label for="end-date" class="me-2">to</label>
             <input type="date" id="end-date" name="end_date" class="form-control form-control-sm me-2" value="{{ end_date_str }}" required>
-            <button type="submit" class="btn btn-sm btn-success">View Range</button>
+            <button type="submit" class="btn btn-sm btn-success">Apply</button>
           </form>
         </div>
       </div>
@@ -778,6 +782,8 @@
         fetch('{% url "nutrition_data" %}?date={{ selected_date|date:"Y-m-d" }}')
       {% elif start_date_str and end_date_str %}
         fetch('{% url "nutrition_data" %}?start_date={{ start_date_str }}&end_date={{ end_date_str }}')
+      {% elif current_days %}
+        fetch('{% url "nutrition_data" %}?days={{ current_days }}')
       {% else %}
         fetch('{% url "nutrition_data" %}?range={{ selected_range }}')
       {% endif %}
