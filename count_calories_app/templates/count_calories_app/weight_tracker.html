@@ -28,6 +28,19 @@
           color: white !important;
       }
   </style>
+  <script>
+    // Enable mouse wheel horizontal scrolling for chart containers
+    document.addEventListener('DOMContentLoaded', function() {
+      document.querySelectorAll('.chart-scroll-container').forEach(container => {
+        container.addEventListener('wheel', function(e) {
+          if (container.scrollWidth > container.clientWidth) {
+            e.preventDefault();
+            container.scrollLeft += e.deltaY;
+          }
+        });
+      });
+    });
+  </script>
 {% endblock %}
 
 {% block content %}
