@@ -1,5 +1,14 @@
 /* Dark Theme for Health Tracker */
 
+/* Prevent flash of unstyled content */
+html {
+    background-color: #f8f9fa;
+}
+
+html[data-theme="dark"] {
+    background-color: #1a1a2e;
+}
+
 /* CSS Variables for theming */
 :root {
     /* Light theme (default) */
