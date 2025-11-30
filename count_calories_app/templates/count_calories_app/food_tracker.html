@@ -369,6 +369,68 @@
             No items recorded for this period.
           </div>
         {% endif %}
+
+        <!-- Pagination for Consumed Items -->
+        {% if food_items.has_other_pages %}
+        <div class="card-footer">
+          <nav aria-label="Consumed items pagination">
+            <ul class="pagination pagination-sm justify-content-center mb-0">
+              {% if food_items.has_previous %}
+                <li class="page-item">
+                  <a class="page-link" href="?items_page=1{% if current_days %}&days={{ current_days }}{% endif %}{% if selected_date %}&date={{ selected_date|date:'Y-m-d' }}{% endif %}{% if start_date_str %}&start_date={{ start_date_str }}{% endif %}{% if end_date_str %}&end_date={{ end_date_str }}{% endif %}{% if selected_range and not current_days and not selected_date %}&range={{ selected_range }}{% endif %}" aria-label="First">
+                    <span aria-hidden="true">&laquo;&laquo;</span>
+                  </a>
+                </li>
+                <li class="page-item">
+                  <a class="page-link" href="?items_page={{ food_items.previous_page_number }}{% if current_days %}&days={{ current_days }}{% endif %}{% if selected_date %}&date={{ selected_date|date:'Y-m-d' }}{% endif %}{% if start_date_str %}&start_date={{ start_date_str }}{% endif %}{% if end_date_str %}&end_date={{ end_date_str }}{% endif %}{% if selected_range and not current_days and not selected_date %}&range={{ selected_range }}{% endif %}" aria-label="Previous">
+                    <span aria-hidden="true">&laquo;</span>
+                  </a>
+                </li>
+              {% else %}
+                <li class="page-item disabled">
+                  <span class="page-link">&laquo;&laquo;</span>
+                </li>
+                <li class="page-item disabled">
+                  <span class="page-link">&laquo;</span>
+                </li>
+              {% endif %}
+
+              {% for num in food_items.paginator.page_range %}
+                {% if food_items.number == num %}
+                  <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                {% elif num > food_items.number|add:'-3' and num < food_items.number|add:'3' %}
+                  <li class="page-item">
+                    <a class="page-link" href="?items_page={{ num }}{% if current_days %}&days={{ current_days }}{% endif %}{% if selected_date %}&date={{ selected_date|date:'Y-m-d' }}{% endif %}{% if start_date_str %}&start_date={{ start_date_str }}{% endif %}{% if end_date_str %}&end_date={{ end_date_str }}{% endif %}{% if selected_range and not current_days and not selected_date %}&range={{ selected_range }}{% endif %}">{{ num }}</a>
+                  </li>
+                {% endif %}
+              {% endfor %}
+
+              {% if food_items.has_next %}
+                <li class="page-item">
+                  <a class="page-link" href="?items_page={{ food_items.next_page_number }}{% if current_days %}&days={{ current_days }}{% endif %}{% if selected_date %}&date={{ selected_date|date:'Y-m-d' }}{% endif %}{% if start_date_str %}&start_date={{ start_date_str }}{% endif %}{% if end_date_str %}&end_date={{ end_date_str }}{% endif %}{% if selected_range and not current_days and not selected_date %}&range={{ selected_range }}{% endif %}" aria-label="Next">
+                    <span aria-hidden="true">&raquo;</span>
+                  </a>
+                </li>
+                <li class="page-item">
+                  <a class="page-link" href="?items_page={{ food_items.paginator.num_pages }}{% if current_days %}&days={{ current_days }}{% endif %}{% if selected_date %}&date={{ selected_date|date:'Y-m-d' }}{% endif %}{% if start_date_str %}&start_date={{ start_date_str }}{% endif %}{% if end_date_str %}&end_date={{ end_date_str }}{% endif %}{% if selected_range and not current_days and not selected_date %}&range={{ selected_range }}{% endif %}" aria-label="Last">
+                    <span aria-hidden="true">&raquo;&raquo;</span>
+                  </a>
+                </li>
+              {% else %}
+                <li class="page-item disabled">
+                  <span class="page-link">&raquo;</span>
+                </li>
+                <li class="page-item disabled">
+                  <span class="page-link">&raquo;&raquo;</span>
+                </li>
+              {% endif %}
+            </ul>
+          </nav>
+          <div class="text-center mt-2">
+            <small class="text-muted">Page {{ food_items.number }} of {{ food_items.paginator.num_pages }} ({{ food_items.paginator.count }} items)</small>
+          </div>
+        </div>
+        {% endif %}
       </div>
     </div>
   </div>

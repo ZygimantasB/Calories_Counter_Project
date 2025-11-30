@@ -532,9 +532,18 @@ def food_tracker(request):
     except:
         top_foods_page = paginator.page(1)
 
+    # Paginate food_items (Consumed Items list)
+    food_items_ordered = food_items.order_by('-consumed_at')
+    food_items_page_number = request.GET.get('items_page', 1)
+    food_items_paginator = Paginator(food_items_ordered, 15)  # Show 15 items per page
+    try:
+        food_items_paginated = food_items_paginator.page(food_items_page_number)
+    except:
+        food_items_paginated = food_items_paginator.page(1)
+
     context = {
         'form': form,
-        'food_items': food_items,
+        'food_items': food_items_paginated,
         'recent_items': quick_add_items,  # Using quick_add_items but keeping the template variable name for compatibility
         'totals': totals,
         'selected_range': time_range, # Pass the selected range to the template
