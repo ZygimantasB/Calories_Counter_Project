@@ -2469,6 +2469,295 @@ def analytics(request):
             'recommendation': 'Celebrate your progress and keep going!'
         })
 
+    # === MEAL TIMING ANALYSIS ===
+    meal_timing = {}
+    if food_items.exists():
+        # Group by hour of day
+        hour_data = {}
+        for item in food_items:
+            hour = item.consumed_at.hour
+            if hour not in hour_data:
+                hour_data[hour] = {'calories': 0, 'count': 0}
+            hour_data[hour]['calories'] += float(item.calories or 0)
+            hour_data[hour]['count'] += 1
+
+        if hour_data:
+            # Define meal periods
+            morning = sum(hour_data.get(h, {}).get('calories', 0) for h in range(5, 11))  # 5-10
+            midday = sum(hour_data.get(h, {}).get('calories', 0) for h in range(11, 15))  # 11-14
+            afternoon = sum(hour_data.get(h, {}).get('calories', 0) for h in range(15, 18))  # 15-17
+            evening = sum(hour_data.get(h, {}).get('calories', 0) for h in range(18, 22))  # 18-21
+            night = sum(hour_data.get(h, {}).get('calories', 0) for h in list(range(22, 24)) + list(range(0, 5)))
+
+            total_cal = morning + midday + afternoon + evening + night
+            if total_cal > 0:
+                meal_timing['morning'] = {'calories': round(morning, 0), 'percent': round((morning/total_cal)*100, 1)}
+                meal_timing['midday'] = {'calories': round(midday, 0), 'percent': round((midday/total_cal)*100, 1)}
+                meal_timing['afternoon'] = {'calories': round(afternoon, 0), 'percent': round((afternoon/total_cal)*100, 1)}
+                meal_timing['evening'] = {'calories': round(evening, 0), 'percent': round((evening/total_cal)*100, 1)}
+                meal_timing['night'] = {'calories': round(night, 0), 'percent': round((night/total_cal)*100, 1)}
+
+                # Find peak eating time
+                periods = [('Morning (5-10)', morning), ('Midday (11-14)', midday),
+                          ('Afternoon (15-17)', afternoon), ('Evening (18-21)', evening), ('Night (22-4)', night)]
+                peak_period = max(periods, key=lambda x: x[1])
+                meal_timing['peak_period'] = peak_period[0]
+
+    # === TOP FOODS ANALYSIS ===
+    top_foods = {}
+    if food_items.exists():
+        from django.db.models import Count as DjangoCount
+
+        # Most frequent foods
+        frequent_foods = food_items.values('product_name').annotate(
+            count=DjangoCount('id'),
+            total_calories=Sum('calories'),
+            total_protein=Sum('protein')
+        ).order_by('-count')[:10]
+
+        top_foods['most_frequent'] = list(frequent_foods)
+
+        # Highest calorie foods (single items)
+        high_cal_foods = food_items.order_by('-calories')[:5]
+        top_foods['highest_calorie'] = [
+            {'name': f.product_name, 'calories': float(f.calories), 'date': f.consumed_at}
+            for f in high_cal_foods
+        ]
+
+        # Highest protein foods
+        high_protein_foods = food_items.filter(protein__isnull=False).order_by('-protein')[:5]
+        top_foods['highest_protein'] = [
+            {'name': f.product_name, 'protein': float(f.protein), 'date': f.consumed_at}
+            for f in high_protein_foods
+        ]
+
+    # === CALORIE BUDGET ANALYSIS ===
+    calorie_budget = {}
+    target_calories = 2500  # Default target, could be user-configurable
+
+    if calories_list:
+        days_under = sum(1 for c in calories_list if c <= target_calories)
+        days_over = len(calories_list) - days_under
+
+        calorie_budget['target'] = target_calories
+        calorie_budget['days_under'] = days_under
+        calorie_budget['days_over'] = days_over
+        calorie_budget['under_percent'] = round((days_under / len(calories_list)) * 100, 1)
+        calorie_budget['avg_over_amount'] = round(
+            statistics.mean([c - target_calories for c in calories_list if c > target_calories]), 0
+        ) if days_over > 0 else 0
+        calorie_budget['avg_under_amount'] = round(
+            statistics.mean([target_calories - c for c in calories_list if c <= target_calories]), 0
+        ) if days_under > 0 else 0
+
+    # === WEIGHT VOLATILITY ANALYSIS ===
+    weight_volatility = {}
+    if len(weights_list) >= 5:
+        weight_values = [float(w.weight) for w in weights_list]
+
+        # Calculate daily fluctuations
+        fluctuations = [abs(weight_values[i] - weight_values[i-1]) for i in range(1, len(weight_values))]
+
+        weight_volatility['avg_fluctuation'] = round(statistics.mean(fluctuations), 2)
+        weight_volatility['max_fluctuation'] = round(max(fluctuations), 2)
+
+        # Count significant fluctuations (>0.5 kg)
+        significant_fluct = sum(1 for f in fluctuations if f > 0.5)
+        weight_volatility['significant_fluctuations'] = significant_fluct
+        weight_volatility['stability_score'] = round(100 - (significant_fluct / len(fluctuations) * 100), 0) if fluctuations else 100
+
+        # Trend analysis - compare first half to second half
+        mid = len(weight_values) // 2
+        first_half_avg = statistics.mean(weight_values[:mid])
+        second_half_avg = statistics.mean(weight_values[mid:])
+        weight_volatility['trend_direction'] = 'decreasing' if second_half_avg < first_half_avg else 'increasing' if second_half_avg > first_half_avg else 'stable'
+        weight_volatility['trend_change'] = round(second_half_avg - first_half_avg, 2)
+
+    # === NUTRITION SCORE ===
+    nutrition_score = {}
+    if macro_analysis and overall_stats.get('avg_daily_calories'):
+        score = 0
+        max_score = 100
+        breakdown = []
+
+        # Protein score (max 25 points)
+        protein_per_kg = macro_analysis.get('protein_per_kg', 0)
+        if protein_per_kg >= 1.6:
+            protein_score = 25
+            breakdown.append({'name': 'Protein', 'score': 25, 'status': 'Excellent'})
+        elif protein_per_kg >= 1.2:
+            protein_score = 20
+            breakdown.append({'name': 'Protein', 'score': 20, 'status': 'Good'})
+        elif protein_per_kg >= 0.8:
+            protein_score = 15
+            breakdown.append({'name': 'Protein', 'score': 15, 'status': 'Adequate'})
+        else:
+            protein_score = 5
+            breakdown.append({'name': 'Protein', 'score': 5, 'status': 'Low'})
+        score += protein_score
+
+        # Macro balance score (max 25 points)
+        protein_pct = macro_analysis.get('protein_percent', 0)
+        carbs_pct = macro_analysis.get('carbs_percent', 0)
+        fat_pct = macro_analysis.get('fat_percent', 0)
+
+        balance_score = 25
+        if protein_pct < 15 or protein_pct > 35:
+            balance_score -= 8
+        if carbs_pct < 40 or carbs_pct > 65:
+            balance_score -= 8
+        if fat_pct < 20 or fat_pct > 40:
+            balance_score -= 8
+        balance_score = max(0, balance_score)
+        breakdown.append({'name': 'Macro Balance', 'score': balance_score, 'status': 'Good' if balance_score >= 20 else 'Needs Work'})
+        score += balance_score
+
+        # Consistency score (max 25 points)
+        if consistency_score.get('score'):
+            cons_points = round(consistency_score['score'] * 0.25)
+            breakdown.append({'name': 'Consistency', 'score': cons_points, 'status': consistency_score.get('rating', 'N/A')})
+            score += cons_points
+
+        # Logging dedication (max 25 points)
+        if streaks.get('consistency_rate'):
+            log_score = min(25, round(streaks['consistency_rate'] * 0.25))
+            breakdown.append({'name': 'Logging', 'score': log_score, 'status': 'Dedicated' if log_score >= 20 else 'Regular' if log_score >= 10 else 'Sporadic'})
+            score += log_score
+
+        nutrition_score['total'] = min(100, score)
+        nutrition_score['breakdown'] = breakdown
+        nutrition_score['grade'] = 'A' if score >= 85 else 'B' if score >= 70 else 'C' if score >= 55 else 'D' if score >= 40 else 'F'
+
+    # === PERIOD COMPARISON ===
+    period_comparison = {}
+    if start_date and daily_stats_list:
+        # Calculate previous period of same length
+        period_days = int(period) if period != 'all' else 90
+        prev_start = start_date - timedelta(days=period_days)
+        prev_end = start_date
+
+        prev_food_items = FoodItem.objects.filter(consumed_at__gte=prev_start, consumed_at__lt=prev_end)
+        prev_weights = Weight.objects.filter(recorded_at__gte=prev_start, recorded_at__lt=prev_end).order_by('recorded_at')
+
+        if prev_food_items.exists():
+            # Previous period stats
+            prev_daily = prev_food_items.annotate(day=TruncDate('consumed_at')).values('day').annotate(
+                total_calories=Sum('calories'),
+                total_protein=Sum('protein')
+            )
+            prev_daily_list = list(prev_daily)
+
+            if prev_daily_list:
+                prev_cal_list = [float(d['total_calories']) for d in prev_daily_list if d['total_calories']]
+                if prev_cal_list and calories_list:
+                    prev_avg_cal = statistics.mean(prev_cal_list)
+                    curr_avg_cal = statistics.mean(calories_list)
+
+                    period_comparison['prev_avg_calories'] = round(prev_avg_cal, 0)
+                    period_comparison['curr_avg_calories'] = round(curr_avg_cal, 0)
+                    period_comparison['calorie_change'] = round(curr_avg_cal - prev_avg_cal, 0)
+                    period_comparison['calorie_change_percent'] = round(((curr_avg_cal - prev_avg_cal) / prev_avg_cal) * 100, 1) if prev_avg_cal > 0 else 0
+
+                    prev_protein_list = [float(d['total_protein']) for d in prev_daily_list if d['total_protein']]
+                    if prev_protein_list:
+                        curr_protein_list = [float(d['total_protein']) for d in daily_stats_list if d['total_protein']]
+                        if curr_protein_list:
+                            prev_avg_protein = statistics.mean(prev_protein_list)
+                            curr_avg_protein = statistics.mean(curr_protein_list)
+                            period_comparison['prev_avg_protein'] = round(prev_avg_protein, 1)
+                            period_comparison['curr_avg_protein'] = round(curr_avg_protein, 1)
+                            period_comparison['protein_change'] = round(curr_avg_protein - prev_avg_protein, 1)
+
+        # Weight comparison
+        if prev_weights.exists() and weights_list:
+            prev_weight_list = list(prev_weights)
+            if prev_weight_list:
+                prev_avg_weight = statistics.mean([float(w.weight) for w in prev_weight_list])
+                curr_avg_weight = statistics.mean([float(w.weight) for w in weights_list])
+                period_comparison['prev_avg_weight'] = round(prev_avg_weight, 1)
+                period_comparison['curr_avg_weight'] = round(curr_avg_weight, 1)
+                period_comparison['weight_change'] = round(curr_avg_weight - prev_avg_weight, 1)
+
+    # === ACHIEVEMENTS ===
+    achievements = []
+
+    # Streak achievements
+    if streaks.get('current_streak', 0) >= 30:
+        achievements.append({'icon': '🔥', 'title': 'Monthly Warrior', 'desc': '30+ day logging streak'})
+    elif streaks.get('current_streak', 0) >= 14:
+        achievements.append({'icon': '🔥', 'title': 'Two Week Champion', 'desc': '14+ day logging streak'})
+    elif streaks.get('current_streak', 0) >= 7:
+        achievements.append({'icon': '🔥', 'title': 'Week Warrior', 'desc': '7+ day logging streak'})
+
+    # Weight achievements
+    if weight_pace.get('total_change', 0) <= -10:
+        achievements.append({'icon': '🏆', 'title': 'Major Milestone', 'desc': 'Lost 10+ kg'})
+    elif weight_pace.get('total_change', 0) <= -5:
+        achievements.append({'icon': '🥇', 'title': 'Great Progress', 'desc': 'Lost 5+ kg'})
+    elif weight_pace.get('total_change', 0) <= -2:
+        achievements.append({'icon': '🥈', 'title': 'Good Start', 'desc': 'Lost 2+ kg'})
+
+    # Consistency achievements
+    if consistency_score.get('score', 0) >= 90:
+        achievements.append({'icon': '🎯', 'title': 'Precision Eater', 'desc': 'Excellent calorie consistency'})
+
+    # Protein achievements
+    if macro_analysis.get('protein_per_kg', 0) >= 2.0:
+        achievements.append({'icon': '💪', 'title': 'Protein Champion', 'desc': '2+ g protein per kg body weight'})
+    elif macro_analysis.get('protein_per_kg', 0) >= 1.6:
+        achievements.append({'icon': '🥩', 'title': 'Protein Pro', 'desc': '1.6+ g protein per kg body weight'})
+
+    # Logging achievements
+    if streaks.get('total_days', 0) >= 100:
+        achievements.append({'icon': '📊', 'title': 'Century Logger', 'desc': '100+ days logged'})
+    elif streaks.get('total_days', 0) >= 50:
+        achievements.append({'icon': '📈', 'title': 'Dedicated Tracker', 'desc': '50+ days logged'})
+
+    # Consistency rate achievements
+    if streaks.get('consistency_rate', 0) >= 90:
+        achievements.append({'icon': '⭐', 'title': 'Super Consistent', 'desc': '90%+ logging consistency'})
+
+    # Balance achievement
+    if nutrition_score.get('total', 0) >= 80:
+        achievements.append({'icon': '🌟', 'title': 'Nutrition Master', 'desc': 'Excellent overall nutrition score'})
+
+    # === CALORIE DISTRIBUTION ANALYSIS ===
+    calorie_distribution = {}
+    if calories_list and len(calories_list) >= 10:
+        # Categorize days
+        very_low = sum(1 for c in calories_list if c < 1500)
+        low = sum(1 for c in calories_list if 1500 <= c < 2000)
+        moderate = sum(1 for c in calories_list if 2000 <= c < 2500)
+        high = sum(1 for c in calories_list if 2500 <= c < 3000)
+        very_high = sum(1 for c in calories_list if c >= 3000)
+
+        total = len(calories_list)
+        calorie_distribution['very_low'] = {'count': very_low, 'percent': round((very_low/total)*100, 1), 'label': '<1500'}
+        calorie_distribution['low'] = {'count': low, 'percent': round((low/total)*100, 1), 'label': '1500-2000'}
+        calorie_distribution['moderate'] = {'count': moderate, 'percent': round((moderate/total)*100, 1), 'label': '2000-2500'}
+        calorie_distribution['high'] = {'count': high, 'percent': round((high/total)*100, 1), 'label': '2500-3000'}
+        calorie_distribution['very_high'] = {'count': very_high, 'percent': round((very_high/total)*100, 1), 'label': '3000+'}
+
+    # Add insight for late night eating
+    if meal_timing.get('night', {}).get('percent', 0) > 15:
+        insights.append({
+            'type': 'timing',
+            'icon': '🌙',
+            'title': 'Late Night Eating',
+            'description': f'{meal_timing["night"]["percent"]:.0f}% of your calories are consumed late at night (after 10 PM).',
+            'recommendation': 'Try to finish eating earlier for better digestion and sleep quality.'
+        })
+
+    # Add insight for calorie distribution
+    if calorie_distribution.get('very_high', {}).get('percent', 0) > 20:
+        insights.append({
+            'type': 'distribution',
+            'icon': '📊',
+            'title': 'High Calorie Days',
+            'description': f'{calorie_distribution["very_high"]["percent"]:.0f}% of your days exceed 3000 calories.',
+            'recommendation': 'Identify triggers for high-calorie days and plan alternatives.'
+        })
+
     context = {
         'period': period,
         'weekly_reports': weekly_reports[:12],  # Last 12 weeks
@@ -2484,6 +2773,14 @@ def analytics(request):
         'weight_pace': weight_pace,
         'projections': projections,
         'consistency_score': consistency_score,
+        'meal_timing': meal_timing,
+        'top_foods': top_foods,
+        'calorie_budget': calorie_budget,
+        'weight_volatility': weight_volatility,
+        'nutrition_score': nutrition_score,
+        'period_comparison': period_comparison,
+        'achievements': achievements,
+        'calorie_distribution': calorie_distribution,
     }
 
     return render(request, 'count_calories_app/analytics.html', context)
