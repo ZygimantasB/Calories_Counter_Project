@@ -148,17 +148,11 @@
               </div>
             </div>
             <div class="mt-3">
-              <div class="row">
-                <div class="col-6">
-                  <button class="btn btn-primary w-100" onclick="copyToCalories()">Copy to Calories</button>
-                </div>
-                <div class="col-6">
-                  <div class="btn-group w-100">
-                    <button class="btn btn-outline-primary" onclick="copyToField('id_fat')">To Fat</button>
-                    <button class="btn btn-outline-primary" onclick="copyToField('id_carbohydrates')">To Carbs</button>
-                    <button class="btn btn-outline-primary" onclick="copyToField('id_protein')">To Protein</button>
-                  </div>
-                </div>
+              <button class="btn btn-primary w-100 mb-2" onclick="copyToCalories()">Copy to Calories</button>
+              <div class="row g-1">
+                <div class="col-4"><button class="btn btn-outline-primary btn-sm w-100" onclick="copyToField('id_fat')">Fat</button></div>
+                <div class="col-4"><button class="btn btn-outline-primary btn-sm w-100" onclick="copyToField('id_carbohydrates')">Carbs</button></div>
+                <div class="col-4"><button class="btn btn-outline-primary btn-sm w-100" onclick="copyToField('id_protein')">Protein</button></div>
               </div>
             </div>
           </div>
