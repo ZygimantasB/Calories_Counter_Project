@@ -21,6 +21,15 @@
       width: 100%;
       margin-bottom: 20px;
     }
+    .chart-scroll-container {
+      position: relative;
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+    .chart-scroll-container .chart-inner {
+      min-width: 100%;
+      height: 300px;
+    }
   </style>
 {% endblock %}
 
@@ -263,24 +272,34 @@
       <!-- Calorie Trend Chart -->
       <div class="card shadow-sm rounded mb-4">
         <div class="card-header bg-info text-white">
-          <h2 class="h5 mb-0">Calorie Intake Trend (Last 30 Days)</h2>
+          <h2 class="h5 mb-0">Calorie Intake Trend</h2>
         </div>
         <div class="card-body">
-          <div class="chart-container">
-            <canvas id="caloriesTrendChart"></canvas>
+          <div class="chart-scroll-container" id="calories-chart-scroll">
+            <div class="chart-inner" id="calories-chart-inner">
+              <canvas id="caloriesTrendChart"></canvas>
+            </div>
           </div>
+          <small class="text-muted d-none text-center mt-2" id="calories-scroll-hint">
+            <i class="fas fa-arrows-alt-h me-1"></i>Scroll horizontally to see all data
+          </small>
         </div>
       </div>
 
       <!-- Macronutrient Trend Chart -->
       <div class="card shadow-sm rounded mb-4">
         <div class="card-header bg-warning text-dark">
-          <h2 class="h5 mb-0">Macronutrient Trends (Last 30 Days)</h2>
+          <h2 class="h5 mb-0">Macronutrient Trends</h2>
         </div>
         <div class="card-body">
-          <div class="chart-container" style="height: 400px;">
-            <canvas id="macrosTrendChart"></canvas>
+          <div class="chart-scroll-container" id="macros-chart-scroll">
+            <div class="chart-inner" id="macros-chart-inner" style="height: 400px;">
+              <canvas id="macrosTrendChart"></canvas>
+            </div>
           </div>
+          <small class="text-muted d-none text-center mt-2" id="macros-scroll-hint">
+            <i class="fas fa-arrows-alt-h me-1"></i>Scroll horizontally to see all data
+          </small>
         </div>
       </div>
 
@@ -826,10 +845,46 @@
         })
         .catch(error => console.error('Error fetching nutrition data:', error));
 
+      // Build URL params for trend charts
+      function getTrendUrlParams() {
+        {% if selected_date %}
+          return '?date={{ selected_date|date:"Y-m-d" }}';
+        {% elif start_date_str and end_date_str %}
+          return '?start_date={{ start_date_str }}&end_date={{ end_date_str }}';
+        {% elif current_days %}
+          return '?days={{ current_days }}';
+        {% else %}
+          return '?range={{ selected_range }}';
+        {% endif %}
+      }
+
+      // Function to set up scrollable chart
+      function setupScrollableChart(chartInner, scrollHint, dataPoints) {
+        const minWidthPerPoint = 25;
+        const calculatedWidth = dataPoints * minWidthPerPoint;
+        const containerWidth = chartInner.parentElement.offsetWidth;
+
+        if (dataPoints > 90) {
+          // Make chart scrollable for more than 90 days
+          chartInner.style.width = Math.max(calculatedWidth, containerWidth) + 'px';
+          scrollHint.classList.remove('d-none');
+          scrollHint.classList.add('d-block');
+        } else {
+          // Normal chart (90 days or less - no scrolling needed)
+          chartInner.style.width = '100%';
+          scrollHint.classList.add('d-none');
+          scrollHint.classList.remove('d-block');
+        }
+      }
+
       // Calorie Trend Chart
-      fetch('{% url "calories_trend_data" %}')
+      fetch('{% url "calories_trend_data" %}' + getTrendUrlParams())
         .then(response => response.json())
         .then(data => {
+          const chartInner = document.getElementById('calories-chart-inner');
+          const scrollHint = document.getElementById('calories-scroll-hint');
+          setupScrollableChart(chartInner, scrollHint, data.labels.length);
+
           const ctx = document.getElementById('caloriesTrendChart').getContext('2d');
           new Chart(ctx, {
             type: 'bar',
@@ -871,7 +926,7 @@
                 },
                 title: {
                   display: true,
-                  text: 'Daily Calorie Intake'
+                  text: 'Daily Calorie Intake (' + data.labels.length + ' days)'
                 },
                 tooltip: {
                   callbacks: {
@@ -890,9 +945,13 @@
         .catch(error => console.error('Error fetching calorie trend data:', error));
 
       // Macronutrient Trend Chart
-      fetch('{% url "macros_trend_data" %}')
+      fetch('{% url "macros_trend_data" %}' + getTrendUrlParams())
         .then(response => response.json())
         .then(data => {
+          const chartInner = document.getElementById('macros-chart-inner');
+          const scrollHint = document.getElementById('macros-scroll-hint');
+          setupScrollableChart(chartInner, scrollHint, data.labels.length);
+
           const ctx = document.getElementById('macrosTrendChart').getContext('2d');
           new Chart(ctx, {
             type: 'line',
@@ -950,7 +1009,7 @@
               plugins: {
                 title: {
                   display: true,
-                  text: 'Macronutrient Intake Over Time'
+                  text: 'Macronutrient Intake (' + data.labels.length + ' days)'
                 }
               }
             }

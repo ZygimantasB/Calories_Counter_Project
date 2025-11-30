@@ -715,12 +715,50 @@ def top_foods(request):
     return render(request, 'count_calories_app/top_foods.html', context)
 
 def get_calories_trend_data(request):
+    days_param = request.GET.get('days')
+    start_date_str = request.GET.get('start_date')
+    end_date_str = request.GET.get('end_date')
+    selected_date_str = request.GET.get('date')
+    time_range = request.GET.get('range', 'today')
+
     end_date = timezone.now()
-    start_date = end_date - timedelta(days=30)
-    food_items = FoodItem.objects.filter(
-        consumed_at__gte=start_date,
-        consumed_at__lte=end_date
-    ).order_by('consumed_at')
+    start_date = end_date - timedelta(days=30)  # Default 30 days
+
+    # Handle days parameter
+    if days_param:
+        from datetime import datetime
+        if days_param == 'all':
+            start_date = None
+        else:
+            try:
+                days = int(days_param)
+                start_date = end_date - timedelta(days=days)
+            except ValueError:
+                pass
+    elif selected_date_str:
+        # Single date - show last 30 days for context
+        start_date = end_date - timedelta(days=30)
+    elif start_date_str and end_date_str:
+        try:
+            from datetime import datetime
+            start_date = timezone.make_aware(datetime.strptime(start_date_str, '%Y-%m-%d'))
+            end_date = timezone.make_aware(datetime.strptime(end_date_str, '%Y-%m-%d').replace(hour=23, minute=59, second=59))
+        except ValueError:
+            pass
+    elif time_range == 'week':
+        start_date = end_date - timedelta(days=7)
+    elif time_range == 'month':
+        start_date = end_date - timedelta(days=30)
+
+    # Build query
+    if start_date is None:
+        food_items = FoodItem.objects.filter(consumed_at__lte=end_date).order_by('consumed_at')
+    else:
+        food_items = FoodItem.objects.filter(
+            consumed_at__gte=start_date,
+            consumed_at__lte=end_date
+        ).order_by('consumed_at')
+
     from django.db.models.functions import TruncDate
     daily_calories = food_items.annotate(
         day=TruncDate('consumed_at')
@@ -736,12 +774,50 @@ def get_calories_trend_data(request):
     return JsonResponse(calories_data)
 
 def get_macros_trend_data(request):
+    days_param = request.GET.get('days')
+    start_date_str = request.GET.get('start_date')
+    end_date_str = request.GET.get('end_date')
+    selected_date_str = request.GET.get('date')
+    time_range = request.GET.get('range', 'today')
+
     end_date = timezone.now()
-    start_date = end_date - timedelta(days=30)
-    food_items = FoodItem.objects.filter(
-        consumed_at__gte=start_date,
-        consumed_at__lte=end_date
-    ).order_by('consumed_at')
+    start_date = end_date - timedelta(days=30)  # Default 30 days
+
+    # Handle days parameter
+    if days_param:
+        from datetime import datetime
+        if days_param == 'all':
+            start_date = None
+        else:
+            try:
+                days = int(days_param)
+                start_date = end_date - timedelta(days=days)
+            except ValueError:
+                pass
+    elif selected_date_str:
+        # Single date - show last 30 days for context
+        start_date = end_date - timedelta(days=30)
+    elif start_date_str and end_date_str:
+        try:
+            from datetime import datetime
+            start_date = timezone.make_aware(datetime.strptime(start_date_str, '%Y-%m-%d'))
+            end_date = timezone.make_aware(datetime.strptime(end_date_str, '%Y-%m-%d').replace(hour=23, minute=59, second=59))
+        except ValueError:
+            pass
+    elif time_range == 'week':
+        start_date = end_date - timedelta(days=7)
+    elif time_range == 'month':
+        start_date = end_date - timedelta(days=30)
+
+    # Build query
+    if start_date is None:
+        food_items = FoodItem.objects.filter(consumed_at__lte=end_date).order_by('consumed_at')
+    else:
+        food_items = FoodItem.objects.filter(
+            consumed_at__gte=start_date,
+            consumed_at__lte=end_date
+        ).order_by('consumed_at')
+
     from django.db.models.functions import TruncDate
     daily_macros = food_items.annotate(
         day=TruncDate('consumed_at')
