@@ -42,4 +42,6 @@ urlpatterns = [
     path('body-measurements/<int:measurement_id>/delete/', views.delete_body_measurement, name='delete_body_measurement'),
     path('body-measurements/export/csv/', views.export_body_measurements_csv, name='export_body_measurements_csv'),
     path('api/body-measurements-data/', views.get_body_measurements_data, name='body_measurements_data'),
+
+    path('analytics/', views.analytics, name='analytics'),
 ]

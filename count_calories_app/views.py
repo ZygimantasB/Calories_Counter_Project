@@ -1937,3 +1937,260 @@ def export_body_measurements_csv(request):
         logger.error(f"Error exporting body measurements CSV: {str(e)}")
         messages.error(request, f"An error occurred while exporting CSV: {str(e)}")
         return redirect('body_measurements_tracker')
+
+
+def analytics(request):
+    """
+    Analytics page with weekly/monthly reports and correlation insights.
+    """
+    from datetime import datetime, timedelta
+    from django.db.models.functions import TruncDate, TruncWeek, TruncMonth
+    from django.db.models import F
+    import statistics
+
+    now = timezone.now()
+
+    # Get period from request (default: last 90 days)
+    period = request.GET.get('period', '90')
+
+    if period == 'all':
+        start_date = None
+    else:
+        try:
+            days = int(period)
+            start_date = now - timedelta(days=days)
+        except ValueError:
+            start_date = now - timedelta(days=90)
+
+    # Fetch data
+    if start_date:
+        food_items = FoodItem.objects.filter(consumed_at__gte=start_date, consumed_at__lte=now)
+        weights = Weight.objects.filter(recorded_at__gte=start_date, recorded_at__lte=now).order_by('recorded_at')
+    else:
+        food_items = FoodItem.objects.filter(consumed_at__lte=now)
+        weights = Weight.objects.filter(recorded_at__lte=now).order_by('recorded_at')
+
+    # === DAILY STATS ===
+    daily_stats = food_items.annotate(
+        day=TruncDate('consumed_at')
+    ).values('day').annotate(
+        total_calories=Sum('calories'),
+        total_protein=Sum('protein'),
+        total_carbs=Sum('carbohydrates'),
+        total_fat=Sum('fat')
+    ).order_by('day')
+
+    daily_stats_list = list(daily_stats)
+
+    # === WEEKLY REPORTS ===
+    weekly_stats = food_items.annotate(
+        week=TruncWeek('consumed_at')
+    ).values('week').annotate(
+        total_calories=Sum('calories'),
+        total_protein=Sum('protein'),
+        total_carbs=Sum('carbohydrates'),
+        total_fat=Sum('fat'),
+        days_logged=Count('consumed_at__date', distinct=True)
+    ).order_by('-week')
+
+    weekly_reports = []
+    for week in weekly_stats:
+        days = week['days_logged'] or 1
+        weekly_reports.append({
+            'week_start': week['week'],
+            'total_calories': week['total_calories'] or 0,
+            'avg_calories': round((week['total_calories'] or 0) / days, 0),
+            'total_protein': week['total_protein'] or 0,
+            'avg_protein': round((week['total_protein'] or 0) / days, 1),
+            'total_carbs': week['total_carbs'] or 0,
+            'avg_carbs': round((week['total_carbs'] or 0) / days, 1),
+            'total_fat': week['total_fat'] or 0,
+            'avg_fat': round((week['total_fat'] or 0) / days, 1),
+            'days_logged': days
+        })
+
+    # === MONTHLY REPORTS ===
+    monthly_stats = food_items.annotate(
+        month=TruncMonth('consumed_at')
+    ).values('month').annotate(
+        total_calories=Sum('calories'),
+        total_protein=Sum('protein'),
+        total_carbs=Sum('carbohydrates'),
+        total_fat=Sum('fat'),
+        days_logged=Count('consumed_at__date', distinct=True)
+    ).order_by('-month')
+
+    monthly_reports = []
+    for month in monthly_stats:
+        days = month['days_logged'] or 1
+        monthly_reports.append({
+            'month': month['month'],
+            'total_calories': month['total_calories'] or 0,
+            'avg_calories': round((month['total_calories'] or 0) / days, 0),
+            'total_protein': month['total_protein'] or 0,
+            'avg_protein': round((month['total_protein'] or 0) / days, 1),
+            'total_carbs': month['total_carbs'] or 0,
+            'avg_carbs': round((month['total_carbs'] or 0) / days, 1),
+            'total_fat': month['total_fat'] or 0,
+            'avg_fat': round((month['total_fat'] or 0) / days, 1),
+            'days_logged': days
+        })
+
+    # === BEST/WORST DAYS ===
+    best_worst_days = {}
+    if daily_stats_list:
+        # Best day (lowest calories with reasonable amount - at least 500)
+        valid_days = [d for d in daily_stats_list if d['total_calories'] and d['total_calories'] >= 500]
+        if valid_days:
+            best_worst_days['lowest_calorie_day'] = min(valid_days, key=lambda x: x['total_calories'])
+            best_worst_days['highest_calorie_day'] = max(valid_days, key=lambda x: x['total_calories'])
+            best_worst_days['highest_protein_day'] = max(valid_days, key=lambda x: x['total_protein'] or 0)
+            best_worst_days['lowest_protein_day'] = min(valid_days, key=lambda x: x['total_protein'] or 0)
+
+    # === WEIGHT ANALYSIS ===
+    weight_analysis = {}
+    weights_list = list(weights)
+    if len(weights_list) >= 2:
+        first_weight = float(weights_list[0].weight)
+        last_weight = float(weights_list[-1].weight)
+        weight_analysis['start_weight'] = first_weight
+        weight_analysis['end_weight'] = last_weight
+        weight_analysis['total_change'] = round(last_weight - first_weight, 1)
+
+        # Calculate weekly weight changes
+        weight_values = [float(w.weight) for w in weights_list]
+        weight_analysis['min_weight'] = min(weight_values)
+        weight_analysis['max_weight'] = max(weight_values)
+        weight_analysis['avg_weight'] = round(statistics.mean(weight_values), 1)
+
+        if len(weight_values) >= 3:
+            weight_analysis['std_dev'] = round(statistics.stdev(weight_values), 2)
+
+    # === CORRELATION INSIGHTS ===
+    insights = []
+
+    if len(weights_list) >= 3 and len(daily_stats_list) >= 7:
+        # Create a dict of daily food stats by date
+        daily_food_by_date = {d['day']: d for d in daily_stats_list}
+
+        # Analyze weight changes vs nutrition
+        weight_changes_with_nutrition = []
+
+        for i in range(1, len(weights_list)):
+            current_weight = weights_list[i]
+            prev_weight = weights_list[i-1]
+
+            weight_change = float(current_weight.weight) - float(prev_weight.weight)
+
+            # Get food data between these weight measurements
+            start_dt = prev_weight.recorded_at
+            end_dt = current_weight.recorded_at
+
+            period_food = [d for d in daily_stats_list
+                          if d['day'] and start_dt.date() <= d['day'] <= end_dt.date()]
+
+            if period_food:
+                avg_calories = float(statistics.mean([float(d['total_calories']) for d in period_food if d['total_calories']]))
+                avg_protein = float(statistics.mean([float(d['total_protein'] or 0) for d in period_food]))
+                avg_carbs = float(statistics.mean([float(d['total_carbs'] or 0) for d in period_food]))
+                avg_fat = float(statistics.mean([float(d['total_fat'] or 0) for d in period_food]))
+
+                weight_changes_with_nutrition.append({
+                    'weight_change': weight_change,
+                    'avg_calories': avg_calories,
+                    'avg_protein': avg_protein,
+                    'avg_carbs': avg_carbs,
+                    'avg_fat': avg_fat
+                })
+
+        if len(weight_changes_with_nutrition) >= 3:
+            # Analyze patterns
+            weight_loss_periods = [p for p in weight_changes_with_nutrition if p['weight_change'] < -0.1]
+            weight_gain_periods = [p for p in weight_changes_with_nutrition if p['weight_change'] > 0.1]
+
+            # Calorie insights
+            if weight_loss_periods and weight_gain_periods:
+                avg_cal_loss = statistics.mean([p['avg_calories'] for p in weight_loss_periods])
+                avg_cal_gain = statistics.mean([p['avg_calories'] for p in weight_gain_periods])
+
+                if avg_cal_loss < avg_cal_gain:
+                    insights.append({
+                        'type': 'calories',
+                        'icon': '🔥',
+                        'title': 'Calorie Impact',
+                        'description': f'You tend to lose weight when averaging {avg_cal_loss:.0f} kcal/day and gain when averaging {avg_cal_gain:.0f} kcal/day.',
+                        'recommendation': f'Try to stay around {avg_cal_loss:.0f} kcal/day for weight loss.'
+                    })
+
+            # Protein insights
+            if weight_loss_periods:
+                avg_protein_loss = statistics.mean([p['avg_protein'] for p in weight_loss_periods])
+                all_avg_protein = statistics.mean([p['avg_protein'] for p in weight_changes_with_nutrition])
+
+                if avg_protein_loss > all_avg_protein * 1.1:  # 10% higher
+                    insights.append({
+                        'type': 'protein',
+                        'icon': '💪',
+                        'title': 'Protein Correlation',
+                        'description': f'Weight loss periods correlate with higher protein intake (~{avg_protein_loss:.0f}g/day vs average {all_avg_protein:.0f}g/day).',
+                        'recommendation': f'Aim for at least {avg_protein_loss:.0f}g protein daily.'
+                    })
+
+            # Carb insights
+            if weight_loss_periods and weight_gain_periods:
+                avg_carbs_loss = statistics.mean([p['avg_carbs'] for p in weight_loss_periods])
+                avg_carbs_gain = statistics.mean([p['avg_carbs'] for p in weight_gain_periods])
+
+                if avg_carbs_loss < avg_carbs_gain * 0.9:  # 10% lower
+                    insights.append({
+                        'type': 'carbs',
+                        'icon': '🍞',
+                        'title': 'Carbohydrate Pattern',
+                        'description': f'Lower carb intake (~{avg_carbs_loss:.0f}g/day) correlates with weight loss vs (~{avg_carbs_gain:.0f}g/day) with weight gain.',
+                        'recommendation': f'Consider keeping carbs around {avg_carbs_loss:.0f}g/day.'
+                    })
+
+            # Fat insights
+            if weight_loss_periods and weight_gain_periods:
+                avg_fat_loss = statistics.mean([p['avg_fat'] for p in weight_loss_periods])
+                avg_fat_gain = statistics.mean([p['avg_fat'] for p in weight_gain_periods])
+
+                if abs(avg_fat_loss - avg_fat_gain) > 10:
+                    insights.append({
+                        'type': 'fat',
+                        'icon': '🥑',
+                        'title': 'Fat Intake Pattern',
+                        'description': f'During weight loss: ~{avg_fat_loss:.0f}g fat/day. During weight gain: ~{avg_fat_gain:.0f}g fat/day.',
+                        'recommendation': f'Optimal fat intake appears to be around {avg_fat_loss:.0f}g/day.'
+                    })
+
+    # Overall stats
+    overall_stats = {}
+    if daily_stats_list:
+        calories_list = [d['total_calories'] for d in daily_stats_list if d['total_calories']]
+        if calories_list:
+            overall_stats['avg_daily_calories'] = round(statistics.mean(calories_list), 0)
+            overall_stats['total_days_logged'] = len(daily_stats_list)
+
+            protein_list = [d['total_protein'] for d in daily_stats_list if d['total_protein']]
+            carbs_list = [d['total_carbs'] for d in daily_stats_list if d['total_carbs']]
+            fat_list = [d['total_fat'] for d in daily_stats_list if d['total_fat']]
+
+            if protein_list:
+                overall_stats['avg_daily_protein'] = round(statistics.mean(protein_list), 1)
+            if carbs_list:
+                overall_stats['avg_daily_carbs'] = round(statistics.mean(carbs_list), 1)
+            if fat_list:
+                overall_stats['avg_daily_fat'] = round(statistics.mean(fat_list), 1)
+
+    context = {
+        'period': period,
+        'weekly_reports': weekly_reports[:12],  # Last 12 weeks
+        'monthly_reports': monthly_reports[:12],  # Last 12 months
+        'best_worst_days': best_worst_days,
+        'weight_analysis': weight_analysis,
+        'insights': insights,
+        'overall_stats': overall_stats,
+    }
+
+    return render(request, 'count_calories_app/analytics.html', context)

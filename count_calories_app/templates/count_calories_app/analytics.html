@@ -1,0 +1,364 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Analytics{% endblock %}
+
+{% block css_files %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'count_calories_app/count_calories_app.css' %}">
+  <style>
+    .insight-card {
+      border-left: 4px solid;
+      transition: transform 0.2s;
+    }
+    .insight-card:hover {
+      transform: translateX(5px);
+    }
+    .insight-card.calories { border-left-color: #dc3545; }
+    .insight-card.protein { border-left-color: #198754; }
+    .insight-card.carbs { border-left-color: #0d6efd; }
+    .insight-card.fat { border-left-color: #ffc107; }
+    .stat-card {
+      transition: transform 0.2s;
+    }
+    .stat-card:hover {
+      transform: scale(1.02);
+    }
+    .weight-change-positive { color: #dc3545; }
+    .weight-change-negative { color: #198754; }
+    .table-reports th {
+      position: sticky;
+      top: 0;
+      background: var(--bg-secondary, #f8f9fa);
+      z-index: 1;
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <div class="row mb-4">
+    <div class="col-12">
+      <h1 class="h3 mb-3">Analytics & Insights</h1>
+
+      <!-- Period Selection -->
+      <div class="d-flex flex-wrap gap-2 mb-4">
+        <a href="?period=30" class="btn btn-sm {% if period == '30' %}btn-primary{% else %}btn-outline-primary{% endif %}">Last 30 Days</a>
+        <a href="?period=90" class="btn btn-sm {% if period == '90' %}btn-primary{% else %}btn-outline-primary{% endif %}">Last 90 Days</a>
+        <a href="?period=180" class="btn btn-sm {% if period == '180' %}btn-primary{% else %}btn-outline-primary{% endif %}">Last 6 Months</a>
+        <a href="?period=365" class="btn btn-sm {% if period == '365' %}btn-primary{% else %}btn-outline-primary{% endif %}">Last Year</a>
+        <a href="?period=all" class="btn btn-sm {% if period == 'all' %}btn-primary{% else %}btn-outline-primary{% endif %}">All Time</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Overall Stats -->
+  {% if overall_stats %}
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+          <h2 class="h5 mb-0">Overall Summary ({{ overall_stats.total_days_logged }} days logged)</h2>
+        </div>
+        <div class="card-body">
+          <div class="row text-center">
+            <div class="col-6 col-md-3 mb-3">
+              <div class="stat-card card bg-light h-100">
+                <div class="card-body py-3">
+                  <div class="h4 mb-0">{{ overall_stats.avg_daily_calories|floatformat:0 }}</div>
+                  <small class="text-muted">Avg Daily Calories</small>
+                </div>
+              </div>
+            </div>
+            <div class="col-6 col-md-3 mb-3">
+              <div class="stat-card card bg-light h-100">
+                <div class="card-body py-3">
+                  <div class="h4 mb-0">{{ overall_stats.avg_daily_protein|floatformat:1 }}g</div>
+                  <small class="text-muted">Avg Daily Protein</small>
+                </div>
+              </div>
+            </div>
+            <div class="col-6 col-md-3 mb-3">
+              <div class="stat-card card bg-light h-100">
+                <div class="card-body py-3">
+                  <div class="h4 mb-0">{{ overall_stats.avg_daily_carbs|floatformat:1 }}g</div>
+                  <small class="text-muted">Avg Daily Carbs</small>
+                </div>
+              </div>
+            </div>
+            <div class="col-6 col-md-3 mb-3">
+              <div class="stat-card card bg-light h-100">
+                <div class="card-body py-3">
+                  <div class="h4 mb-0">{{ overall_stats.avg_daily_fat|floatformat:1 }}g</div>
+                  <small class="text-muted">Avg Daily Fat</small>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Weight Analysis -->
+  {% if weight_analysis %}
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card shadow-sm">
+        <div class="card-header bg-success text-white">
+          <h2 class="h5 mb-0">Weight Progress</h2>
+        </div>
+        <div class="card-body">
+          <div class="row text-center">
+            <div class="col-6 col-md-2 mb-3">
+              <div class="stat-card card bg-light h-100">
+                <div class="card-body py-3">
+                  <div class="h5 mb-0">{{ weight_analysis.start_weight }} kg</div>
+                  <small class="text-muted">Start Weight</small>
+                </div>
+              </div>
+            </div>
+            <div class="col-6 col-md-2 mb-3">
+              <div class="stat-card card bg-light h-100">
+                <div class="card-body py-3">
+                  <div class="h5 mb-0">{{ weight_analysis.end_weight }} kg</div>
+                  <small class="text-muted">Current Weight</small>
+                </div>
+              </div>
+            </div>
+            <div class="col-6 col-md-2 mb-3">
+              <div class="stat-card card {% if weight_analysis.total_change < 0 %}bg-success text-white{% elif weight_analysis.total_change > 0 %}bg-danger text-white{% else %}bg-light{% endif %} h-100">
+                <div class="card-body py-3">
+                  <div class="h5 mb-0">{% if weight_analysis.total_change > 0 %}+{% endif %}{{ weight_analysis.total_change }} kg</div>
+                  <small>Total Change</small>
+                </div>
+              </div>
+            </div>
+            <div class="col-6 col-md-2 mb-3">
+              <div class="stat-card card bg-light h-100">
+                <div class="card-body py-3">
+                  <div class="h5 mb-0">{{ weight_analysis.avg_weight }} kg</div>
+                  <small class="text-muted">Average</small>
+                </div>
+              </div>
+            </div>
+            <div class="col-6 col-md-2 mb-3">
+              <div class="stat-card card bg-light h-100">
+                <div class="card-body py-3">
+                  <div class="h5 mb-0">{{ weight_analysis.min_weight }} kg</div>
+                  <small class="text-muted">Lowest</small>
+                </div>
+              </div>
+            </div>
+            <div class="col-6 col-md-2 mb-3">
+              <div class="stat-card card bg-light h-100">
+                <div class="card-body py-3">
+                  <div class="h5 mb-0">{{ weight_analysis.max_weight }} kg</div>
+                  <small class="text-muted">Highest</small>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Correlation Insights -->
+  {% if insights %}
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card shadow-sm">
+        <div class="card-header bg-warning text-dark">
+          <h2 class="h5 mb-0">Correlation Insights</h2>
+        </div>
+        <div class="card-body">
+          <div class="row">
+            {% for insight in insights %}
+            <div class="col-12 col-md-6 mb-3">
+              <div class="insight-card card h-100 {{ insight.type }}">
+                <div class="card-body">
+                  <h5 class="card-title">
+                    <span class="me-2">{{ insight.icon }}</span>{{ insight.title }}
+                  </h5>
+                  <p class="card-text">{{ insight.description }}</p>
+                  <div class="alert alert-info mb-0 py-2">
+                    <strong>Recommendation:</strong> {{ insight.recommendation }}
+                  </div>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card shadow-sm">
+        <div class="card-header bg-warning text-dark">
+          <h2 class="h5 mb-0">Correlation Insights</h2>
+        </div>
+        <div class="card-body text-center text-muted">
+          <p class="mb-0">Not enough data to generate insights yet. Keep logging your food and weight to see personalized recommendations!</p>
+          <small>Need at least 3 weight measurements and 7 days of food logs.</small>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Best/Worst Days -->
+  {% if best_worst_days %}
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card shadow-sm">
+        <div class="card-header bg-info text-white">
+          <h2 class="h5 mb-0">Best & Worst Days Analysis</h2>
+        </div>
+        <div class="card-body">
+          <div class="row">
+            {% if best_worst_days.lowest_calorie_day %}
+            <div class="col-6 col-md-3 mb-3">
+              <div class="card bg-success text-white h-100">
+                <div class="card-body text-center">
+                  <h6 class="card-title">Lowest Calorie Day</h6>
+                  <div class="h4">{{ best_worst_days.lowest_calorie_day.total_calories|floatformat:0 }} kcal</div>
+                  <small>{{ best_worst_days.lowest_calorie_day.day|date:"M d, Y" }}</small>
+                </div>
+              </div>
+            </div>
+            {% endif %}
+            {% if best_worst_days.highest_calorie_day %}
+            <div class="col-6 col-md-3 mb-3">
+              <div class="card bg-danger text-white h-100">
+                <div class="card-body text-center">
+                  <h6 class="card-title">Highest Calorie Day</h6>
+                  <div class="h4">{{ best_worst_days.highest_calorie_day.total_calories|floatformat:0 }} kcal</div>
+                  <small>{{ best_worst_days.highest_calorie_day.day|date:"M d, Y" }}</small>
+                </div>
+              </div>
+            </div>
+            {% endif %}
+            {% if best_worst_days.highest_protein_day %}
+            <div class="col-6 col-md-3 mb-3">
+              <div class="card bg-primary text-white h-100">
+                <div class="card-body text-center">
+                  <h6 class="card-title">Highest Protein Day</h6>
+                  <div class="h4">{{ best_worst_days.highest_protein_day.total_protein|floatformat:0 }}g</div>
+                  <small>{{ best_worst_days.highest_protein_day.day|date:"M d, Y" }}</small>
+                </div>
+              </div>
+            </div>
+            {% endif %}
+            {% if best_worst_days.lowest_protein_day %}
+            <div class="col-6 col-md-3 mb-3">
+              <div class="card bg-secondary text-white h-100">
+                <div class="card-body text-center">
+                  <h6 class="card-title">Lowest Protein Day</h6>
+                  <div class="h4">{{ best_worst_days.lowest_protein_day.total_protein|floatformat:0 }}g</div>
+                  <small>{{ best_worst_days.lowest_protein_day.day|date:"M d, Y" }}</small>
+                </div>
+              </div>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="row">
+    <!-- Weekly Reports -->
+    <div class="col-12 col-lg-6 mb-4">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-primary text-white">
+          <h2 class="h5 mb-0">Weekly Reports</h2>
+        </div>
+        <div class="card-body p-0">
+          {% if weekly_reports %}
+          <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+            <table class="table table-striped table-hover table-reports mb-0">
+              <thead>
+                <tr>
+                  <th>Week</th>
+                  <th>Days</th>
+                  <th>Avg Cal</th>
+                  <th>Avg P</th>
+                  <th>Avg C</th>
+                  <th>Avg F</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for week in weekly_reports %}
+                <tr>
+                  <td>{{ week.week_start|date:"M d" }}</td>
+                  <td>{{ week.days_logged }}</td>
+                  <td>{{ week.avg_calories|floatformat:0 }}</td>
+                  <td>{{ week.avg_protein|floatformat:0 }}g</td>
+                  <td>{{ week.avg_carbs|floatformat:0 }}g</td>
+                  <td>{{ week.avg_fat|floatformat:0 }}g</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="text-center text-muted p-4">
+            No weekly data available yet.
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Monthly Reports -->
+    <div class="col-12 col-lg-6 mb-4">
+      <div class="card shadow-sm h-100">
+        <div class="card-header bg-success text-white">
+          <h2 class="h5 mb-0">Monthly Reports</h2>
+        </div>
+        <div class="card-body p-0">
+          {% if monthly_reports %}
+          <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+            <table class="table table-striped table-hover table-reports mb-0">
+              <thead>
+                <tr>
+                  <th>Month</th>
+                  <th>Days</th>
+                  <th>Avg Cal</th>
+                  <th>Avg P</th>
+                  <th>Avg C</th>
+                  <th>Avg F</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for month in monthly_reports %}
+                <tr>
+                  <td>{{ month.month|date:"M Y" }}</td>
+                  <td>{{ month.days_logged }}</td>
+                  <td>{{ month.avg_calories|floatformat:0 }}</td>
+                  <td>{{ month.avg_protein|floatformat:0 }}g</td>
+                  <td>{{ month.avg_carbs|floatformat:0 }}g</td>
+                  <td>{{ month.avg_fat|floatformat:0 }}g</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="text-center text-muted p-4">
+            No monthly data available yet.
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
