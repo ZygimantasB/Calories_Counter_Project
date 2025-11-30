@@ -475,18 +475,18 @@
               const dataPoints = data.labels.length;
 
               // Calculate chart width based on data points
-              // Minimum 50px per data point, but at least 100% width
-              const minWidthPerPoint = 50;
+              // Minimum 25px per data point, but at least 100% width
+              const minWidthPerPoint = 25;
               const calculatedWidth = dataPoints * minWidthPerPoint;
               const containerWidth = chartInner.parentElement.offsetWidth;
 
-              if (calculatedWidth > containerWidth && dataPoints > 20) {
-                  // Make chart scrollable
-                  chartInner.style.width = calculatedWidth + 'px';
+              if (dataPoints > 90) {
+                  // Make chart scrollable for more than 90 data points
+                  chartInner.style.width = Math.max(calculatedWidth, containerWidth) + 'px';
                   scrollHint.style.display = 'block';
                   scrollHint.style.removeProperty('display');
               } else {
-                  // Normal chart
+                  // Normal chart (90 or less - no scrolling needed)
                   chartInner.style.width = '100%';
                   scrollHint.style.display = 'none';
               }
