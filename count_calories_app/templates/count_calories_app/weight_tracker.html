@@ -109,19 +109,27 @@
           </small>
 
           <div class="row text-center">
-            <div class="col-6 col-sm-3 mb-2">
+            <div class="col-6 col-sm-2 mb-2">
               <div class="fw-bold" id="latest-weight">0 kg</div>
               <small class="text-muted">Latest Weight</small>
             </div>
-            <div class="col-6 col-sm-3 mb-2">
+            <div class="col-6 col-sm-2 mb-2">
+              <div class="fw-bold" id="first-weight">0 kg</div>
+              <small class="text-muted">First Weight</small>
+            </div>
+            <div class="col-6 col-sm-2 mb-2">
+              <div class="fw-bold" id="weight-change">0 kg</div>
+              <small class="text-muted">Change</small>
+            </div>
+            <div class="col-6 col-sm-2 mb-2">
               <div class="fw-bold" id="avg-weight">0 kg</div>
               <small class="text-muted">Average</small>
             </div>
-            <div class="col-6 col-sm-3 mb-2">
+            <div class="col-6 col-sm-2 mb-2">
               <div class="fw-bold" id="min-weight">0 kg</div>
               <small class="text-muted">Minimum</small>
             </div>
-            <div class="col-6 col-sm-3 mb-2">
+            <div class="col-6 col-sm-2 mb-2">
               <div class="fw-bold" id="max-weight">0 kg</div>
               <small class="text-muted">Maximum</small>
             </div>
@@ -398,6 +406,37 @@
                   document.getElementById('avg-weight').textContent = data.stats.avg.toFixed(1) + ' kg';
                   document.getElementById('min-weight').textContent = data.stats.min + ' kg';
                   document.getElementById('max-weight').textContent = data.stats.max + ' kg';
+
+                  // Calculate and display weight change (first to latest in selected period)
+                  if (data.data && data.data.length >= 2) {
+                      const firstWeight = data.data[0];
+                      const latestWeight = data.data[data.data.length - 1];
+                      const weightChange = latestWeight - firstWeight;
+                      const changeText = (weightChange > 0 ? '+' : '') + weightChange.toFixed(1) + ' kg';
+
+                      const changeElement = document.getElementById('weight-change');
+                      changeElement.textContent = changeText;
+
+                      // Color based on loss/gain
+                      if (weightChange < 0) {
+                          changeElement.className = 'fw-bold text-success';
+                      } else if (weightChange > 0) {
+                          changeElement.className = 'fw-bold text-danger';
+                      } else {
+                          changeElement.className = 'fw-bold text-secondary';
+                      }
+
+                      // Display first weight
+                      document.getElementById('first-weight').textContent = firstWeight.toFixed(1) + ' kg';
+                  } else if (data.data && data.data.length === 1) {
+                      document.getElementById('first-weight').textContent = data.data[0].toFixed(1) + ' kg';
+                      document.getElementById('weight-change').textContent = '0 kg';
+                      document.getElementById('weight-change').className = 'fw-bold text-secondary';
+                  } else {
+                      document.getElementById('first-weight').textContent = '0 kg';
+                      document.getElementById('weight-change').textContent = '0 kg';
+                      document.getElementById('weight-change').className = 'fw-bold text-secondary';
+                  }
 
                   // Update weight change rate
                   const changeRate = data.stats.change_rate.toFixed(2);
