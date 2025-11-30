@@ -701,10 +701,40 @@ def get_macros_trend_data(request):
     return JsonResponse(macros_data)
 
 def get_weight_data(request):
-    # Filter for the last 90 days
+    # Get date range from request parameters
+    days_param = request.GET.get('days')
+    start_date_str = request.GET.get('start_date')
+    end_date_str = request.GET.get('end_date')
+
     end_date = timezone.now()
-    start_date = end_date - timedelta(days=90)
-    weights = Weight.objects.filter(recorded_at__gte=start_date).order_by('recorded_at')
+
+    if start_date_str and end_date_str:
+        # Custom date range
+        try:
+            from datetime import datetime
+            start_date = timezone.make_aware(datetime.strptime(start_date_str, '%Y-%m-%d'))
+            end_date = timezone.make_aware(datetime.strptime(end_date_str, '%Y-%m-%d').replace(hour=23, minute=59, second=59))
+        except ValueError:
+            start_date = end_date - timedelta(days=90)
+    elif days_param:
+        # Preset days (90, 180, 365, or 'all')
+        if days_param == 'all':
+            start_date = None  # No start date filter
+        else:
+            try:
+                days = int(days_param)
+                start_date = end_date - timedelta(days=days)
+            except ValueError:
+                start_date = end_date - timedelta(days=90)
+    else:
+        # Default: last 90 days
+        start_date = end_date - timedelta(days=90)
+
+    # Build query
+    if start_date:
+        weights = Weight.objects.filter(recorded_at__gte=start_date, recorded_at__lte=end_date).order_by('recorded_at')
+    else:
+        weights = Weight.objects.filter(recorded_at__lte=end_date).order_by('recorded_at')
 
     weight_data = {
         'labels': [w.recorded_at.strftime('%Y-%m-%d') for w in weights],
@@ -847,13 +877,30 @@ def weight_tracker(request):
     export = request.GET.get('export')
     start_date_str = request.GET.get('start_date')
     end_date_str = request.GET.get('end_date')
+    days_param = request.GET.get('days')
 
     # Default to the last 90 days
     end_date = timezone.now()
-    start_date = end_date - timedelta(days=90)
+    current_days = days_param if days_param else '90'
+
+    # Calculate start_date based on days parameter
+    if days_param == 'all':
+        start_date = None
+    elif days_param:
+        try:
+            days = int(days_param)
+            start_date = end_date - timedelta(days=days)
+        except ValueError:
+            start_date = end_date - timedelta(days=90)
+            current_days = '90'
+    else:
+        start_date = end_date - timedelta(days=90)
 
     # Base queryset for the page and default CSV export
-    weights_query = Weight.objects.filter(recorded_at__gte=start_date).order_by('-recorded_at')
+    if start_date:
+        weights_query = Weight.objects.filter(recorded_at__gte=start_date).order_by('-recorded_at')
+    else:
+        weights_query = Weight.objects.all().order_by('-recorded_at')
 
     # Handle CSV export
     if export == 'csv':
@@ -916,6 +963,7 @@ def weight_tracker(request):
     context = {
         'form': form,
         'weights': weights,
+        'current_days': current_days,
     }
     return render(request, 'count_calories_app/weight_tracker.html', context)
 
