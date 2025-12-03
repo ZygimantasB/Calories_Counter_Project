@@ -210,7 +210,7 @@ def get_gemini_nutrition(request):
         }, status=500)
 
 def food_tracker(request):
-    time_range = request.GET.get('range', 'today')
+    time_range = request.GET.get('range')
     selected_date_str = request.GET.get('date')
     start_date_str = request.GET.get('start_date')
     end_date_str = request.GET.get('end_date')
@@ -221,6 +221,11 @@ def food_tracker(request):
     selected_date = None
     date_range_selected = False
     show_averages = False
+
+    # Default to 90 days if no parameters specified
+    if not time_range and not selected_date_str and not start_date_str and not days_param:
+        days_param = '90'
+
     current_days = days_param if days_param else None
 
     # Handle days parameter (7, 30, 90, 180, 365, or 'all')
