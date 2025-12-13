@@ -191,8 +191,10 @@
       <div class="mb-3">
         <div class="d-flex justify-content-center justify-content-md-start flex-wrap gap-1 mb-2">
           <a href="?range=today" class="btn btn-sm {% if selected_range == 'today' and not selected_date and not current_days %}btn-info{% else %}btn-outline-info{% endif %}">Today</a>
+          <a href="?range=week" class="btn btn-sm {% if selected_range == 'week' %}btn-info{% else %}btn-outline-info{% endif %}">This Week</a>
+          <a href="?range=month" class="btn btn-sm {% if selected_range == 'month' %}btn-info{% else %}btn-outline-info{% endif %}">This Month</a>
           <a href="?days=7" class="btn btn-sm {% if current_days == '7' %}btn-info{% else %}btn-outline-info{% endif %}">7 Days</a>
-          <a href="?days=30" class="btn btn-sm {% if current_days == '30' %}btn-info{% else %}btn-outline-info{% endif %}">1 Month</a>
+          <a href="?days=30" class="btn btn-sm {% if current_days == '30' %}btn-info{% else %}btn-outline-info{% endif %}">30 Days</a>
           <a href="?days=90" class="btn btn-sm {% if current_days == '90' %}btn-info{% else %}btn-outline-info{% endif %}">90 Days</a>
           <a href="?days=180" class="btn btn-sm {% if current_days == '180' %}btn-info{% else %}btn-outline-info{% endif %}">6 Months</a>
           <a href="?days=365" class="btn btn-sm {% if current_days == '365' %}btn-info{% else %}btn-outline-info{% endif %}">1 Year</a>

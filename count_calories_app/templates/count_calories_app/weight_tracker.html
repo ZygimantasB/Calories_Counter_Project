@@ -95,8 +95,10 @@
           <!-- Date Range Selection -->
           <div class="mb-3">
             <div class="d-flex flex-wrap gap-2 mb-2">
+              <button class="btn btn-sm btn-outline-success date-range-btn" data-range="week">This Week</button>
+              <button class="btn btn-sm btn-outline-success date-range-btn" data-range="month">This Month</button>
               <button class="btn btn-sm btn-outline-success date-range-btn" data-days="7">Last 7 Days</button>
-              <button class="btn btn-sm btn-outline-success date-range-btn" data-days="30">Last Month</button>
+              <button class="btn btn-sm btn-outline-success date-range-btn" data-days="30">Last 30 Days</button>
               <button class="btn btn-sm btn-outline-success date-range-btn active" data-days="90">Last 90 Days</button>
               <button class="btn btn-sm btn-outline-success date-range-btn" data-days="180">Last 6 Months</button>
               <button class="btn btn-sm btn-outline-success date-range-btn" data-days="365">Last Year</button>
@@ -278,9 +280,11 @@
         <div class="card-header d-flex justify-content-between align-items-center flex-wrap">
           <h2 class="h5 mb-0">Weight Measurements</h2>
           <div class="d-flex flex-wrap gap-1 mt-2 mt-md-0">
+            <a href="?range=week" class="btn btn-sm {% if current_range == 'week' %}btn-primary{% else %}btn-outline-primary{% endif %}">This Week</a>
+            <a href="?range=month" class="btn btn-sm {% if current_range == 'month' %}btn-primary{% else %}btn-outline-primary{% endif %}">This Month</a>
             <a href="?days=7" class="btn btn-sm {% if current_days == '7' %}btn-primary{% else %}btn-outline-primary{% endif %}">7 Days</a>
-            <a href="?days=30" class="btn btn-sm {% if current_days == '30' %}btn-primary{% else %}btn-outline-primary{% endif %}">1 Month</a>
-            <a href="?days=90" class="btn btn-sm {% if current_days == '90' or not current_days %}btn-primary{% else %}btn-outline-primary{% endif %}">90 Days</a>
+            <a href="?days=30" class="btn btn-sm {% if current_days == '30' %}btn-primary{% else %}btn-outline-primary{% endif %}">30 Days</a>
+            <a href="?days=90" class="btn btn-sm {% if current_days == '90' or not current_days and not current_range %}btn-primary{% else %}btn-outline-primary{% endif %}">90 Days</a>
             <a href="?days=180" class="btn btn-sm {% if current_days == '180' %}btn-primary{% else %}btn-outline-primary{% endif %}">6 Months</a>
             <a href="?days=365" class="btn btn-sm {% if current_days == '365' %}btn-primary{% else %}btn-outline-primary{% endif %}">1 Year</a>
             <a href="?days=all" class="btn btn-sm {% if current_days == 'all' %}btn-primary{% else %}btn-outline-primary{% endif %}">All</a>
@@ -316,12 +320,12 @@
               <ul class="pagination justify-content-center mb-0">
                 {% if weights.has_previous %}
                   <li class="page-item">
-                    <a class="page-link" href="?page=1{% if current_days %}&days={{ current_days }}{% endif %}" aria-label="First">
+                    <a class="page-link" href="?page=1{% if current_days %}&days={{ current_days }}{% endif %}{% if current_range %}&range={{ current_range }}{% endif %}" aria-label="First">
                       <span aria-hidden="true">&laquo;&laquo;</span>
                     </a>
                   </li>
                   <li class="page-item">
-                    <a class="page-link" href="?page={{ weights.previous_page_number }}{% if current_days %}&days={{ current_days }}{% endif %}" aria-label="Previous">
+                    <a class="page-link" href="?page={{ weights.previous_page_number }}{% if current_days %}&days={{ current_days }}{% endif %}{% if current_range %}&range={{ current_range }}{% endif %}" aria-label="Previous">
                       <span aria-hidden="true">&laquo;</span>
                     </a>
                   </li>
@@ -338,18 +342,18 @@
                   {% if weights.number == i %}
                     <li class="page-item active"><span class="page-link">{{ i }}</span></li>
                   {% elif i > weights.number|add:'-3' and i < weights.number|add:'3' %}
-                    <li class="page-item"><a class="page-link" href="?page={{ i }}{% if current_days %}&days={{ current_days }}{% endif %}">{{ i }}</a></li>
+                    <li class="page-item"><a class="page-link" href="?page={{ i }}{% if current_days %}&days={{ current_days }}{% endif %}{% if current_range %}&range={{ current_range }}{% endif %}">{{ i }}</a></li>
                   {% endif %}
                 {% endfor %}
 
                 {% if weights.has_next %}
                   <li class="page-item">
-                    <a class="page-link" href="?page={{ weights.next_page_number }}{% if current_days %}&days={{ current_days }}{% endif %}" aria-label="Next">
+                    <a class="page-link" href="?page={{ weights.next_page_number }}{% if current_days %}&days={{ current_days }}{% endif %}{% if current_range %}&range={{ current_range }}{% endif %}" aria-label="Next">
                       <span aria-hidden="true">&raquo;</span>
                     </a>
                   </li>
                   <li class="page-item">
-                    <a class="page-link" href="?page={{ weights.paginator.num_pages }}{% if current_days %}&days={{ current_days }}{% endif %}" aria-label="Last">
+                    <a class="page-link" href="?page={{ weights.paginator.num_pages }}{% if current_days %}&days={{ current_days }}{% endif %}{% if current_range %}&range={{ current_range }}{% endif %}" aria-label="Last">
                       <span aria-hidden="true">&raquo;&raquo;</span>
                     </a>
                   </li>
@@ -388,6 +392,9 @@
               let url = '{% url "weight_data" %}';
               const queryParams = new URLSearchParams();
 
+              if (params.range) {
+                  queryParams.append('range', params.range);
+              }
               if (params.days) {
                   queryParams.append('days', params.days);
               }
@@ -702,9 +709,14 @@
                   document.getElementById('weight-start-date').value = '';
                   document.getElementById('weight-end-date').value = '';
 
-                  // Fetch data with selected range
-                  currentDays = this.getAttribute('data-days');
-                  fetchWeightData({ days: currentDays });
+                  // Check if it's a range (week/month) or days parameter
+                  const rangeType = this.getAttribute('data-range');
+                  if (rangeType) {
+                      fetchWeightData({ range: rangeType });
+                  } else {
+                      currentDays = this.getAttribute('data-days');
+                      fetchWeightData({ days: currentDays });
+                  }
               });
           });
 

@@ -855,10 +855,20 @@ def get_weight_data(request):
     days_param = request.GET.get('days')
     start_date_str = request.GET.get('start_date')
     end_date_str = request.GET.get('end_date')
+    range_param = request.GET.get('range')
 
     end_date = timezone.now()
 
-    if start_date_str and end_date_str:
+    if range_param == 'week':
+        # This week (from Monday to now)
+        start_date = end_date - timedelta(days=end_date.weekday())
+        start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_date = end_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+    elif range_param == 'month':
+        # This month (from 1st to now)
+        start_date = end_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        end_date = end_date.replace(hour=23, minute=59, second=59, microsecond=999999)
+    elif start_date_str and end_date_str:
         # Custom date range
         try:
             from datetime import datetime
@@ -1028,13 +1038,22 @@ def weight_tracker(request):
     start_date_str = request.GET.get('start_date')
     end_date_str = request.GET.get('end_date')
     days_param = request.GET.get('days')
+    range_param = request.GET.get('range')
 
     # Default to the last 90 days
     end_date = timezone.now()
-    current_days = days_param if days_param else '90'
+    current_days = days_param if days_param else None
+    current_range = range_param if range_param else None
 
-    # Calculate start_date based on days parameter
-    if days_param == 'all':
+    # Calculate start_date based on range or days parameter
+    if range_param == 'week':
+        # This week (from Monday to now)
+        start_date = end_date - timedelta(days=end_date.weekday())
+        start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+    elif range_param == 'month':
+        # This month (from 1st to now)
+        start_date = end_date.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    elif days_param == 'all':
         start_date = None
     elif days_param:
         try:
@@ -1045,6 +1064,7 @@ def weight_tracker(request):
             current_days = '90'
     else:
         start_date = end_date - timedelta(days=90)
+        current_days = '90'
 
     # Base queryset for the page and default CSV export
     if start_date:
@@ -1114,6 +1134,7 @@ def weight_tracker(request):
         'form': form,
         'weights': weights,
         'current_days': current_days,
+        'current_range': current_range,
     }
     return render(request, 'count_calories_app/weight_tracker.html', context)
 
