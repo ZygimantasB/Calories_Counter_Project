@@ -18,7 +18,102 @@ from google.api_core.exceptions import GoogleAPICallError, PermissionDenied, Una
 logger = logging.getLogger('count_calories_app')
 
 def home(request):
-    return render(request, 'count_calories_app/home.html')
+    now = timezone.now()
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+
+    # Week start (Monday)
+    week_start = now - timedelta(days=now.weekday())
+    week_start = week_start.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # Month start
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    # Today's food stats
+    today_food = FoodItem.objects.filter(consumed_at__gte=today_start, consumed_at__lte=today_end)
+    today_stats = today_food.aggregate(
+        calories=Sum('calories'),
+        protein=Sum('protein'),
+        carbs=Sum('carbohydrates'),
+        fat=Sum('fat'),
+        count=Count('id')
+    )
+
+    # This week's food stats
+    week_food = FoodItem.objects.filter(consumed_at__gte=week_start, consumed_at__lte=today_end)
+    week_stats = week_food.aggregate(
+        calories=Sum('calories'),
+        protein=Sum('protein'),
+        carbs=Sum('carbohydrates'),
+        fat=Sum('fat'),
+        count=Count('id')
+    )
+
+    # Latest weight
+    latest_weight = Weight.objects.order_by('-recorded_at').first()
+
+    # Weight change (last 7 days)
+    week_ago = now - timedelta(days=7)
+    weight_week_ago = Weight.objects.filter(recorded_at__lte=week_ago).order_by('-recorded_at').first()
+    weight_change = None
+    if latest_weight and weight_week_ago:
+        weight_change = float(latest_weight.weight) - float(weight_week_ago.weight)
+
+    # This week's workouts
+    week_workouts = WorkoutSession.objects.filter(date__gte=week_start.date()).count()
+
+    # This week's runs
+    week_runs = RunningSession.objects.filter(date__gte=week_start.date())
+    week_run_stats = week_runs.aggregate(
+        total_distance=Sum('distance'),
+        total_duration=Sum('duration'),
+        count=Count('id')
+    )
+
+    # Recent food items (last 5)
+    recent_foods = FoodItem.objects.order_by('-consumed_at')[:5]
+
+    # Streak calculation (consecutive days with food logged)
+    streak = 0
+    check_date = now.date()
+    while True:
+        day_start = timezone.make_aware(timezone.datetime.combine(check_date, timezone.datetime.min.time()))
+        day_end = timezone.make_aware(timezone.datetime.combine(check_date, timezone.datetime.max.time()))
+        if FoodItem.objects.filter(consumed_at__gte=day_start, consumed_at__lte=day_end).exists():
+            streak += 1
+            check_date -= timedelta(days=1)
+        else:
+            break
+
+    context = {
+        'today_stats': {
+            'calories': today_stats['calories'] or 0,
+            'protein': today_stats['protein'] or 0,
+            'carbs': today_stats['carbs'] or 0,
+            'fat': today_stats['fat'] or 0,
+            'count': today_stats['count'] or 0,
+        },
+        'week_stats': {
+            'calories': week_stats['calories'] or 0,
+            'protein': week_stats['protein'] or 0,
+            'carbs': week_stats['carbs'] or 0,
+            'fat': week_stats['fat'] or 0,
+            'count': week_stats['count'] or 0,
+        },
+        'latest_weight': latest_weight,
+        'weight_change': weight_change,
+        'week_workouts': week_workouts,
+        'week_run_stats': {
+            'distance': week_run_stats['total_distance'] or 0,
+            'duration': week_run_stats['total_duration'] or 0,
+            'count': week_run_stats['count'] or 0,
+        },
+        'recent_foods': recent_foods,
+        'streak': streak,
+        'current_date': now,
+    }
+
+    return render(request, 'count_calories_app/home.html', context)
 
 def get_nutrition_data(request):
     time_range = request.GET.get('range', 'today')
@@ -566,13 +661,14 @@ def food_tracker(request):
 
 def top_foods(request):
     """
-    View for displaying top foods eaten with pagination, date filtering, and sorting.
+    View for displaying top foods eaten with pagination, date filtering, sorting, and search.
     """
     time_range = request.GET.get('range', 'today')
     selected_date_str = request.GET.get('date')
     start_date_str = request.GET.get('start_date')
     end_date_str = request.GET.get('end_date')
     days_param = request.GET.get('days')
+    search_query = request.GET.get('q', '').strip()
     page_number = request.GET.get('page', 1)
     sort_by = request.GET.get('sort', 'count')  # Default sort by count
     sort_order = request.GET.get('order', 'desc')  # Default descending order
@@ -669,6 +765,10 @@ def top_foods(request):
     else:
         top_foods_queryset = FoodItem.objects.filter(consumed_at__gte=start_date)
 
+    # Apply search filter if provided
+    if search_query:
+        top_foods_queryset = top_foods_queryset.filter(product_name__icontains=search_query)
+
     top_foods_data = top_foods_queryset.values('product_name').annotate(
         count=Count('id'),
         total_calories=Sum('calories'),
@@ -738,6 +838,35 @@ def top_foods(request):
     except:
         top_foods_page = paginator.page(1)
 
+    # Calculate summary statistics from the base queryset (not the aggregated one)
+    summary_data = top_foods_queryset.aggregate(
+        total_count=Count('id'),
+        total_calories=Sum('calories'),
+        total_fat=Sum('fat'),
+        total_carbs=Sum('carbohydrates'),
+        total_protein=Sum('protein')
+    )
+
+    # Count unique foods
+    unique_foods_count = top_foods_queryset.values('product_name').distinct().count()
+
+    summary = {
+        'total_count': summary_data['total_count'] or 0,
+        'total_calories': summary_data['total_calories'] or 0,
+        'total_fat': summary_data['total_fat'] or 0,
+        'total_carbs': summary_data['total_carbs'] or 0,
+        'total_protein': summary_data['total_protein'] or 0,
+        'unique_foods': unique_foods_count,
+    }
+
+    # Calculate averages
+    if summary['unique_foods'] and summary['unique_foods'] > 0:
+        summary['avg_calories_per_food'] = summary['total_calories'] / summary['unique_foods']
+        summary['avg_count_per_food'] = summary['total_count'] / summary['unique_foods']
+    else:
+        summary['avg_calories_per_food'] = 0
+        summary['avg_count_per_food'] = 0
+
     context = {
         'top_foods_page': top_foods_page,
         'selected_range': time_range,
@@ -747,6 +876,8 @@ def top_foods(request):
         'current_sort': sort_by,
         'current_order': sort_order,
         'current_days': current_days,
+        'search_query': search_query,
+        'summary': summary,
     }
 
     return render(request, 'count_calories_app/top_foods.html', context)

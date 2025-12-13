@@ -1,8 +1,103 @@
+<!-- Summary Card -->
+{% if summary.unique_foods and summary.unique_foods > 0 %}
+<div class="card shadow-sm rounded mb-4">
+  <div class="card-header bg-success text-white">
+    <h2 class="h5 mb-0">
+      <i class="fas fa-chart-pie me-2"></i>
+      {% if search_query %}
+        Summary for "{{ search_query }}"
+      {% else %}
+        Summary
+      {% endif %}
+      {% if selected_date %}
+        ({{ selected_date|date:"F d, Y" }})
+      {% elif start_date_str and end_date_str %}
+        ({{ start_date_str }} to {{ end_date_str }})
+      {% elif current_days == 'all' %}
+        (All Time)
+      {% elif current_days %}
+        (Last {{ current_days }} Days)
+      {% else %}
+        ({{ selected_range|title }})
+      {% endif %}
+    </h2>
+  </div>
+  <div class="card-body">
+    <div class="row text-center">
+      <div class="col-6 col-md-4 col-lg-2 mb-3">
+        <div class="border rounded p-2 h-100">
+          <div class="fw-bold text-primary fs-4">{{ summary.unique_foods }}</div>
+          <small class="text-muted">Unique Foods</small>
+        </div>
+      </div>
+      <div class="col-6 col-md-4 col-lg-2 mb-3">
+        <div class="border rounded p-2 h-100">
+          <div class="fw-bold text-success fs-4">{{ summary.total_count|default:0 }}</div>
+          <small class="text-muted">Times Eaten</small>
+        </div>
+      </div>
+      <div class="col-6 col-md-4 col-lg-2 mb-3">
+        <div class="border rounded p-2 h-100">
+          <div class="fw-bold text-danger fs-4">{{ summary.total_calories|floatformat:0|default:0 }}</div>
+          <small class="text-muted">Total Calories</small>
+        </div>
+      </div>
+      <div class="col-6 col-md-4 col-lg-2 mb-3">
+        <div class="border rounded p-2 h-100">
+          <div class="fw-bold text-warning fs-5">{{ summary.total_fat|floatformat:1|default:0 }}g</div>
+          <small class="text-muted">Total Fat</small>
+        </div>
+      </div>
+      <div class="col-6 col-md-4 col-lg-2 mb-3">
+        <div class="border rounded p-2 h-100">
+          <div class="fw-bold text-info fs-5">{{ summary.total_carbs|floatformat:1|default:0 }}g</div>
+          <small class="text-muted">Total Carbs</small>
+        </div>
+      </div>
+      <div class="col-6 col-md-4 col-lg-2 mb-3">
+        <div class="border rounded p-2 h-100">
+          <div class="fw-bold text-secondary fs-5">{{ summary.total_protein|floatformat:1|default:0 }}g</div>
+          <small class="text-muted">Total Protein</small>
+        </div>
+      </div>
+    </div>
+    <hr>
+    <div class="row text-center">
+      <div class="col-6 mb-2">
+        <div class="text-muted">
+          <small>Avg Calories per Food Type</small>
+          <div class="fw-bold">{{ summary.avg_calories_per_food|floatformat:0 }} kcal</div>
+        </div>
+      </div>
+      <div class="col-6 mb-2">
+        <div class="text-muted">
+          <small>Avg Times Eaten per Food</small>
+          <div class="fw-bold">{{ summary.avg_count_per_food|floatformat:1 }}x</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 <!-- Top Foods Table -->
 <div class="card shadow-sm rounded mb-4">
   <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
     <h2 class="h5 mb-0">
-      {% if selected_date %}
+      {% if search_query %}
+        Search Results for "{{ search_query }}"
+        {% if selected_date %}
+          ({{ selected_date|date:"F d, Y" }})
+        {% elif start_date_str and end_date_str %}
+          ({{ start_date_str }} to {{ end_date_str }})
+        {% elif current_days == 'all' %}
+          (All Time)
+        {% elif current_days %}
+          (Last {{ current_days }} Days)
+        {% else %}
+          ({{ selected_range|title }})
+        {% endif %}
+      {% elif selected_date %}
         Top Foods Eaten ({{ selected_date|date:"F d, Y" }})
       {% elif start_date_str and end_date_str %}
         Top Foods Eaten ({{ start_date_str }} to {{ end_date_str }})
@@ -15,19 +110,19 @@
       {% endif %}
     </h2>
     <div class="btn-group btn-group-sm">
-      <a href="?{% if selected_date %}date={{ selected_date|date:'Y-m-d' }}&{% elif start_date_str and end_date_str %}start_date={{ start_date_str }}&end_date={{ end_date_str }}&{% elif current_days %}days={{ current_days }}&{% else %}range={{ selected_range }}&{% endif %}sort=count&order={% if current_sort == 'count' and current_order == 'desc' %}asc{% else %}desc{% endif %}"
+      <a href="?{% if selected_date %}date={{ selected_date|date:'Y-m-d' }}&{% elif start_date_str and end_date_str %}start_date={{ start_date_str }}&end_date={{ end_date_str }}&{% elif current_days %}days={{ current_days }}&{% else %}range={{ selected_range }}&{% endif %}{% if search_query %}q={{ search_query }}&{% endif %}sort=count&order={% if current_sort == 'count' and current_order == 'desc' %}asc{% else %}desc{% endif %}"
          class="btn btn-outline-light btn-sm {% if current_sort == 'count' %}active{% endif %}">
         Count {% if current_sort == 'count' %}{% if current_order == 'desc' %}↓{% else %}↑{% endif %}{% endif %}
       </a>
-      <a href="?{% if selected_date %}date={{ selected_date|date:'Y-m-d' }}&{% elif start_date_str and end_date_str %}start_date={{ start_date_str }}&end_date={{ end_date_str }}&{% elif current_days %}days={{ current_days }}&{% else %}range={{ selected_range }}&{% endif %}sort=name&order={% if current_sort == 'name' and current_order == 'desc' %}asc{% else %}desc{% endif %}"
+      <a href="?{% if selected_date %}date={{ selected_date|date:'Y-m-d' }}&{% elif start_date_str and end_date_str %}start_date={{ start_date_str }}&end_date={{ end_date_str }}&{% elif current_days %}days={{ current_days }}&{% else %}range={{ selected_range }}&{% endif %}{% if search_query %}q={{ search_query }}&{% endif %}sort=name&order={% if current_sort == 'name' and current_order == 'desc' %}asc{% else %}desc{% endif %}"
          class="btn btn-outline-light btn-sm {% if current_sort == 'name' %}active{% endif %}">
         Name {% if current_sort == 'name' %}{% if current_order == 'desc' %}↓{% else %}↑{% endif %}{% endif %}
       </a>
-      <a href="?{% if selected_date %}date={{ selected_date|date:'Y-m-d' }}&{% elif start_date_str and end_date_str %}start_date={{ start_date_str }}&end_date={{ end_date_str }}&{% elif current_days %}days={{ current_days }}&{% else %}range={{ selected_range }}&{% endif %}sort=calories&order={% if current_sort == 'calories' and current_order == 'desc' %}asc{% else %}desc{% endif %}"
+      <a href="?{% if selected_date %}date={{ selected_date|date:'Y-m-d' }}&{% elif start_date_str and end_date_str %}start_date={{ start_date_str }}&end_date={{ end_date_str }}&{% elif current_days %}days={{ current_days }}&{% else %}range={{ selected_range }}&{% endif %}{% if search_query %}q={{ search_query }}&{% endif %}sort=calories&order={% if current_sort == 'calories' and current_order == 'desc' %}asc{% else %}desc{% endif %}"
          class="btn btn-outline-light btn-sm {% if current_sort == 'calories' %}active{% endif %}">
         Calories {% if current_sort == 'calories' %}{% if current_order == 'desc' %}↓{% else %}↑{% endif %}{% endif %}
       </a>
-      <a href="?{% if selected_date %}date={{ selected_date|date:'Y-m-d' }}&{% elif start_date_str and end_date_str %}start_date={{ start_date_str }}&end_date={{ end_date_str }}&{% elif current_days %}days={{ current_days }}&{% else %}range={{ selected_range }}&{% endif %}sort={{ current_sort }}&order={{ current_order }}&export=csv" class="btn btn-warning btn-sm">
+      <a href="?{% if selected_date %}date={{ selected_date|date:'Y-m-d' }}&{% elif start_date_str and end_date_str %}start_date={{ start_date_str }}&end_date={{ end_date_str }}&{% elif current_days %}days={{ current_days }}&{% else %}range={{ selected_range }}&{% endif %}{% if search_query %}q={{ search_query }}&{% endif %}sort={{ current_sort }}&order={{ current_order }}&export=csv" class="btn btn-warning btn-sm">
         Download CSV
       </a>
     </div>
@@ -69,7 +164,7 @@
         </tbody>
       </table>
     </div>
-    
+
     <!-- Pagination -->
     {% if top_foods_page.has_other_pages %}
       <div class="card-footer">
@@ -77,7 +172,7 @@
           <ul class="pagination pagination-sm justify-content-center mb-0">
             {% if top_foods_page.has_previous %}
               <li class="page-item">
-                <a class="page-link" href="?{% if selected_date %}date={{ selected_date|date:'Y-m-d' }}&{% elif start_date_str and end_date_str %}start_date={{ start_date_str }}&end_date={{ end_date_str }}&{% elif current_days %}days={{ current_days }}&{% else %}range={{ selected_range }}&{% endif %}sort={{ current_sort }}&order={{ current_order }}&page={{ top_foods_page.previous_page_number }}">Previous</a>
+                <a class="page-link" href="?{% if selected_date %}date={{ selected_date|date:'Y-m-d' }}&{% elif start_date_str and end_date_str %}start_date={{ start_date_str }}&end_date={{ end_date_str }}&{% elif current_days %}days={{ current_days }}&{% else %}range={{ selected_range }}&{% endif %}{% if search_query %}q={{ search_query }}&{% endif %}sort={{ current_sort }}&order={{ current_order }}&page={{ top_foods_page.previous_page_number }}">Previous</a>
               </li>
             {% endif %}
 
@@ -88,14 +183,14 @@
                 </li>
               {% elif num > top_foods_page.number|add:'-3' and num < top_foods_page.number|add:'3' %}
                 <li class="page-item">
-                  <a class="page-link" href="?{% if selected_date %}date={{ selected_date|date:'Y-m-d' }}&{% elif start_date_str and end_date_str %}start_date={{ start_date_str }}&end_date={{ end_date_str }}&{% elif current_days %}days={{ current_days }}&{% else %}range={{ selected_range }}&{% endif %}sort={{ current_sort }}&order={{ current_order }}&page={{ num }}">{{ num }}</a>
+                  <a class="page-link" href="?{% if selected_date %}date={{ selected_date|date:'Y-m-d' }}&{% elif start_date_str and end_date_str %}start_date={{ start_date_str }}&end_date={{ end_date_str }}&{% elif current_days %}days={{ current_days }}&{% else %}range={{ selected_range }}&{% endif %}{% if search_query %}q={{ search_query }}&{% endif %}sort={{ current_sort }}&order={{ current_order }}&page={{ num }}">{{ num }}</a>
                 </li>
               {% endif %}
             {% endfor %}
 
             {% if top_foods_page.has_next %}
               <li class="page-item">
-                <a class="page-link" href="?{% if selected_date %}date={{ selected_date|date:'Y-m-d' }}&{% elif start_date_str and end_date_str %}start_date={{ start_date_str }}&end_date={{ end_date_str }}&{% elif current_days %}days={{ current_days }}&{% else %}range={{ selected_range }}&{% endif %}sort={{ current_sort }}&order={{ current_order }}&page={{ top_foods_page.next_page_number }}">Next</a>
+                <a class="page-link" href="?{% if selected_date %}date={{ selected_date|date:'Y-m-d' }}&{% elif start_date_str and end_date_str %}start_date={{ start_date_str }}&end_date={{ end_date_str }}&{% elif current_days %}days={{ current_days }}&{% else %}range={{ selected_range }}&{% endif %}{% if search_query %}q={{ search_query }}&{% endif %}sort={{ current_sort }}&order={{ current_order }}&page={{ top_foods_page.next_page_number }}">Next</a>
               </li>
             {% endif %}
           </ul>
@@ -109,7 +204,11 @@
     {% endif %}
   {% else %}
     <div class="card-body text-center text-muted">
-      No foods recorded for this period.
+      {% if search_query %}
+        No foods found matching "{{ search_query }}" for this period.
+      {% else %}
+        No foods recorded for this period.
+      {% endif %}
     </div>
   {% endif %}
 </div>
