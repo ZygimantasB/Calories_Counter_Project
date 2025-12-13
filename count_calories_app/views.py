@@ -572,6 +572,7 @@ def top_foods(request):
     selected_date_str = request.GET.get('date')
     start_date_str = request.GET.get('start_date')
     end_date_str = request.GET.get('end_date')
+    days_param = request.GET.get('days')
     page_number = request.GET.get('page', 1)
     sort_by = request.GET.get('sort', 'count')  # Default sort by count
     sort_order = request.GET.get('order', 'desc')  # Default descending order
@@ -582,8 +583,26 @@ def top_foods(request):
     end_date = None
     selected_date = None
     date_range_selected = False
+    current_days = days_param if days_param else None
 
-    if start_date_str and end_date_str:
+    # Handle days parameter (7, 30, 90, 180, 365, or 'all')
+    if days_param:
+        if days_param == 'all':
+            start_date = None
+            end_date = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+        else:
+            try:
+                days = int(days_param)
+                start_date = now - timedelta(days=days)
+                start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
+                end_date = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+            except ValueError:
+                current_days = None
+        if days_param == 'all' or current_days:
+            time_range = 'days_range'
+            date_range_selected = True
+
+    elif start_date_str and end_date_str:
         try:
             from datetime import datetime
             start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
@@ -642,6 +661,9 @@ def top_foods(request):
             top_foods_queryset = FoodItem.objects.annotate(
                 consumed_date=TruncDate('consumed_at')
             ).filter(consumed_date=date_to_filter)
+        elif start_date is None:
+            # "All" option - no start date filter
+            top_foods_queryset = FoodItem.objects.filter(consumed_at__lte=end_date)
         else:
             top_foods_queryset = FoodItem.objects.filter(consumed_at__gte=start_date, consumed_at__lte=end_date)
     else:
@@ -724,6 +746,7 @@ def top_foods(request):
         'end_date_str': end_date_str,
         'current_sort': sort_by,
         'current_order': sort_order,
+        'current_days': current_days,
     }
 
     return render(request, 'count_calories_app/top_foods.html', context)

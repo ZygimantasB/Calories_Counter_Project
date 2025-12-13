@@ -6,24 +6,28 @@
         Top Foods Eaten ({{ selected_date|date:"F d, Y" }})
       {% elif start_date_str and end_date_str %}
         Top Foods Eaten ({{ start_date_str }} to {{ end_date_str }})
+      {% elif current_days == 'all' %}
+        Top Foods Eaten (All Time)
+      {% elif current_days %}
+        Top Foods Eaten (Last {{ current_days }} Days)
       {% else %}
         Top Foods Eaten ({{ selected_range|title }})
       {% endif %}
     </h2>
     <div class="btn-group btn-group-sm">
-      <a href="?{% if selected_date %}date={{ selected_date|date:'Y-m-d' }}&{% elif start_date_str and end_date_str %}start_date={{ start_date_str }}&end_date={{ end_date_str }}&{% else %}range={{ selected_range }}&{% endif %}sort=count&order={% if current_sort == 'count' and current_order == 'desc' %}asc{% else %}desc{% endif %}" 
+      <a href="?{% if selected_date %}date={{ selected_date|date:'Y-m-d' }}&{% elif start_date_str and end_date_str %}start_date={{ start_date_str }}&end_date={{ end_date_str }}&{% elif current_days %}days={{ current_days }}&{% else %}range={{ selected_range }}&{% endif %}sort=count&order={% if current_sort == 'count' and current_order == 'desc' %}asc{% else %}desc{% endif %}"
          class="btn btn-outline-light btn-sm {% if current_sort == 'count' %}active{% endif %}">
         Count {% if current_sort == 'count' %}{% if current_order == 'desc' %}↓{% else %}↑{% endif %}{% endif %}
       </a>
-      <a href="?{% if selected_date %}date={{ selected_date|date:'Y-m-d' }}&{% elif start_date_str and end_date_str %}start_date={{ start_date_str }}&end_date={{ end_date_str }}&{% else %}range={{ selected_range }}&{% endif %}sort=name&order={% if current_sort == 'name' and current_order == 'desc' %}asc{% else %}desc{% endif %}" 
+      <a href="?{% if selected_date %}date={{ selected_date|date:'Y-m-d' }}&{% elif start_date_str and end_date_str %}start_date={{ start_date_str }}&end_date={{ end_date_str }}&{% elif current_days %}days={{ current_days }}&{% else %}range={{ selected_range }}&{% endif %}sort=name&order={% if current_sort == 'name' and current_order == 'desc' %}asc{% else %}desc{% endif %}"
          class="btn btn-outline-light btn-sm {% if current_sort == 'name' %}active{% endif %}">
         Name {% if current_sort == 'name' %}{% if current_order == 'desc' %}↓{% else %}↑{% endif %}{% endif %}
       </a>
-      <a href="?{% if selected_date %}date={{ selected_date|date:'Y-m-d' }}&{% elif start_date_str and end_date_str %}start_date={{ start_date_str }}&end_date={{ end_date_str }}&{% else %}range={{ selected_range }}&{% endif %}sort=calories&order={% if current_sort == 'calories' and current_order == 'desc' %}asc{% else %}desc{% endif %}" 
+      <a href="?{% if selected_date %}date={{ selected_date|date:'Y-m-d' }}&{% elif start_date_str and end_date_str %}start_date={{ start_date_str }}&end_date={{ end_date_str }}&{% elif current_days %}days={{ current_days }}&{% else %}range={{ selected_range }}&{% endif %}sort=calories&order={% if current_sort == 'calories' and current_order == 'desc' %}asc{% else %}desc{% endif %}"
          class="btn btn-outline-light btn-sm {% if current_sort == 'calories' %}active{% endif %}">
         Calories {% if current_sort == 'calories' %}{% if current_order == 'desc' %}↓{% else %}↑{% endif %}{% endif %}
       </a>
-      <a href="?{% if selected_date %}date={{ selected_date|date:'Y-m-d' }}&{% elif start_date_str and end_date_str %}start_date={{ start_date_str }}&end_date={{ end_date_str }}&{% else %}range={{ selected_range }}&{% endif %}sort={{ current_sort }}&order={{ current_order }}&export=csv" class="btn btn-warning btn-sm">
+      <a href="?{% if selected_date %}date={{ selected_date|date:'Y-m-d' }}&{% elif start_date_str and end_date_str %}start_date={{ start_date_str }}&end_date={{ end_date_str }}&{% elif current_days %}days={{ current_days }}&{% else %}range={{ selected_range }}&{% endif %}sort={{ current_sort }}&order={{ current_order }}&export=csv" class="btn btn-warning btn-sm">
         Download CSV
       </a>
     </div>
@@ -73,10 +77,10 @@
           <ul class="pagination pagination-sm justify-content-center mb-0">
             {% if top_foods_page.has_previous %}
               <li class="page-item">
-                <a class="page-link" href="?{% if selected_date %}date={{ selected_date|date:'Y-m-d' }}&{% elif start_date_str and end_date_str %}start_date={{ start_date_str }}&end_date={{ end_date_str }}&{% else %}range={{ selected_range }}&{% endif %}sort={{ current_sort }}&order={{ current_order }}&page={{ top_foods_page.previous_page_number }}">Previous</a>
+                <a class="page-link" href="?{% if selected_date %}date={{ selected_date|date:'Y-m-d' }}&{% elif start_date_str and end_date_str %}start_date={{ start_date_str }}&end_date={{ end_date_str }}&{% elif current_days %}days={{ current_days }}&{% else %}range={{ selected_range }}&{% endif %}sort={{ current_sort }}&order={{ current_order }}&page={{ top_foods_page.previous_page_number }}">Previous</a>
               </li>
             {% endif %}
-            
+
             {% for num in top_foods_page.paginator.page_range %}
               {% if top_foods_page.number == num %}
                 <li class="page-item active">
@@ -84,14 +88,14 @@
                 </li>
               {% elif num > top_foods_page.number|add:'-3' and num < top_foods_page.number|add:'3' %}
                 <li class="page-item">
-                  <a class="page-link" href="?{% if selected_date %}date={{ selected_date|date:'Y-m-d' }}&{% elif start_date_str and end_date_str %}start_date={{ start_date_str }}&end_date={{ end_date_str }}&{% else %}range={{ selected_range }}&{% endif %}sort={{ current_sort }}&order={{ current_order }}&page={{ num }}">{{ num }}</a>
+                  <a class="page-link" href="?{% if selected_date %}date={{ selected_date|date:'Y-m-d' }}&{% elif start_date_str and end_date_str %}start_date={{ start_date_str }}&end_date={{ end_date_str }}&{% elif current_days %}days={{ current_days }}&{% else %}range={{ selected_range }}&{% endif %}sort={{ current_sort }}&order={{ current_order }}&page={{ num }}">{{ num }}</a>
                 </li>
               {% endif %}
             {% endfor %}
-            
+
             {% if top_foods_page.has_next %}
               <li class="page-item">
-                <a class="page-link" href="?{% if selected_date %}date={{ selected_date|date:'Y-m-d' }}&{% elif start_date_str and end_date_str %}start_date={{ start_date_str }}&end_date={{ end_date_str }}&{% else %}range={{ selected_range }}&{% endif %}sort={{ current_sort }}&order={{ current_order }}&page={{ top_foods_page.next_page_number }}">Next</a>
+                <a class="page-link" href="?{% if selected_date %}date={{ selected_date|date:'Y-m-d' }}&{% elif start_date_str and end_date_str %}start_date={{ start_date_str }}&end_date={{ end_date_str }}&{% elif current_days %}days={{ current_days }}&{% else %}range={{ selected_range }}&{% endif %}sort={{ current_sort }}&order={{ current_order }}&page={{ top_foods_page.next_page_number }}">Next</a>
               </li>
             {% endif %}
           </ul>
