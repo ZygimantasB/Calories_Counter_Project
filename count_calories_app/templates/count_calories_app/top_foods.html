@@ -25,22 +25,39 @@
             <h2 class="h5 mb-0">Search & Filter</h2>
           </div>
           <div class="card-body">
-            <!-- Search Box -->
+            <!-- Multi-Food Search Box with Autocomplete -->
             <div class="mb-3">
-              <form method="get" class="d-flex align-items-center">
-                <div class="input-group">
+              <label class="form-label fw-bold mb-2">Search Foods (select multiple):</label>
+              <form id="multi-food-form" method="get">
+                <input type="hidden" name="foods" id="foods-input" value="{{ foods_param }}">
+                {% if current_days %}<input type="hidden" name="days" value="{{ current_days }}">{% endif %}
+                {% if selected_range and selected_range != 'today' and not current_days %}<input type="hidden" name="range" value="{{ selected_range }}">{% endif %}
+                {% if selected_date %}<input type="hidden" name="date" value="{{ selected_date|date:'Y-m-d' }}">{% endif %}
+                {% if start_date_str %}<input type="hidden" name="start_date" value="{{ start_date_str }}">{% endif %}
+                {% if end_date_str %}<input type="hidden" name="end_date" value="{{ end_date_str }}">{% endif %}
+
+                <!-- Selected Foods Tags -->
+                <div id="selected-foods-container" class="mb-2 d-flex flex-wrap gap-1">
+                  {% for food in selected_foods %}
+                    <span class="badge bg-primary d-flex align-items-center gap-1 selected-food-tag" data-food="{{ food }}">
+                      {{ food }}
+                      <button type="button" class="btn-close btn-close-white ms-1" style="font-size: 0.6rem;" onclick="removeFood('{{ food }}')" aria-label="Remove"></button>
+                    </span>
+                  {% endfor %}
+                </div>
+
+                <!-- Autocomplete Input -->
+                <div class="input-group position-relative">
                   <span class="input-group-text"><i class="fas fa-search"></i></span>
-                  <input type="text" name="q" class="form-control" placeholder="Search foods..." value="{{ search_query }}" autocomplete="off">
-                  {% if current_days %}<input type="hidden" name="days" value="{{ current_days }}">{% endif %}
-                  {% if selected_range and selected_range != 'today' and not current_days %}<input type="hidden" name="range" value="{{ selected_range }}">{% endif %}
-                  {% if selected_date %}<input type="hidden" name="date" value="{{ selected_date|date:'Y-m-d' }}">{% endif %}
-                  {% if start_date_str %}<input type="hidden" name="start_date" value="{{ start_date_str }}">{% endif %}
-                  {% if end_date_str %}<input type="hidden" name="end_date" value="{{ end_date_str }}">{% endif %}
+                  <input type="text" id="food-search-input" class="form-control" placeholder="Type to search foods..." autocomplete="off">
                   <button type="submit" class="btn btn-primary">Search</button>
-                  {% if search_query %}
+                  {% if selected_foods or search_query %}
                     <a href="?{% if current_days %}days={{ current_days }}{% elif selected_date %}date={{ selected_date|date:'Y-m-d' }}{% elif start_date_str and end_date_str %}start_date={{ start_date_str }}&end_date={{ end_date_str }}{% else %}range={{ selected_range }}{% endif %}" class="btn btn-outline-secondary">Clear</a>
                   {% endif %}
                 </div>
+
+                <!-- Autocomplete Suggestions Dropdown -->
+                <div id="autocomplete-dropdown" class="list-group position-absolute w-100 shadow" style="z-index: 1000; display: none; max-height: 250px; overflow-y: auto;"></div>
               </form>
             </div>
 
@@ -93,10 +110,199 @@
 {% block js_files %}
   {{ block.super }}
   <script>
-    // Add any JavaScript functionality if needed
     document.addEventListener('DOMContentLoaded', function() {
-      // Initialize any interactive elements
-      console.log('Top Foods page loaded');
+      const searchInput = document.getElementById('food-search-input');
+      const dropdown = document.getElementById('autocomplete-dropdown');
+      const foodsInput = document.getElementById('foods-input');
+      const container = document.getElementById('selected-foods-container');
+      let debounceTimer;
+      let selectedIndex = -1;
+
+      // Get currently selected foods from hidden input
+      function getSelectedFoods() {
+        const value = foodsInput.value.trim();
+        return value ? value.split(',').map(f => f.trim()).filter(f => f) : [];
+      }
+
+      // Update hidden input with selected foods
+      function updateFoodsInput() {
+        const tags = container.querySelectorAll('.selected-food-tag');
+        const foods = Array.from(tags).map(tag => tag.dataset.food);
+        foodsInput.value = foods.join(',');
+      }
+
+      // Add a food tag
+      function addFood(foodName) {
+        const selectedFoods = getSelectedFoods();
+        // Check if already selected (case-insensitive)
+        if (selectedFoods.some(f => f.toLowerCase() === foodName.toLowerCase())) {
+          return;
+        }
+
+        const tag = document.createElement('span');
+        tag.className = 'badge bg-primary d-flex align-items-center gap-1 selected-food-tag';
+        tag.dataset.food = foodName;
+        tag.innerHTML = `
+          ${foodName}
+          <button type="button" class="btn-close btn-close-white ms-1" style="font-size: 0.6rem;" aria-label="Remove"></button>
+        `;
+        tag.querySelector('.btn-close').addEventListener('click', () => {
+          tag.remove();
+          updateFoodsInput();
+        });
+        container.appendChild(tag);
+        updateFoodsInput();
+
+        // Clear search input
+        searchInput.value = '';
+        hideDropdown();
+      }
+
+      // Remove a food (global function for inline onclick)
+      window.removeFood = function(foodName) {
+        const tags = container.querySelectorAll('.selected-food-tag');
+        tags.forEach(tag => {
+          if (tag.dataset.food === foodName) {
+            tag.remove();
+          }
+        });
+        updateFoodsInput();
+      };
+
+      // Show autocomplete dropdown
+      function showDropdown(suggestions) {
+        const selectedFoods = getSelectedFoods().map(f => f.toLowerCase());
+        // Filter out already selected foods
+        const filteredSuggestions = suggestions.filter(s =>
+          !selectedFoods.includes(s.toLowerCase())
+        );
+
+        if (filteredSuggestions.length === 0) {
+          hideDropdown();
+          return;
+        }
+
+        dropdown.innerHTML = '';
+        selectedIndex = -1;
+
+        filteredSuggestions.forEach((suggestion, index) => {
+          const item = document.createElement('button');
+          item.type = 'button';
+          item.className = 'list-group-item list-group-item-action';
+          item.textContent = suggestion;
+          item.dataset.index = index;
+          item.addEventListener('click', () => {
+            addFood(suggestion);
+          });
+          item.addEventListener('mouseenter', () => {
+            selectedIndex = index;
+            updateDropdownSelection();
+          });
+          dropdown.appendChild(item);
+        });
+
+        dropdown.style.display = 'block';
+      }
+
+      function hideDropdown() {
+        dropdown.style.display = 'none';
+        selectedIndex = -1;
+      }
+
+      function updateDropdownSelection() {
+        const items = dropdown.querySelectorAll('.list-group-item');
+        items.forEach((item, index) => {
+          if (index === selectedIndex) {
+            item.classList.add('active');
+          } else {
+            item.classList.remove('active');
+          }
+        });
+      }
+
+      // Fetch autocomplete suggestions
+      function fetchSuggestions(query) {
+        fetch(`{% url 'food_autocomplete' %}?q=${encodeURIComponent(query)}`)
+          .then(response => response.json())
+          .then(data => {
+            if (data.suggestions && data.suggestions.length > 0) {
+              showDropdown(data.suggestions);
+            } else {
+              hideDropdown();
+            }
+          })
+          .catch(error => {
+            console.error('Autocomplete error:', error);
+            hideDropdown();
+          });
+      }
+
+      // Input event handler with debounce
+      searchInput.addEventListener('input', function() {
+        clearTimeout(debounceTimer);
+        const query = this.value.trim();
+
+        if (query.length < 1) {
+          hideDropdown();
+          return;
+        }
+
+        debounceTimer = setTimeout(() => {
+          fetchSuggestions(query);
+        }, 200);
+      });
+
+      // Keyboard navigation
+      searchInput.addEventListener('keydown', function(e) {
+        const items = dropdown.querySelectorAll('.list-group-item');
+
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          if (dropdown.style.display !== 'none' && items.length > 0) {
+            selectedIndex = Math.min(selectedIndex + 1, items.length - 1);
+            updateDropdownSelection();
+            items[selectedIndex].scrollIntoView({ block: 'nearest' });
+          }
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          if (dropdown.style.display !== 'none' && items.length > 0) {
+            selectedIndex = Math.max(selectedIndex - 1, 0);
+            updateDropdownSelection();
+            items[selectedIndex].scrollIntoView({ block: 'nearest' });
+          }
+        } else if (e.key === 'Enter') {
+          if (selectedIndex >= 0 && items[selectedIndex]) {
+            e.preventDefault();
+            const foodName = items[selectedIndex].textContent;
+            addFood(foodName);
+          }
+        } else if (e.key === 'Escape') {
+          hideDropdown();
+        }
+      });
+
+      // Hide dropdown when clicking outside
+      document.addEventListener('click', function(e) {
+        if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
+          hideDropdown();
+        }
+      });
+
+      // Show dropdown on focus if there's text
+      searchInput.addEventListener('focus', function() {
+        const query = this.value.trim();
+        if (query.length >= 1) {
+          fetchSuggestions(query);
+        }
+      });
+
+      // Add click listeners to existing remove buttons
+      container.querySelectorAll('.btn-close').forEach(btn => {
+        btn.addEventListener('click', function() {
+          this.closest('.selected-food-tag').remove();
+          updateFoodsInput();
+        });
+      });
     });
   </script>
 {% endblock %}

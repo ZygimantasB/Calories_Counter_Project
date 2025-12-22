@@ -669,6 +669,9 @@ def top_foods(request):
     end_date_str = request.GET.get('end_date')
     days_param = request.GET.get('days')
     search_query = request.GET.get('q', '').strip()
+    # Multi-food search: comma-separated food names for exact matching
+    foods_param = request.GET.get('foods', '').strip()
+    selected_foods = [f.strip() for f in foods_param.split(',') if f.strip()] if foods_param else []
     page_number = request.GET.get('page', 1)
     sort_by = request.GET.get('sort', 'count')  # Default sort by count
     sort_order = request.GET.get('order', 'desc')  # Default descending order
@@ -766,7 +769,14 @@ def top_foods(request):
         top_foods_queryset = FoodItem.objects.filter(consumed_at__gte=start_date)
 
     # Apply search filter if provided
-    if search_query:
+    if selected_foods:
+        # Multi-food exact match (case-insensitive)
+        from django.db.models import Q
+        food_filter = Q()
+        for food_name in selected_foods:
+            food_filter |= Q(product_name__iexact=food_name)
+        top_foods_queryset = top_foods_queryset.filter(food_filter)
+    elif search_query:
         top_foods_queryset = top_foods_queryset.filter(product_name__icontains=search_query)
 
     top_foods_data = top_foods_queryset.values('product_name').annotate(
@@ -877,10 +887,34 @@ def top_foods(request):
         'current_order': sort_order,
         'current_days': current_days,
         'search_query': search_query,
+        'selected_foods': selected_foods,
+        'foods_param': foods_param,
         'summary': summary,
     }
 
     return render(request, 'count_calories_app/top_foods.html', context)
+
+
+def food_autocomplete(request):
+    """
+    API endpoint for food name autocomplete suggestions.
+    Returns unique food names matching the query, ordered by frequency.
+    """
+    query = request.GET.get('q', '').strip()
+    if len(query) < 1:
+        return JsonResponse({'suggestions': []})
+
+    # Get distinct food names matching the query, ordered by how often they appear
+    food_names = FoodItem.objects.filter(
+        product_name__icontains=query
+    ).values('product_name').annotate(
+        count=Count('id')
+    ).order_by('-count')[:15]
+
+    suggestions = [item['product_name'] for item in food_names]
+
+    return JsonResponse({'suggestions': suggestions})
+
 
 def get_calories_trend_data(request):
     days_param = request.GET.get('days')

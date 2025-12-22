@@ -5,6 +5,7 @@ urlpatterns = [
     path('', views.home, name='home'),
     path('food_tracker/', views.food_tracker, name='food_tracker'),
     path('top_foods/', views.top_foods, name='top_foods'),
+    path('api/food-autocomplete/', views.food_autocomplete, name='food_autocomplete'),
     path('api/nutrition-data/', views.get_nutrition_data, name='nutrition_data'),
     path('api/gemini-nutrition/', views.get_gemini_nutrition, name='gemini_nutrition'),
     path('api/calories-trend/', views.get_calories_trend_data, name='calories_trend_data'),
