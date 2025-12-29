@@ -7,6 +7,10 @@ calories_counter/
 *.iml
 *.driveupload
 *.json
+TEST_SUMMARY.md
+CLAUDE.md
+TESTING_ANALYSIS.md
+README.md
 
 
 ### PyCharm+iml template
