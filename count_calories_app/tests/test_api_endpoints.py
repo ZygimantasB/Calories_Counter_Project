@@ -19,6 +19,7 @@ Tests cover:
 import json
 from datetime import timedelta
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.test import TestCase, Client
 from django.urls import reverse
@@ -582,10 +583,43 @@ class GeminiNutritionAPITestCase(TestCase):
         # GET method not allowed - should return 405
         self.assertEqual(response.status_code, 405)
 
-    def test_gemini_nutrition_returns_json(self):
-        """Test that API returns JSON response for POST."""
-        response = self.client.post(self.url, {'food_name': 'apple'})
+    @patch('count_calories_app.views.GeminiService')
+    def test_gemini_nutrition_success(self, mock_service):
+        """Test that API returns JSON response for successful service call."""
+        # Mock service response
+        mock_service.get_nutrition_info.return_value = {
+            'success': True,
+            'data': {'product_name': 'Apple', 'calories': 95}
+        }
+        
+        response = self.client.post(
+            self.url, 
+            json.dumps({'food_name': 'apple'}),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 200)
         self.assertEqual(response['Content-Type'], 'application/json')
+        data = json.loads(response.content)
+        self.assertTrue(data['success'])
+        self.assertEqual(data['data']['product_name'], 'Apple')
 
-    # Note: Actual Gemini API tests would require mocking the AI service
-    # to avoid making real API calls and incurring costs
+    @patch('count_calories_app.views.GeminiService')
+    def test_gemini_nutrition_service_failure(self, mock_service):
+        """Test that API handles service failures correctly."""
+        # Mock service failure
+        mock_service.get_nutrition_info.return_value = {
+            'success': False,
+            'error': 'Service error',
+            'status': 500
+        }
+        
+        response = self.client.post(
+            self.url, 
+            json.dumps({'food_name': 'apple'}),
+            content_type='application/json'
+        )
+        
+        self.assertEqual(response.status_code, 500)
+        data = json.loads(response.content)
+        self.assertEqual(data['error'], 'Service error')
