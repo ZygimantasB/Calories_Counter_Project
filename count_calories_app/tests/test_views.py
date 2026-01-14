@@ -701,3 +701,4 @@ class WorkoutTableViewTestCase(TestCase):
         response = self.client.get(self.url)
         self.assertTemplateUsed(response, 'count_calories_app/workout_table.html')
 
+
