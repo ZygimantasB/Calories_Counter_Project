@@ -702,3 +702,4 @@ class WorkoutTableViewTestCase(TestCase):
         self.assertTemplateUsed(response, 'count_calories_app/workout_table.html')
 
 
+
