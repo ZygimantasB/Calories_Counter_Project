@@ -196,10 +196,14 @@ class DateRangeParsingTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
 
-        # Should have the macros from today's food
-        self.assertEqual(data['data'][0], 20.0)  # protein
-        self.assertEqual(data['data'][1], 30.0)  # carbs
-        self.assertEqual(data['data'][2], 10.0)  # fat
+        # Should have the macros from today's food (in calories using 4-4-9 rule)
+        self.assertEqual(data['data'][0], 80.0)  # protein: 20g * 4 cal/g
+        self.assertEqual(data['data'][1], 120.0)  # carbs: 30g * 4 cal/g
+        self.assertEqual(data['data'][2], 90.0)  # fat: 10g * 9 cal/g
+        # Also check grams are available
+        self.assertEqual(data['grams'][0], 20.0)  # protein grams
+        self.assertEqual(data['grams'][1], 30.0)  # carbs grams
+        self.assertEqual(data['grams'][2], 10.0)  # fat grams
 
     def test_nutrition_data_with_invalid_days(self):
         """Test nutrition data API with invalid days parameter."""
@@ -234,9 +238,9 @@ class DateRangeParsingTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
 
-        # Should have protein from 4 days (inclusive)
-        total_protein = data['data'][0]
-        self.assertEqual(total_protein, 40.0)  # 4 days * 10g
+        # Should have protein from 4 days (inclusive), in calories (4 cal/g)
+        total_protein_cal = data['data'][0]
+        self.assertEqual(total_protein_cal, 160.0)  # 4 days * 10g * 4 cal/g
 
     def test_nutrition_data_all_time_period(self):
         """Test nutrition data API with 'all' time period."""
@@ -259,9 +263,9 @@ class DateRangeParsingTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         data = json.loads(response.content)
 
-        # Should include all food items
-        total_protein = data['data'][0]
-        self.assertEqual(total_protein, 50.0)
+        # Should include all food items (protein in calories: 50g * 4 cal/g)
+        total_protein_cal = data['data'][0]
+        self.assertEqual(total_protein_cal, 200.0)  # 50g * 4 cal/g
 
 
 class WeightChangeCalculationTestCase(TestCase):

@@ -180,13 +180,20 @@ def get_nutrition_data(request):
     else:
         food_items = FoodItem.objects.filter(consumed_at__gte=start_date)
 
+    # Get grams
+    protein_g = float(food_items.aggregate(Sum('protein'))['protein__sum'] or 0)
+    carbs_g = float(food_items.aggregate(Sum('carbohydrates'))['carbohydrates__sum'] or 0)
+    fat_g = float(food_items.aggregate(Sum('fat'))['fat__sum'] or 0)
+
+    # Convert to calories using 4-4-9 rule
+    protein_cal = protein_g * 4
+    carbs_cal = carbs_g * 4
+    fat_cal = fat_g * 9
+
     nutrition_data = {
         'labels': ['Protein', 'Carbs', 'Fat'],
-        'data': [
-            float(food_items.aggregate(Sum('protein'))['protein__sum'] or 0),
-            float(food_items.aggregate(Sum('carbohydrates'))['carbohydrates__sum'] or 0),
-            float(food_items.aggregate(Sum('fat'))['fat__sum'] or 0)
-        ]
+        'data': [protein_cal, carbs_cal, fat_cal],  # Calorie-based for chart
+        'grams': [protein_g, carbs_g, fat_g]  # Also include grams if needed
     }
 
     return JsonResponse(nutrition_data)
@@ -390,6 +397,7 @@ def food_tracker(request):
         if value is None:
             totals[key] = 0
 
+    # Gram-based percentages (by weight)
     total_macros = totals['total_fat'] + totals['total_carbohydrates'] + totals['total_protein']
     if total_macros > 0:
         totals['fat_percentage'] = round((totals['total_fat'] / total_macros) * 100, 1)
@@ -399,6 +407,21 @@ def food_tracker(request):
         totals['fat_percentage'] = 0
         totals['carbs_percentage'] = 0
         totals['protein_percentage'] = 0
+
+    # Calorie-based percentages (4-4-9 rule: protein=4, carbs=4, fat=9 cal/g)
+    fat_calories = float(totals['total_fat']) * 9
+    carbs_calories = float(totals['total_carbohydrates']) * 4
+    protein_calories = float(totals['total_protein']) * 4
+    total_macro_calories = fat_calories + carbs_calories + protein_calories
+
+    if total_macro_calories > 0:
+        totals['fat_cal_percentage'] = round((fat_calories / total_macro_calories) * 100, 1)
+        totals['carbs_cal_percentage'] = round((carbs_calories / total_macro_calories) * 100, 1)
+        totals['protein_cal_percentage'] = round((protein_calories / total_macro_calories) * 100, 1)
+    else:
+        totals['fat_cal_percentage'] = 0
+        totals['carbs_cal_percentage'] = 0
+        totals['protein_cal_percentage'] = 0
 
     averages = {}
     if show_averages and food_items.exists():
@@ -427,6 +450,7 @@ def food_tracker(request):
                 'days_in_range': days_in_range
             }
 
+            # Gram-based percentages (by weight)
             avg_total_macros = averages['avg_fat'] + averages['avg_carbohydrates'] + averages['avg_protein']
             if avg_total_macros > 0:
                 averages['fat_percentage'] = round((averages['avg_fat'] / avg_total_macros) * 100, 1)
@@ -436,6 +460,21 @@ def food_tracker(request):
                 averages['fat_percentage'] = 0
                 averages['carbs_percentage'] = 0
                 averages['protein_percentage'] = 0
+
+            # Calorie-based percentages (4-4-9 rule: protein=4, carbs=4, fat=9 cal/g)
+            avg_fat_cal = averages['avg_fat'] * 9
+            avg_carbs_cal = averages['avg_carbohydrates'] * 4
+            avg_protein_cal = averages['avg_protein'] * 4
+            avg_total_macro_cal = avg_fat_cal + avg_carbs_cal + avg_protein_cal
+
+            if avg_total_macro_cal > 0:
+                averages['fat_cal_percentage'] = round((avg_fat_cal / avg_total_macro_cal) * 100, 1)
+                averages['carbs_cal_percentage'] = round((avg_carbs_cal / avg_total_macro_cal) * 100, 1)
+                averages['protein_cal_percentage'] = round((avg_protein_cal / avg_total_macro_cal) * 100, 1)
+            else:
+                averages['fat_cal_percentage'] = 0
+                averages['carbs_cal_percentage'] = 0
+                averages['protein_cal_percentage'] = 0
 
     if request.method == 'POST':
         logger.info(f"Processing food item form submission: {request.POST}")

@@ -236,17 +236,20 @@
             <div class="col-6 col-sm-3 mb-2">
               <div class="fw-bold">{{ totals.total_fat|floatformat:1 }} g</div>
               <small class="text-muted">Fat</small>
-              <div class="small text-primary">{{ totals.fat_percentage }}% of total</div>
+              <div class="small text-success fw-bold">{{ totals.fat_cal_percentage }}% of calories</div>
+              <div class="small text-muted">{{ totals.fat_percentage }}% by weight</div>
             </div>
             <div class="col-6 col-sm-3 mb-2">
               <div class="fw-bold">{{ totals.total_carbohydrates|floatformat:1 }} g</div>
               <small class="text-muted">Carbs</small>
-              <div class="small text-primary">{{ totals.carbs_percentage }}% of total</div>
+              <div class="small text-success fw-bold">{{ totals.carbs_cal_percentage }}% of calories</div>
+              <div class="small text-muted">{{ totals.carbs_percentage }}% by weight</div>
             </div>
             <div class="col-6 col-sm-3 mb-2">
               <div class="fw-bold">{{ totals.total_protein|floatformat:1 }} g</div>
               <small class="text-muted">Protein</small>
-              <div class="small text-primary">{{ totals.protein_percentage }}% of total</div>
+              <div class="small text-success fw-bold">{{ totals.protein_cal_percentage }}% of calories</div>
+              <div class="small text-muted">{{ totals.protein_percentage }}% by weight</div>
             </div>
           </div>
 
@@ -261,17 +264,20 @@
             <div class="col-6 col-sm-3 mb-2">
               <div class="fw-bold">{{ averages.avg_fat|floatformat:1 }} g</div>
               <small class="text-muted">Fat</small>
-              <div class="small text-primary">{{ averages.fat_percentage }}% of total</div>
+              <div class="small text-success fw-bold">{{ averages.fat_cal_percentage }}% of calories</div>
+              <div class="small text-muted">{{ averages.fat_percentage }}% by weight</div>
             </div>
             <div class="col-6 col-sm-3 mb-2">
               <div class="fw-bold">{{ averages.avg_carbohydrates|floatformat:1 }} g</div>
               <small class="text-muted">Carbs</small>
-              <div class="small text-primary">{{ averages.carbs_percentage }}% of total</div>
+              <div class="small text-success fw-bold">{{ averages.carbs_cal_percentage }}% of calories</div>
+              <div class="small text-muted">{{ averages.carbs_percentage }}% by weight</div>
             </div>
             <div class="col-6 col-sm-3 mb-2">
               <div class="fw-bold">{{ averages.avg_protein|floatformat:1 }} g</div>
               <small class="text-muted">Protein</small>
-              <div class="small text-primary">{{ averages.protein_percentage }}% of total</div>
+              <div class="small text-success fw-bold">{{ averages.protein_cal_percentage }}% of calories</div>
+              <div class="small text-muted">{{ averages.protein_percentage }}% by weight</div>
             </div>
           </div>
           {% endif %}
@@ -908,7 +914,17 @@
                 },
                 title: {
                   display: true,
-                  text: 'Macronutrient Distribution'
+                  text: 'Macronutrient Distribution (by Calories)'
+                },
+                tooltip: {
+                  callbacks: {
+                    label: function(context) {
+                      const value = context.raw;
+                      const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                      const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                      return `${context.label}: ${value.toFixed(0)} kcal (${percentage}%)`;
+                    }
+                  }
                 }
               }
             }
