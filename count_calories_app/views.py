@@ -2155,6 +2155,130 @@ def analytics(request):
 
     daily_stats_list = list(daily_stats)
 
+    # === THIS WEEK SUMMARY (for dashboard) ===
+    this_week_start = now - timedelta(days=now.weekday())  # Monday of this week
+    this_week_start = this_week_start.replace(hour=0, minute=0, second=0, microsecond=0)
+    last_week_start = this_week_start - timedelta(days=7)
+    last_week_end = this_week_start
+
+    # This week's data
+    this_week_food = FoodItem.objects.filter(consumed_at__gte=this_week_start, consumed_at__lte=now)
+    this_week_weights = Weight.objects.filter(recorded_at__gte=this_week_start, recorded_at__lte=now).order_by('recorded_at')
+    this_week_workouts = WorkoutSession.objects.filter(date__gte=this_week_start, date__lte=now)
+    this_week_runs = RunningSession.objects.filter(date__gte=this_week_start, date__lte=now)
+
+    # Last week's data (for comparison)
+    last_week_food = FoodItem.objects.filter(consumed_at__gte=last_week_start, consumed_at__lt=last_week_end)
+    last_week_weights = Weight.objects.filter(recorded_at__gte=last_week_start, recorded_at__lt=last_week_end).order_by('recorded_at')
+    last_week_workouts = WorkoutSession.objects.filter(date__gte=last_week_start, date__lt=last_week_end)
+
+    # Calculate this week stats
+    this_week_daily = this_week_food.annotate(day=TruncDate('consumed_at')).values('day').annotate(
+        total_cal=Sum('calories'), total_prot=Sum('protein')
+    )
+    this_week_days_logged = this_week_daily.count()
+    this_week_total_cal = sum([d['total_cal'] or 0 for d in this_week_daily])
+    this_week_total_prot = sum([d['total_prot'] or 0 for d in this_week_daily])
+    this_week_avg_cal = round(this_week_total_cal / this_week_days_logged, 0) if this_week_days_logged else 0
+    this_week_avg_prot = round(this_week_total_prot / this_week_days_logged, 1) if this_week_days_logged else 0
+
+    # Calculate last week stats
+    last_week_daily = last_week_food.annotate(day=TruncDate('consumed_at')).values('day').annotate(
+        total_cal=Sum('calories'), total_prot=Sum('protein')
+    )
+    last_week_days_logged = last_week_daily.count()
+    last_week_total_cal = sum([d['total_cal'] or 0 for d in last_week_daily])
+    last_week_total_prot = sum([d['total_prot'] or 0 for d in last_week_daily])
+    last_week_avg_cal = round(last_week_total_cal / last_week_days_logged, 0) if last_week_days_logged else 0
+    last_week_avg_prot = round(last_week_total_prot / last_week_days_logged, 1) if last_week_days_logged else 0
+
+    # Weight change this week
+    this_week_weight_change = None
+    if this_week_weights.exists() and this_week_weights.count() >= 2:
+        first_w = float(this_week_weights.first().weight)
+        last_w = float(this_week_weights.last().weight)
+        this_week_weight_change = round(last_w - first_w, 1)
+
+    # Build weekly summary
+    weekly_summary = {
+        'this_week': {
+            'days_logged': this_week_days_logged,
+            'total_calories': this_week_total_cal,
+            'avg_calories': this_week_avg_cal,
+            'total_protein': round(this_week_total_prot, 0),
+            'avg_protein': this_week_avg_prot,
+            'workouts': this_week_workouts.count(),
+            'runs': this_week_runs.count(),
+            'run_distance': round(sum([float(r.distance) for r in this_week_runs]), 1),
+            'weight_change': this_week_weight_change,
+            'current_weight': float(this_week_weights.last().weight) if this_week_weights.exists() else None,
+        },
+        'last_week': {
+            'days_logged': last_week_days_logged,
+            'avg_calories': last_week_avg_cal,
+            'avg_protein': last_week_avg_prot,
+            'workouts': last_week_workouts.count(),
+        },
+        'comparison': {
+            'calories_diff': round(this_week_avg_cal - last_week_avg_cal, 0) if last_week_avg_cal else None,
+            'protein_diff': round(this_week_avg_prot - last_week_avg_prot, 1) if last_week_avg_prot else None,
+            'workouts_diff': this_week_workouts.count() - last_week_workouts.count(),
+            'logging_diff': this_week_days_logged - last_week_days_logged,
+        }
+    }
+
+    # === GOAL TRACKING ===
+    # Default goals (could be user-configurable in future)
+    goals = {
+        'daily_calories': 2500,
+        'daily_protein': 150,
+        'weekly_workouts': 4,
+        'weekly_runs': 2,
+        'target_weight': 80,  # kg
+    }
+
+    # Calculate goal progress
+    goal_progress = {}
+
+    # Calories goal (based on this week average)
+    if this_week_avg_cal > 0:
+        cal_progress = min(100, round((this_week_avg_cal / goals['daily_calories']) * 100, 0))
+        cal_status = 'on_track' if 90 <= cal_progress <= 110 else 'under' if cal_progress < 90 else 'over'
+        goal_progress['calories'] = {
+            'current': this_week_avg_cal,
+            'target': goals['daily_calories'],
+            'progress': cal_progress,
+            'status': cal_status,
+        }
+
+    # Protein goal
+    if this_week_avg_prot > 0:
+        prot_progress = min(100, round((this_week_avg_prot / goals['daily_protein']) * 100, 0))
+        goal_progress['protein'] = {
+            'current': this_week_avg_prot,
+            'target': goals['daily_protein'],
+            'progress': prot_progress,
+            'status': 'achieved' if prot_progress >= 100 else 'in_progress',
+        }
+
+    # Workouts goal
+    workout_progress = min(100, round((this_week_workouts.count() / goals['weekly_workouts']) * 100, 0))
+    goal_progress['workouts'] = {
+        'current': this_week_workouts.count(),
+        'target': goals['weekly_workouts'],
+        'progress': workout_progress,
+        'status': 'achieved' if workout_progress >= 100 else 'in_progress',
+    }
+
+    # Running goal
+    run_progress = min(100, round((this_week_runs.count() / goals['weekly_runs']) * 100, 0))
+    goal_progress['runs'] = {
+        'current': this_week_runs.count(),
+        'target': goals['weekly_runs'],
+        'progress': run_progress,
+        'status': 'achieved' if run_progress >= 100 else 'in_progress',
+    }
+
     # === WEEKLY REPORTS ===
     weekly_stats = food_items.annotate(
         week=TruncWeek('consumed_at')
@@ -2933,6 +3057,9 @@ def analytics(request):
 
     context = {
         'period': period,
+        'weekly_summary': weekly_summary,  # This week dashboard
+        'goal_progress': goal_progress,  # Goal tracking with progress bars
+        'goals': goals,  # Goal targets
         'weekly_reports': weekly_reports[:12],  # Last 12 weeks
         'monthly_reports': monthly_reports[:12],  # Last 12 months
         'best_worst_days': best_worst_days,

@@ -26,22 +26,22 @@ class GeminiService:
 
         prompt = f"""
         You are a nutrition expert. Analyze this food description: "{food_name}"
-        
+
         IMPORTANT: Calculate nutritional values for the EXACT quantity mentioned in the description, not per 100g.
-        
+
         If the description contains:
         - A specific quantity (like "150g", "2 pieces", "1 cup"), calculate for that exact amount
         - Multiple foods or a complex meal, sum up the nutrition from all components
         - Lithuanian or foreign language food names, identify the foods and provide accurate values
         - No specific quantity, assume a typical serving size for that food
-        
-        For complex meals like "italiÅ¡kas kapotos viÅ¡tienos maltinukas, Å¡vieÅ¾iÅ¾ darÅ¾oviÅ³ salotos, virtas bulguras (iLunch)", 
+
+        For complex meals like "italiÅ¡kas kapotos viÅ¡tienos maltinukas, Å¡vieÅ¾iÅ¾ darÅ¾oviÅ³ salotos, virtas bulguras (iLunch)",
         break it down into components:
         - Italian chicken cutlet/meatballs
-        - Fresh vegetable salad  
+        - Fresh vegetable salad
         - Cooked bulgur
         And sum the nutritional values of all components for a typical meal portion.
-        
+
         Return ONLY this JSON format with no additional text:
         {{
             "product_name": "{food_name}",
@@ -50,7 +50,7 @@ class GeminiService:
             "carbohydrates": <total_carbs_grams_for_specified_amount>,
             "protein": <total_protein_grams_for_specified_amount>
         }}
-        
+
         Rules:
         - All values must be numbers (not strings)
         - Calculate for the ACTUAL quantity/serving mentioned, not per 100g

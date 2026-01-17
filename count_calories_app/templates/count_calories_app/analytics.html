@@ -141,6 +141,198 @@
     </div>
   </div>
 
+  <!-- THIS WEEK SUMMARY -->
+  {% if weekly_summary %}
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card shadow-sm border-0" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+        <div class="card-body text-white">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h2 class="h4 mb-0"><i class="fas fa-calendar-week me-2"></i>This Week</h2>
+            <span class="badge bg-light text-dark">{{ weekly_summary.this_week.days_logged }}/7 days logged</span>
+          </div>
+
+          <div class="row g-3">
+            <!-- Avg Calories -->
+            <div class="col-6 col-md-3">
+              <div class="bg-white bg-opacity-10 rounded p-3 h-100">
+                <div class="d-flex align-items-center mb-1">
+                  <i class="fas fa-fire text-warning me-2"></i>
+                  <small>Avg Calories</small>
+                </div>
+                <div class="h3 mb-0">{{ weekly_summary.this_week.avg_calories|floatformat:0 }}</div>
+                {% if weekly_summary.comparison.calories_diff %}
+                <small class="{% if weekly_summary.comparison.calories_diff > 0 %}text-warning{% else %}text-success{% endif %}">
+                  {% if weekly_summary.comparison.calories_diff > 0 %}+{% endif %}{{ weekly_summary.comparison.calories_diff|floatformat:0 }} vs last week
+                </small>
+                {% endif %}
+              </div>
+            </div>
+
+            <!-- Avg Protein -->
+            <div class="col-6 col-md-3">
+              <div class="bg-white bg-opacity-10 rounded p-3 h-100">
+                <div class="d-flex align-items-center mb-1">
+                  <i class="fas fa-drumstick-bite text-success me-2"></i>
+                  <small>Avg Protein</small>
+                </div>
+                <div class="h3 mb-0">{{ weekly_summary.this_week.avg_protein|floatformat:0 }}g</div>
+                {% if weekly_summary.comparison.protein_diff %}
+                <small class="{% if weekly_summary.comparison.protein_diff > 0 %}text-success{% else %}text-warning{% endif %}">
+                  {% if weekly_summary.comparison.protein_diff > 0 %}+{% endif %}{{ weekly_summary.comparison.protein_diff|floatformat:1 }}g vs last week
+                </small>
+                {% endif %}
+              </div>
+            </div>
+
+            <!-- Workouts -->
+            <div class="col-6 col-md-3">
+              <div class="bg-white bg-opacity-10 rounded p-3 h-100">
+                <div class="d-flex align-items-center mb-1">
+                  <i class="fas fa-dumbbell text-info me-2"></i>
+                  <small>Workouts</small>
+                </div>
+                <div class="h3 mb-0">{{ weekly_summary.this_week.workouts }}</div>
+                {% if weekly_summary.comparison.workouts_diff != 0 %}
+                <small class="{% if weekly_summary.comparison.workouts_diff > 0 %}text-success{% else %}text-warning{% endif %}">
+                  {% if weekly_summary.comparison.workouts_diff > 0 %}+{% endif %}{{ weekly_summary.comparison.workouts_diff }} vs last week
+                </small>
+                {% else %}
+                <small>Same as last week</small>
+                {% endif %}
+              </div>
+            </div>
+
+            <!-- Weight Change / Runs -->
+            <div class="col-6 col-md-3">
+              <div class="bg-white bg-opacity-10 rounded p-3 h-100">
+                {% if weekly_summary.this_week.weight_change is not None %}
+                <div class="d-flex align-items-center mb-1">
+                  <i class="fas fa-weight text-danger me-2"></i>
+                  <small>Weight Change</small>
+                </div>
+                <div class="h3 mb-0 {% if weekly_summary.this_week.weight_change < 0 %}text-success{% elif weekly_summary.this_week.weight_change > 0 %}text-warning{% endif %}">
+                  {% if weekly_summary.this_week.weight_change > 0 %}+{% endif %}{{ weekly_summary.this_week.weight_change }} kg
+                </div>
+                {% if weekly_summary.this_week.current_weight %}
+                <small>Current: {{ weekly_summary.this_week.current_weight|floatformat:1 }} kg</small>
+                {% endif %}
+                {% else %}
+                <div class="d-flex align-items-center mb-1">
+                  <i class="fas fa-running text-primary me-2"></i>
+                  <small>Running</small>
+                </div>
+                <div class="h3 mb-0">{{ weekly_summary.this_week.runs }} runs</div>
+                {% if weekly_summary.this_week.run_distance > 0 %}
+                <small>{{ weekly_summary.this_week.run_distance }} km total</small>
+                {% endif %}
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- GOAL PROGRESS -->
+  {% if goal_progress %}
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card shadow-sm">
+        <div class="card-header bg-success text-white">
+          <h2 class="h5 mb-0"><i class="fas fa-bullseye me-2"></i>Weekly Goals Progress</h2>
+        </div>
+        <div class="card-body">
+          <div class="row g-4">
+            <!-- Calories Goal -->
+            {% if goal_progress.calories %}
+            <div class="col-md-6 col-lg-3">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span><i class="fas fa-fire text-warning me-1"></i> Avg Calories</span>
+                <span class="badge {% if goal_progress.calories.status == 'on_track' %}bg-success{% elif goal_progress.calories.status == 'under' %}bg-info{% else %}bg-warning{% endif %}">
+                  {{ goal_progress.calories.current|floatformat:0 }} / {{ goal_progress.calories.target }}
+                </span>
+              </div>
+              <div class="progress" style="height: 12px;">
+                <div class="progress-bar {% if goal_progress.calories.status == 'on_track' %}bg-success{% elif goal_progress.calories.status == 'under' %}bg-info{% else %}bg-warning{% endif %}"
+                     style="width: {{ goal_progress.calories.progress }}%"></div>
+              </div>
+              <small class="text-muted">
+                {% if goal_progress.calories.status == 'on_track' %}On target
+                {% elif goal_progress.calories.status == 'under' %}Under target
+                {% else %}Over target{% endif %}
+              </small>
+            </div>
+            {% endif %}
+
+            <!-- Protein Goal -->
+            {% if goal_progress.protein %}
+            <div class="col-md-6 col-lg-3">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span><i class="fas fa-drumstick-bite text-success me-1"></i> Avg Protein</span>
+                <span class="badge {% if goal_progress.protein.status == 'achieved' %}bg-success{% else %}bg-secondary{% endif %}">
+                  {{ goal_progress.protein.current|floatformat:0 }}g / {{ goal_progress.protein.target }}g
+                </span>
+              </div>
+              <div class="progress" style="height: 12px;">
+                <div class="progress-bar {% if goal_progress.protein.status == 'achieved' %}bg-success{% else %}bg-secondary{% endif %}"
+                     style="width: {{ goal_progress.protein.progress }}%"></div>
+              </div>
+              <small class="text-muted">
+                {% if goal_progress.protein.status == 'achieved' %}Goal achieved!
+                {% else %}{{ goal_progress.protein.progress }}% of goal{% endif %}
+              </small>
+            </div>
+            {% endif %}
+
+            <!-- Workouts Goal -->
+            {% if goal_progress.workouts %}
+            <div class="col-md-6 col-lg-3">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span><i class="fas fa-dumbbell text-info me-1"></i> Workouts</span>
+                <span class="badge {% if goal_progress.workouts.status == 'achieved' %}bg-success{% else %}bg-secondary{% endif %}">
+                  {{ goal_progress.workouts.current }} / {{ goal_progress.workouts.target }}
+                </span>
+              </div>
+              <div class="progress" style="height: 12px;">
+                <div class="progress-bar {% if goal_progress.workouts.status == 'achieved' %}bg-success{% else %}bg-info{% endif %}"
+                     style="width: {{ goal_progress.workouts.progress }}%"></div>
+              </div>
+              <small class="text-muted">
+                {% if goal_progress.workouts.status == 'achieved' %}Goal achieved!
+                {% else %}{{ goal_progress.workouts.progress }}% of goal{% endif %}
+              </small>
+            </div>
+            {% endif %}
+
+            <!-- Runs Goal -->
+            {% if goal_progress.runs %}
+            <div class="col-md-6 col-lg-3">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span><i class="fas fa-running text-primary me-1"></i> Running Sessions</span>
+                <span class="badge {% if goal_progress.runs.status == 'achieved' %}bg-success{% else %}bg-secondary{% endif %}">
+                  {{ goal_progress.runs.current }} / {{ goal_progress.runs.target }}
+                </span>
+              </div>
+              <div class="progress" style="height: 12px;">
+                <div class="progress-bar {% if goal_progress.runs.status == 'achieved' %}bg-success{% else %}bg-primary{% endif %}"
+                     style="width: {{ goal_progress.runs.progress }}%"></div>
+              </div>
+              <small class="text-muted">
+                {% if goal_progress.runs.status == 'achieved' %}Goal achieved!
+                {% else %}{{ goal_progress.runs.progress }}% of goal{% endif %}
+              </small>
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
   <!-- Streaks & Consistency Row -->
   {% if streaks or consistency_score %}
   <div class="row mb-4">
