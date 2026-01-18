@@ -52,18 +52,18 @@ export default function WeightTracker() {
     try {
       setLoading(true);
       setError(null);
-      const daysMap = { week: 7, month: 30, '3months': 90, '6months': 180, year: 365, all: 9999 };
+      const daysMap = { week: 7, month: 30, '3months': 90, '6months': 180, year: 365, all: 'all' };
       const days = daysMap[timeRange] || 30;
       const response = await weightApi.getWeightItems({ days });
 
-      setWeightEntries(response.entries || []);
+      setWeightEntries(response.items || []);
       setStats(response.stats || null);
 
-      // Transform for chart
-      const chartData = (response.entries || [])
+      // Transform for chart (backend returns recorded_at, not date)
+      const chartData = (response.items || [])
         .map(entry => ({
-          date: format(parseISO(entry.date), 'MMM dd'),
-          fullDate: entry.date,
+          date: format(parseISO(entry.recorded_at), 'MMM dd'),
+          fullDate: entry.recorded_at,
           weight: entry.weight,
         }))
         .reverse();
@@ -353,13 +353,13 @@ export default function WeightTracker() {
                       <div>
                         <p className="font-semibold text-gray-100">{entry.weight} kg</p>
                         <p className="text-sm text-gray-500">
-                          {format(parseISO(entry.date), 'EEEE, MMMM d')}
+                          {format(parseISO(entry.recorded_at), 'EEEE, MMMM d')}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      {entry.note && (
-                        <span className="text-sm text-gray-400">{entry.note}</span>
+                      {entry.notes && (
+                        <span className="text-sm text-gray-400">{entry.notes}</span>
                       )}
                       <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
                         <button

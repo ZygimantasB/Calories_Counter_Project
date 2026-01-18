@@ -44,13 +44,16 @@ export default function Dashboard() {
   const [dashboardData, setDashboardData] = useState(null);
   const [caloriesData, setCaloriesData] = useState([]);
   const [error, setError] = useState(null);
+  const [timeRange, setTimeRange] = useState('month');
 
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
         setLoading(true);
+        const daysMap = { week: 7, month: 30, '3months': 90, '6months': 180, year: 365, all: 'all' };
+        const days = daysMap[timeRange] || 30;
         // Fetch calories trend
-        const caloriesTrend = await foodApi.getCaloriesTrend(14);
+        const caloriesTrend = await foodApi.getCaloriesTrend(days);
         if (caloriesTrend && caloriesTrend.data) {
           setCaloriesData(caloriesTrend.data.map(item => ({
             date: item.date,
@@ -66,7 +69,7 @@ export default function Dashboard() {
       }
     };
     fetchDashboardData();
-  }, []);
+  }, [timeRange]);
 
   // Mock data for now - will be replaced with real API data
   const todayStats = {
@@ -130,6 +133,31 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <div className="flex gap-1 p-1 bg-gray-700 rounded-lg">
+            {['week', 'month', '3months', '6months', 'year', 'all'].map((range) => (
+              <button
+                key={range}
+                onClick={() => setTimeRange(range)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                  timeRange === range
+                    ? 'bg-gray-600 text-gray-100 shadow-sm'
+                    : 'text-gray-400 hover:text-gray-200'
+                }`}
+              >
+                {range === 'week'
+                  ? '1W'
+                  : range === 'month'
+                  ? '1M'
+                  : range === '3months'
+                  ? '3M'
+                  : range === '6months'
+                  ? '6M'
+                  : range === 'year'
+                  ? '1Y'
+                  : 'All'}
+              </button>
+            ))}
+          </div>
           <Badge className="bg-green-500/20 text-green-400 border-0 px-3 py-1">
             <Zap className="w-3.5 h-3.5 mr-1" />
             5 day streak

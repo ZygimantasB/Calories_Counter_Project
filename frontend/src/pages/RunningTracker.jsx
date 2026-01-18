@@ -50,10 +50,10 @@ export default function RunningTracker() {
   const fetchRunningData = useCallback(async () => {
     try {
       setLoading(true);
-      const daysMap = { week: 7, month: 30, '3months': 90, '6months': 180, year: 365, all: 9999 };
+      const daysMap = { week: 7, month: 30, '3months': 90, '6months': 180, year: 365, all: 'all' };
       const days = daysMap[timeRange] || 30;
       const response = await runningApi.getRunningItems({ days });
-      setRunHistory(response.sessions || []);
+      setRunHistory(response.items || []);
       setStats(response.stats || null);
     } catch (err) {
       console.error('Error fetching running data:', err);
@@ -94,8 +94,13 @@ export default function RunningTracker() {
 
   const totalDistance = stats?.total_distance || runHistory.reduce((sum, r) => sum + (r.distance || 0), 0);
   const totalRuns = stats?.total_runs || runHistory.length;
-  const avgPace = stats?.avg_pace || '--:--';
-  const totalCalories = stats?.total_calories || runHistory.reduce((sum, r) => sum + (r.calories || 0), 0);
+  // Calculate avg pace from avg_speed (km/h) -> pace (min/km)
+  const avgSpeed = stats?.avg_speed || 0;
+  const avgPace = avgSpeed > 0
+    ? `${Math.floor(60 / avgSpeed)}:${String(Math.round((60 / avgSpeed % 1) * 60)).padStart(2, '0')}`
+    : '--:--';
+  // Estimate calories burned: ~60 kcal per km of running
+  const totalCalories = Math.round(totalDistance * 60);
   const weeklyGoal = stats?.weekly_goal || 25;
   const weeklyProgress = (totalDistance / weeklyGoal) * 100;
 
@@ -283,14 +288,12 @@ export default function RunningTracker() {
                       <div className="hidden md:flex items-center gap-6 text-sm text-gray-400">
                         <div className="flex items-center gap-1">
                           <Clock className="w-4 h-4" />
-                          {run.duration} min
+                          {run.duration_minutes} min
                         </div>
-                        {run.calories && (
-                          <div className="flex items-center gap-1">
-                            <Flame className="w-4 h-4" />
-                            {run.calories} kcal
-                          </div>
-                        )}
+                        <div className="flex items-center gap-1">
+                          <Flame className="w-4 h-4" />
+                          {Math.round(run.distance * 60)} kcal
+                        </div>
                       </div>
                       <ChevronRight className="w-5 h-5 text-gray-600 group-hover:text-gray-400" />
                     </div>

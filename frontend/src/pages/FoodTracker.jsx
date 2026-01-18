@@ -67,6 +67,7 @@ export default function FoodTracker() {
     date: format(new Date(), 'yyyy-MM-dd'),
   });
   const [addLoading, setAddLoading] = useState(false);
+  const [filterQuery, setFilterQuery] = useState('');
 
   // Targets (can be made dynamic later)
   const targets = {
@@ -126,6 +127,11 @@ export default function FoodTracker() {
     { name: 'Carbs', value: totals.carbs * 4, color: MACRO_COLORS.carbs },
     { name: 'Fat', value: totals.fat * 9, color: MACRO_COLORS.fat },
   ];
+
+  // Filter food items by search query
+  const filteredFoodItems = foodItems.filter((item) =>
+    item.name?.toLowerCase().includes(filterQuery.toLowerCase())
+  );
 
   const handleDateChange = (direction) => {
     setSelectedDate((prev) =>
@@ -318,28 +324,58 @@ export default function FoodTracker() {
       </div>
 
       {/* Date Selector */}
-      <div className="flex items-center justify-center gap-4">
-        <button
-          onClick={() => handleDateChange('prev')}
-          className="p-2 rounded-lg hover:bg-gray-700 text-gray-400 transition-colors"
-        >
-          <ChevronLeft className="w-5 h-5" />
-        </button>
-        <div className="text-center">
-          <h2 className="text-lg font-semibold text-gray-100">
-            {isToday(selectedDate) ? 'Today' : format(selectedDate, 'EEEE')}
-          </h2>
-          <p className="text-sm text-gray-500">
-            {format(selectedDate, 'MMMM d, yyyy')}
-          </p>
+      <div className="flex flex-col items-center gap-3">
+        {/* Quick Date Jump Buttons */}
+        <div className="flex gap-1 p-1 bg-gray-700 rounded-lg">
+          {[
+            { label: 'Today', days: 0 },
+            { label: 'Yesterday', days: 1 },
+            { label: '3 Days Ago', days: 3 },
+            { label: '1 Week Ago', days: 7 },
+            { label: '2 Weeks Ago', days: 14 },
+            { label: '1 Month Ago', days: 30 },
+          ].map((item) => {
+            const targetDate = subDays(new Date(), item.days);
+            const isSelected = format(selectedDate, 'yyyy-MM-dd') === format(targetDate, 'yyyy-MM-dd');
+            return (
+              <button
+                key={item.label}
+                onClick={() => setSelectedDate(targetDate)}
+                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                  isSelected
+                    ? 'bg-gray-600 text-gray-100 shadow-sm'
+                    : 'text-gray-400 hover:text-gray-200'
+                }`}
+              >
+                {item.label}
+              </button>
+            );
+          })}
         </div>
-        <button
-          onClick={() => handleDateChange('next')}
-          className="p-2 rounded-lg hover:bg-gray-700 text-gray-400 transition-colors disabled:opacity-50"
-          disabled={isToday(selectedDate)}
-        >
-          <ChevronRight className="w-5 h-5" />
-        </button>
+        {/* Day Navigation */}
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => handleDateChange('prev')}
+            className="p-2 rounded-lg hover:bg-gray-700 text-gray-400 transition-colors"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          <div className="text-center min-w-[160px]">
+            <h2 className="text-lg font-semibold text-gray-100">
+              {isToday(selectedDate) ? 'Today' : format(selectedDate, 'EEEE')}
+            </h2>
+            <p className="text-sm text-gray-500">
+              {format(selectedDate, 'MMMM d, yyyy')}
+            </p>
+          </div>
+          <button
+            onClick={() => handleDateChange('next')}
+            className="p-2 rounded-lg hover:bg-gray-700 text-gray-400 transition-colors disabled:opacity-50"
+            disabled={isToday(selectedDate)}
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -492,22 +528,40 @@ export default function FoodTracker() {
           )}
 
           {/* Food Items List */}
-          <Card title="Food Log" subtitle={`${foodItems.length} items`}>
-            {foodItems.length > 0 ? (
+          <Card title="Food Log" subtitle={`${foodItems.length} items`} padding={false}>
+            {/* Search Filter */}
+            <div className="p-4 border-b border-gray-700">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500" />
+                <input
+                  type="text"
+                  placeholder="Search foods..."
+                  value={filterQuery}
+                  onChange={(e) => setFilterQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-600 bg-gray-700 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+                {filterQuery && (
+                  <button
+                    onClick={() => setFilterQuery('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-gray-600 text-gray-400"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+            {filteredFoodItems.length > 0 ? (
               <div className="divide-y divide-gray-700">
-                {foodItems.map((item) => (
+                {filteredFoodItems.map((item) => (
                   <div
                     key={item.id}
-                    className="py-4 flex items-center justify-between hover:bg-gray-700/30 -mx-6 px-6 transition-colors group"
+                    className="py-4 flex items-center justify-between hover:bg-gray-700/30 px-6 transition-colors group"
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="font-medium text-gray-100 truncate">
                           {item.name}
                         </span>
-                        <Badge variant="default" size="sm">
-                          {item.weight}g
-                        </Badge>
                       </div>
                       <div className="flex items-center gap-4 mt-1 text-sm text-gray-500">
                         <span>P: {Math.round(item.protein)}g</span>
@@ -537,8 +591,19 @@ export default function FoodTracker() {
                   </div>
                 ))}
               </div>
+            ) : foodItems.length > 0 ? (
+              <div className="py-12 text-center text-gray-500 px-6">
+                <p>No foods matching "{filterQuery}"</p>
+                <Button
+                  variant="ghost"
+                  onClick={() => setFilterQuery('')}
+                  className="mt-4"
+                >
+                  Clear Search
+                </Button>
+              </div>
             ) : (
-              <div className="py-12 text-center text-gray-500">
+              <div className="py-12 text-center text-gray-500 px-6">
                 <p>No foods logged for this day</p>
                 <Button
                   variant="ghost"

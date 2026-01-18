@@ -50,9 +50,9 @@ export default function Analytics() {
   const fetchAnalytics = useCallback(async () => {
     try {
       setLoading(true);
-      const daysMap = { week: 7, month: 30, '3months': 90, year: 365 };
-      const days = daysMap[timeRange] || 7;
-      const response = await analyticsApi.getAnalytics({ days });
+      const periodMap = { week: 7, month: 30, '3months': 90, '6months': 180, year: 365, all: 'all' };
+      const period = periodMap[timeRange] || 7;
+      const response = await analyticsApi.getAnalytics({ period });
       setData(response);
     } catch (err) {
       console.error('Error fetching analytics:', err);
@@ -66,16 +66,33 @@ export default function Analytics() {
     fetchAnalytics();
   }, [fetchAnalytics]);
 
-  const weeklySummary = data?.weekly_summary || {
-    thisWeek: { avgCalories: 0, avgProtein: 0, workouts: 0, runs: 0, daysLogged: 0 },
-    lastWeek: { avgCalories: 0, avgProtein: 0, workouts: 0, runs: 0, daysLogged: 0 },
+  // Transform backend snake_case to camelCase for component use
+  const rawWeeklySummary = data?.weekly_summary || {};
+  const weeklySummary = {
+    thisWeek: {
+      avgCalories: rawWeeklySummary.this_week?.avg_calories || 0,
+      avgProtein: rawWeeklySummary.this_week?.total_protein || 0,
+      workouts: rawWeeklySummary.this_week?.workouts || 0,
+      runs: rawWeeklySummary.this_week?.runs || 0,
+      daysLogged: rawWeeklySummary.this_week?.days_logged || 0,
+    },
+    lastWeek: {
+      avgCalories: rawWeeklySummary.last_week?.avg_calories || 0,
+      avgProtein: 0,
+      workouts: rawWeeklySummary.last_week?.workouts || 0,
+      runs: 0,
+      daysLogged: rawWeeklySummary.last_week?.days_logged || 0,
+    },
   };
-  const goals = data?.goals || [];
-  const streaks = data?.streaks || { currentStreak: 0, longestStreak: 0, totalDaysLogged: 0, perfectWeeks: 0 };
-  const caloriesData = data?.calories_trend || [];
-  const macrosData = data?.macros_trend || [];
-  const weightData = data?.weight_trend || [];
-  const workoutData = data?.workout_distribution || [];
+  const goals = data?.goals || {};
+  const streak = data?.streak || 0;
+  const streaks = { currentStreak: streak, longestStreak: streak, totalDaysLogged: weeklySummary.thisWeek.daysLogged, perfectWeeks: 0 };
+  // Use daily_data for chart trends (backend provides this)
+  const dailyData = data?.daily_data || [];
+  const caloriesData = dailyData.map(d => ({ date: d.date, calories: d.calories, target: 2500 }));
+  const macrosData = dailyData.map(d => ({ date: d.date, protein: d.protein, carbs: d.carbs, fat: d.fat }));
+  const weightData = [];
+  const workoutData = [];
 
   const caloriesDiff = weeklySummary.thisWeek.avgCalories - weeklySummary.lastWeek.avgCalories;
   const proteinDiff = weeklySummary.thisWeek.avgProtein - weeklySummary.lastWeek.avgProtein;
@@ -91,24 +108,28 @@ export default function Analytics() {
             Deep insights into your health journey
           </p>
         </div>
-        <div className="flex items-center gap-2 p-1 bg-gray-700 rounded-lg">
-          {['week', 'month', '3months', 'year'].map((range) => (
+        <div className="flex items-center gap-1 p-1 bg-gray-700 rounded-lg">
+          {['week', 'month', '3months', '6months', 'year', 'all'].map((range) => (
             <button
               key={range}
               onClick={() => setTimeRange(range)}
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
                 timeRange === range
                   ? 'bg-gray-600 text-gray-100 shadow-sm'
                   : 'text-gray-400 hover:text-gray-200'
               }`}
             >
               {range === 'week'
-                ? 'Week'
+                ? '1W'
                 : range === 'month'
-                ? 'Month'
+                ? '1M'
                 : range === '3months'
-                ? '3 Months'
-                : 'Year'}
+                ? '3M'
+                : range === '6months'
+                ? '6M'
+                : range === 'year'
+                ? '1Y'
+                : 'All'}
             </button>
           ))}
         </div>

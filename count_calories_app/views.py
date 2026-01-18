@@ -3192,9 +3192,20 @@ def api_dashboard(request):
 def api_food_items(request):
     """Get food items with filtering for React frontend"""
     days = request.GET.get('days', '90')
+    date_param = request.GET.get('date')  # Single day filter (YYYY-MM-DD)
     now = timezone.now()
 
-    if days == 'all':
+    # Single day filter takes priority
+    if date_param:
+        try:
+            from datetime import datetime
+            target_date = datetime.strptime(date_param, '%Y-%m-%d').date()
+            day_start = timezone.make_aware(datetime.combine(target_date, datetime.min.time()))
+            day_end = timezone.make_aware(datetime.combine(target_date, datetime.max.time()))
+            food_items = FoodItem.objects.filter(consumed_at__gte=day_start, consumed_at__lte=day_end)
+        except ValueError:
+            food_items = FoodItem.objects.filter(consumed_at__gte=now - timedelta(days=1))
+    elif days == 'all':
         food_items = FoodItem.objects.all()
     else:
         try:
@@ -3325,8 +3336,20 @@ def api_quick_add_foods(request):
         avg_fat=Avg('fat'),
     ).order_by('-count')[:15]
 
+    # Transform to frontend-expected format
+    foods = []
+    for i, food in enumerate(recent_foods):
+        foods.append({
+            'id': i + 1,  # Generate an ID for display purposes
+            'name': food['product_name'],
+            'calories': round(food['avg_calories'] or 0),
+            'protein': round(food['avg_protein'] or 0, 1),
+            'carbs': round(food['avg_carbs'] or 0, 1),
+            'fat': round(food['avg_fat'] or 0, 1),
+        })
+
     return JsonResponse({
-        'foods': list(recent_foods)
+        'foods': foods
     })
 
 
