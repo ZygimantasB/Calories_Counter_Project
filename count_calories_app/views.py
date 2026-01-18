@@ -5,6 +5,8 @@ from django.db.models import Sum, Count, Avg, Max, Min
 from django.http import JsonResponse, HttpResponse
 from django.contrib import messages
 from django.core.paginator import Paginator
+from django.views.decorators.http import require_http_methods
+from django.views.decorators.csrf import csrf_exempt
 from .models import FoodItem, Weight, Exercise, WorkoutSession, WorkoutExercise, RunningSession, WorkoutTable, BodyMeasurement
 from .forms import FoodItemForm, WeightForm, ExerciseForm, WorkoutSessionForm, WorkoutExerciseForm, RunningSessionForm, BodyMeasurementForm
 from .services import GeminiService
@@ -3084,3 +3086,687 @@ def analytics(request):
     }
 
     return render(request, 'count_calories_app/analytics.html', context)
+
+
+# ============================================
+# REACT FRONTEND JSON API ENDPOINTS
+# ============================================
+
+@require_http_methods(["GET"])
+def api_dashboard(request):
+    """Dashboard data for React frontend"""
+    now = timezone.now()
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+    week_start = now - timedelta(days=now.weekday())
+    week_start = week_start.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # Today's food stats
+    today_food = FoodItem.objects.filter(consumed_at__gte=today_start, consumed_at__lte=today_end)
+    today_stats = today_food.aggregate(
+        calories=Sum('calories'),
+        protein=Sum('protein'),
+        carbs=Sum('carbohydrates'),
+        fat=Sum('fat'),
+        count=Count('id')
+    )
+
+    # This week's food stats
+    week_food = FoodItem.objects.filter(consumed_at__gte=week_start, consumed_at__lte=today_end)
+    week_stats = week_food.aggregate(
+        calories=Sum('calories'),
+        protein=Sum('protein'),
+        carbs=Sum('carbohydrates'),
+        fat=Sum('fat'),
+        count=Count('id')
+    )
+
+    # Latest weight
+    latest_weight = Weight.objects.order_by('-recorded_at').first()
+    weight_week_ago = Weight.objects.filter(recorded_at__lte=now - timedelta(days=7)).order_by('-recorded_at').first()
+    weight_change = None
+    if latest_weight and weight_week_ago:
+        weight_change = float(latest_weight.weight) - float(weight_week_ago.weight)
+
+    # This week's workouts and runs
+    week_workouts = WorkoutSession.objects.filter(date__gte=week_start.date()).count()
+    week_runs = RunningSession.objects.filter(date__gte=week_start.date())
+    week_run_stats = week_runs.aggregate(
+        total_distance=Sum('distance'),
+        count=Count('id')
+    )
+
+    # Recent food items
+    recent_foods = list(FoodItem.objects.order_by('-consumed_at')[:5].values(
+        'id', 'product_name', 'calories', 'protein', 'carbohydrates', 'fat', 'consumed_at'
+    ))
+    for food in recent_foods:
+        food['consumed_at'] = food['consumed_at'].isoformat() if food['consumed_at'] else None
+
+    # Streak calculation
+    streak = 0
+    check_date = now.date()
+    while True:
+        day_start = timezone.make_aware(timezone.datetime.combine(check_date, timezone.datetime.min.time()))
+        day_end = timezone.make_aware(timezone.datetime.combine(check_date, timezone.datetime.max.time()))
+        if FoodItem.objects.filter(consumed_at__gte=day_start, consumed_at__lte=day_end).exists():
+            streak += 1
+            check_date -= timedelta(days=1)
+        else:
+            break
+
+    return JsonResponse({
+        'today': {
+            'calories': today_stats['calories'] or 0,
+            'protein': round(today_stats['protein'] or 0, 1),
+            'carbs': round(today_stats['carbs'] or 0, 1),
+            'fat': round(today_stats['fat'] or 0, 1),
+            'count': today_stats['count'] or 0,
+        },
+        'week': {
+            'calories': week_stats['calories'] or 0,
+            'protein': round(week_stats['protein'] or 0, 1),
+            'carbs': round(week_stats['carbs'] or 0, 1),
+            'fat': round(week_stats['fat'] or 0, 1),
+            'count': week_stats['count'] or 0,
+            'workouts': week_workouts,
+            'runs': week_run_stats['count'] or 0,
+            'run_distance': float(week_run_stats['total_distance'] or 0),
+        },
+        'weight': {
+            'current': float(latest_weight.weight) if latest_weight else None,
+            'change': round(weight_change, 2) if weight_change else None,
+        },
+        'recent_foods': recent_foods,
+        'streak': streak,
+        'goals': {
+            'daily_calories': 2500,
+            'daily_protein': 150,
+            'weekly_workouts': 4,
+            'weekly_runs': 2,
+        }
+    })
+
+
+@require_http_methods(["GET"])
+def api_food_items(request):
+    """Get food items with filtering for React frontend"""
+    days = request.GET.get('days', '90')
+    now = timezone.now()
+
+    if days == 'all':
+        food_items = FoodItem.objects.all()
+    else:
+        try:
+            days_int = int(days)
+            start_date = now - timedelta(days=days_int)
+            food_items = FoodItem.objects.filter(consumed_at__gte=start_date)
+        except ValueError:
+            food_items = FoodItem.objects.filter(consumed_at__gte=now - timedelta(days=90))
+
+    food_items = food_items.order_by('-consumed_at')
+
+    # Pagination
+    page = int(request.GET.get('page', 1))
+    per_page = int(request.GET.get('per_page', 50))
+    paginator = Paginator(food_items, per_page)
+    page_obj = paginator.get_page(page)
+
+    items = []
+    for item in page_obj:
+        items.append({
+            'id': item.id,
+            'name': item.product_name,
+            'calories': item.calories,
+            'protein': float(item.protein) if item.protein else 0,
+            'carbs': float(item.carbohydrates) if item.carbohydrates else 0,
+            'fat': float(item.fat) if item.fat else 0,
+            'consumed_at': item.consumed_at.isoformat() if item.consumed_at else None,
+            'hidden': item.hide_from_quick_list,
+        })
+
+    # Totals
+    totals = food_items.aggregate(
+        calories=Sum('calories'),
+        protein=Sum('protein'),
+        carbs=Sum('carbohydrates'),
+        fat=Sum('fat'),
+        count=Count('id')
+    )
+
+    return JsonResponse({
+        'items': items,
+        'totals': {
+            'calories': totals['calories'] or 0,
+            'protein': round(totals['protein'] or 0, 1),
+            'carbs': round(totals['carbs'] or 0, 1),
+            'fat': round(totals['fat'] or 0, 1),
+            'count': totals['count'] or 0,
+        },
+        'pagination': {
+            'page': page,
+            'per_page': per_page,
+            'total_pages': paginator.num_pages,
+            'total_items': paginator.count,
+        }
+    })
+
+
+@require_http_methods(["POST"])
+@csrf_exempt
+def api_add_food(request):
+    """Add a new food item via API"""
+    try:
+        data = json.loads(request.body)
+        food_item = FoodItem.objects.create(
+            product_name=data.get('name', ''),
+            calories=data.get('calories', 0),
+            protein=data.get('protein', 0),
+            carbohydrates=data.get('carbs', 0),
+            fat=data.get('fat', 0),
+            consumed_at=timezone.now() if not data.get('consumed_at') else data.get('consumed_at'),
+        )
+        return JsonResponse({
+            'success': True,
+            'id': food_item.id,
+            'message': 'Food item added successfully'
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_http_methods(["PUT", "PATCH"])
+@csrf_exempt
+def api_update_food(request, food_id):
+    """Update a food item via API"""
+    try:
+        food_item = get_object_or_404(FoodItem, id=food_id)
+        data = json.loads(request.body)
+
+        if 'name' in data:
+            food_item.product_name = data['name']
+        if 'calories' in data:
+            food_item.calories = data['calories']
+        if 'protein' in data:
+            food_item.protein = data['protein']
+        if 'carbs' in data:
+            food_item.carbohydrates = data['carbs']
+        if 'fat' in data:
+            food_item.fat = data['fat']
+
+        food_item.save()
+        return JsonResponse({'success': True, 'message': 'Food item updated'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_http_methods(["DELETE"])
+@csrf_exempt
+def api_delete_food(request, food_id):
+    """Delete a food item via API"""
+    try:
+        food_item = get_object_or_404(FoodItem, id=food_id)
+        food_item.delete()
+        return JsonResponse({'success': True, 'message': 'Food item deleted'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_http_methods(["GET"])
+def api_quick_add_foods(request):
+    """Get recent foods for quick-add feature"""
+    recent_foods = FoodItem.objects.filter(
+        hide_from_quick_list=False
+    ).values('product_name').annotate(
+        count=Count('id'),
+        avg_calories=Avg('calories'),
+        avg_protein=Avg('protein'),
+        avg_carbs=Avg('carbohydrates'),
+        avg_fat=Avg('fat'),
+    ).order_by('-count')[:15]
+
+    return JsonResponse({
+        'foods': list(recent_foods)
+    })
+
+
+@require_http_methods(["GET"])
+def api_weight_items(request):
+    """Get weight entries for React frontend"""
+    days = request.GET.get('days', '365')
+    now = timezone.now()
+
+    if days == 'all':
+        weights = Weight.objects.all()
+    else:
+        try:
+            days_int = int(days)
+            start_date = now - timedelta(days=days_int)
+            weights = Weight.objects.filter(recorded_at__gte=start_date)
+        except ValueError:
+            weights = Weight.objects.filter(recorded_at__gte=now - timedelta(days=365))
+
+    weights = weights.order_by('-recorded_at')
+
+    items = []
+    for w in weights:
+        items.append({
+            'id': w.id,
+            'weight': float(w.weight),
+            'recorded_at': w.recorded_at.isoformat(),
+            'notes': w.notes,
+        })
+
+    # Stats
+    weight_values = [float(w.weight) for w in weights]
+    stats = {}
+    if weight_values:
+        stats = {
+            'current': weight_values[0] if weight_values else None,
+            'avg': round(sum(weight_values) / len(weight_values), 1),
+            'min': min(weight_values),
+            'max': max(weight_values),
+            'change': round(weight_values[0] - weight_values[-1], 1) if len(weight_values) > 1 else 0,
+        }
+
+    return JsonResponse({
+        'items': items,
+        'stats': stats,
+    })
+
+
+@require_http_methods(["POST"])
+@csrf_exempt
+def api_add_weight(request):
+    """Add a weight entry via API"""
+    try:
+        data = json.loads(request.body)
+        weight = Weight.objects.create(
+            weight=data.get('weight'),
+            notes=data.get('notes', ''),
+            recorded_at=timezone.now() if not data.get('recorded_at') else data.get('recorded_at'),
+        )
+        return JsonResponse({'success': True, 'id': weight.id})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_http_methods(["DELETE"])
+@csrf_exempt
+def api_delete_weight(request, weight_id):
+    """Delete a weight entry via API"""
+    try:
+        weight = get_object_or_404(Weight, id=weight_id)
+        weight.delete()
+        return JsonResponse({'success': True})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_http_methods(["GET"])
+def api_running_items(request):
+    """Get running sessions for React frontend"""
+    days = request.GET.get('days', '365')
+    now = timezone.now()
+
+    if days == 'all':
+        runs = RunningSession.objects.all()
+    else:
+        try:
+            days_int = int(days)
+            start_date = now - timedelta(days=days_int)
+            runs = RunningSession.objects.filter(date__gte=start_date.date())
+        except ValueError:
+            runs = RunningSession.objects.filter(date__gte=(now - timedelta(days=365)).date())
+
+    runs = runs.order_by('-date')
+
+    items = []
+    for r in runs:
+        duration_seconds = r.duration.total_seconds() if r.duration else 0
+        distance = float(r.distance) if r.distance else 0
+        speed = (distance / (duration_seconds / 3600)) if duration_seconds > 0 else 0
+        pace_seconds = (duration_seconds / distance) if distance > 0 else 0
+
+        items.append({
+            'id': r.id,
+            'date': r.date.isoformat() if r.date else None,
+            'distance': distance,
+            'duration': str(r.duration) if r.duration else None,
+            'duration_minutes': round(duration_seconds / 60, 1),
+            'speed': round(speed, 2),
+            'pace': f"{int(pace_seconds // 60)}:{int(pace_seconds % 60):02d}" if pace_seconds else None,
+            'notes': r.notes,
+        })
+
+    # Stats
+    total_distance = sum(item['distance'] for item in items)
+    total_duration = sum(item['duration_minutes'] for item in items)
+    stats = {
+        'total_runs': len(items),
+        'total_distance': round(total_distance, 1),
+        'total_duration': round(total_duration, 1),
+        'avg_distance': round(total_distance / len(items), 1) if items else 0,
+        'avg_duration': round(total_duration / len(items), 1) if items else 0,
+        'avg_speed': round(sum(item['speed'] for item in items) / len(items), 2) if items else 0,
+    }
+
+    return JsonResponse({
+        'items': items,
+        'stats': stats,
+    })
+
+
+@require_http_methods(["POST"])
+@csrf_exempt
+def api_add_running(request):
+    """Add a running session via API"""
+    try:
+        data = json.loads(request.body)
+        from datetime import datetime
+
+        # Parse duration
+        duration_str = data.get('duration', '00:30:00')
+        parts = duration_str.split(':')
+        if len(parts) == 3:
+            duration = timedelta(hours=int(parts[0]), minutes=int(parts[1]), seconds=int(parts[2]))
+        elif len(parts) == 2:
+            duration = timedelta(minutes=int(parts[0]), seconds=int(parts[1]))
+        else:
+            duration = timedelta(minutes=30)
+
+        run = RunningSession.objects.create(
+            date=data.get('date', timezone.now().date()),
+            distance=data.get('distance'),
+            duration=duration,
+            notes=data.get('notes', ''),
+        )
+        return JsonResponse({'success': True, 'id': run.id})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+
+@require_http_methods(["GET"])
+def api_workouts(request):
+    """Get workout sessions for React frontend"""
+    days = request.GET.get('days', '90')
+    now = timezone.now()
+
+    if days == 'all':
+        workouts = WorkoutSession.objects.all()
+    else:
+        try:
+            days_int = int(days)
+            start_date = now - timedelta(days=days_int)
+            workouts = WorkoutSession.objects.filter(date__gte=start_date.date())
+        except ValueError:
+            workouts = WorkoutSession.objects.filter(date__gte=(now - timedelta(days=90)).date())
+
+    workouts = workouts.order_by('-date')
+
+    items = []
+    for w in workouts:
+        exercises = WorkoutExercise.objects.filter(workout_session=w)
+        exercise_list = []
+        total_volume = 0
+
+        for ex in exercises:
+            volume = (ex.sets or 0) * (ex.reps or 0) * (float(ex.weight) if ex.weight else 0)
+            total_volume += volume
+            exercise_list.append({
+                'id': ex.id,
+                'exercise': ex.exercise.name if ex.exercise else 'Unknown',
+                'sets': ex.sets,
+                'reps': ex.reps,
+                'weight': float(ex.weight) if ex.weight else None,
+                'volume': round(volume, 1),
+            })
+
+        items.append({
+            'id': w.id,
+            'name': w.name,
+            'date': w.date.isoformat() if w.date else None,
+            'notes': w.notes,
+            'exercises': exercise_list,
+            'exercise_count': len(exercise_list),
+            'total_volume': round(total_volume, 1),
+        })
+
+    # Stats
+    stats = {
+        'total_workouts': len(items),
+        'total_exercises': sum(item['exercise_count'] for item in items),
+        'total_volume': round(sum(item['total_volume'] for item in items), 1),
+    }
+
+    return JsonResponse({
+        'items': items,
+        'stats': stats,
+    })
+
+
+@require_http_methods(["GET"])
+def api_exercises(request):
+    """Get exercise library"""
+    exercises = Exercise.objects.all().order_by('name')
+    items = []
+    for ex in exercises:
+        items.append({
+            'id': ex.id,
+            'name': ex.name,
+            'muscle_group': ex.muscle_group,
+            'description': ex.description,
+        })
+
+    return JsonResponse({'exercises': items})
+
+
+@require_http_methods(["GET"])
+def api_body_measurements(request):
+    """Get body measurements for React frontend"""
+    measurements = BodyMeasurement.objects.all().order_by('-date')[:50]
+
+    items = []
+    prev_measurement = None
+
+    for m in reversed(list(measurements)):
+        item = {
+            'id': m.id,
+            'date': m.date.isoformat() if m.date else None,
+            'neck': float(m.neck) if m.neck else None,
+            'chest': float(m.chest) if m.chest else None,
+            'belly': float(m.belly) if m.belly else None,
+            'left_biceps': float(m.left_biceps) if m.left_biceps else None,
+            'right_biceps': float(m.right_biceps) if m.right_biceps else None,
+            'left_triceps': float(m.left_triceps) if m.left_triceps else None,
+            'right_triceps': float(m.right_triceps) if m.right_triceps else None,
+            'left_forearm': float(m.left_forearm) if m.left_forearm else None,
+            'right_forearm': float(m.right_forearm) if m.right_forearm else None,
+            'butt': float(m.butt) if m.butt else None,
+            'left_thigh': float(m.left_thigh) if m.left_thigh else None,
+            'right_thigh': float(m.right_thigh) if m.right_thigh else None,
+            'left_lower_leg': float(m.left_lower_leg) if m.left_lower_leg else None,
+            'right_lower_leg': float(m.right_lower_leg) if m.right_lower_leg else None,
+            'notes': m.notes,
+            'changes': {},
+        }
+
+        # Calculate changes from previous measurement
+        if prev_measurement:
+            for field in ['neck', 'chest', 'belly', 'left_biceps', 'right_biceps', 'butt']:
+                current = getattr(m, field)
+                previous = getattr(prev_measurement, field)
+                if current and previous:
+                    item['changes'][field] = round(float(current) - float(previous), 1)
+
+        items.append(item)
+        prev_measurement = m
+
+    items.reverse()  # Most recent first
+
+    return JsonResponse({'items': items})
+
+
+@require_http_methods(["GET"])
+def api_analytics(request):
+    """Get analytics data for React frontend"""
+    period = request.GET.get('period', '90')
+    now = timezone.now()
+
+    if period == 'all':
+        start_date = None
+    else:
+        try:
+            days = int(period)
+            start_date = now - timedelta(days=days)
+        except ValueError:
+            start_date = now - timedelta(days=90)
+
+    # Get food items
+    if start_date:
+        food_items = FoodItem.objects.filter(consumed_at__gte=start_date)
+    else:
+        food_items = FoodItem.objects.all()
+
+    # Daily stats
+    from django.db.models.functions import TruncDate
+    daily_stats = food_items.annotate(
+        day=TruncDate('consumed_at')
+    ).values('day').annotate(
+        calories=Sum('calories'),
+        protein=Sum('protein'),
+        carbs=Sum('carbohydrates'),
+        fat=Sum('fat'),
+    ).order_by('day')
+
+    daily_data = []
+    for stat in daily_stats:
+        if stat['day']:
+            daily_data.append({
+                'date': stat['day'].isoformat(),
+                'calories': stat['calories'] or 0,
+                'protein': round(float(stat['protein'] or 0), 1),
+                'carbs': round(float(stat['carbs'] or 0), 1),
+                'fat': round(float(stat['fat'] or 0), 1),
+            })
+
+    # Weekly summary
+    this_week_start = now - timedelta(days=now.weekday())
+    this_week_start = this_week_start.replace(hour=0, minute=0, second=0, microsecond=0)
+    last_week_start = this_week_start - timedelta(days=7)
+
+    this_week_food = FoodItem.objects.filter(consumed_at__gte=this_week_start)
+    last_week_food = FoodItem.objects.filter(consumed_at__gte=last_week_start, consumed_at__lt=this_week_start)
+
+    this_week_stats = this_week_food.aggregate(
+        calories=Sum('calories'),
+        protein=Sum('protein'),
+        days=Count('consumed_at__date', distinct=True)
+    )
+    last_week_stats = last_week_food.aggregate(
+        calories=Sum('calories'),
+        protein=Sum('protein'),
+        days=Count('consumed_at__date', distinct=True)
+    )
+
+    this_week_workouts = WorkoutSession.objects.filter(date__gte=this_week_start.date()).count()
+    last_week_workouts = WorkoutSession.objects.filter(
+        date__gte=last_week_start.date(),
+        date__lt=this_week_start.date()
+    ).count()
+
+    this_week_runs = RunningSession.objects.filter(date__gte=this_week_start.date()).count()
+
+    weekly_summary = {
+        'this_week': {
+            'days_logged': this_week_stats['days'] or 0,
+            'total_calories': this_week_stats['calories'] or 0,
+            'avg_calories': round((this_week_stats['calories'] or 0) / max(this_week_stats['days'] or 1, 1), 0),
+            'total_protein': round(float(this_week_stats['protein'] or 0), 0),
+            'workouts': this_week_workouts,
+            'runs': this_week_runs,
+        },
+        'last_week': {
+            'days_logged': last_week_stats['days'] or 0,
+            'avg_calories': round((last_week_stats['calories'] or 0) / max(last_week_stats['days'] or 1, 1), 0),
+            'workouts': last_week_workouts,
+        },
+    }
+
+    # Goals
+    goals = {
+        'daily_calories': {'current': weekly_summary['this_week']['avg_calories'], 'target': 2500},
+        'daily_protein': {'current': round(float(this_week_stats['protein'] or 0) / max(this_week_stats['days'] or 1, 1), 0), 'target': 150},
+        'weekly_workouts': {'current': this_week_workouts, 'target': 4},
+        'weekly_runs': {'current': this_week_runs, 'target': 2},
+    }
+
+    # Streak
+    streak = 0
+    check_date = now.date()
+    while True:
+        day_start = timezone.make_aware(timezone.datetime.combine(check_date, timezone.datetime.min.time()))
+        day_end = timezone.make_aware(timezone.datetime.combine(check_date, timezone.datetime.max.time()))
+        if FoodItem.objects.filter(consumed_at__gte=day_start, consumed_at__lte=day_end).exists():
+            streak += 1
+            check_date -= timedelta(days=1)
+        else:
+            break
+
+    return JsonResponse({
+        'daily_data': daily_data,
+        'weekly_summary': weekly_summary,
+        'goals': goals,
+        'streak': streak,
+    })
+
+
+@require_http_methods(["GET"])
+def api_top_foods(request):
+    """Get top foods for React frontend"""
+    days = request.GET.get('days', '90')
+    sort_by = request.GET.get('sort', 'count')
+    now = timezone.now()
+
+    if days == 'all':
+        food_items = FoodItem.objects.all()
+    else:
+        try:
+            days_int = int(days)
+            start_date = now - timedelta(days=days_int)
+            food_items = FoodItem.objects.filter(consumed_at__gte=start_date)
+        except ValueError:
+            food_items = FoodItem.objects.filter(consumed_at__gte=now - timedelta(days=90))
+
+    # Aggregate by product name
+    top_foods = food_items.values('product_name').annotate(
+        count=Count('id'),
+        total_calories=Sum('calories'),
+        avg_calories=Avg('calories'),
+        total_protein=Sum('protein'),
+        total_carbs=Sum('carbohydrates'),
+        total_fat=Sum('fat'),
+        latest=Max('consumed_at'),
+    )
+
+    if sort_by == 'calories':
+        top_foods = top_foods.order_by('-total_calories')
+    elif sort_by == 'protein':
+        top_foods = top_foods.order_by('-total_protein')
+    else:
+        top_foods = top_foods.order_by('-count')
+
+    items = []
+    for food in top_foods[:50]:
+        items.append({
+            'name': food['product_name'],
+            'count': food['count'],
+            'total_calories': food['total_calories'] or 0,
+            'avg_calories': round(food['avg_calories'] or 0, 0),
+            'total_protein': round(float(food['total_protein'] or 0), 1),
+            'total_carbs': round(float(food['total_carbs'] or 0), 1),
+            'total_fat': round(float(food['total_fat'] or 0), 1),
+            'latest': food['latest'].isoformat() if food['latest'] else None,
+        })
+
+    return JsonResponse({'items': items})
