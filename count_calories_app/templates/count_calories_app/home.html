@@ -171,6 +171,122 @@
     </div>
   </div>
 
+  <!-- Macro Progress Section -->
+  <div class="card shadow-sm mb-4" style="border-radius: 12px; border: none;">
+    <div class="card-header bg-white border-0 pt-4 pb-2">
+      <div class="d-flex justify-content-between align-items-center">
+        <h5 class="section-title mb-0">
+          <i class="fas fa-chart-pie"></i> Today's Nutrition Progress
+        </h5>
+        <div class="d-flex align-items-center gap-2">
+          {% if fitness_goal %}
+            <span class="badge {% if fitness_goal == 'bulk' %}bg-success{% elif fitness_goal == 'cut' %}bg-warning{% else %}bg-info{% endif %}">
+              {% if fitness_goal == 'bulk' %}💪 Bulking{% elif fitness_goal == 'cut' %}🔥 Cutting{% else %}⚖️ Maintaining{% endif %}
+            </span>
+          {% endif %}
+          {% if is_auto_macros %}
+            <span class="badge bg-light text-muted">Auto-calculated</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <div class="row g-4">
+        <!-- Calories Progress -->
+        <div class="col-md-6 col-lg-3">
+          <div class="mb-2 d-flex justify-content-between align-items-center">
+            <span class="fw-semibold"><i class="fas fa-fire text-danger me-1"></i> Calories</span>
+            <span class="{% if macro_progress.calories.exceeded %}text-danger fw-bold{% else %}text-muted{% endif %}">
+              {% if macro_progress.calories.exceeded %}
+                {{ macro_progress.calories.percentage }}% of target
+              {% else %}
+                {{ macro_progress.calories.remaining|floatformat:0 }} left
+              {% endif %}
+            </span>
+          </div>
+          <div class="progress" style="height: 12px; border-radius: 6px;">
+            <div class="progress-bar {% if macro_progress.calories.percentage > 100 %}bg-danger{% elif macro_progress.calories.percentage > 90 %}bg-warning{% else %}bg-success{% endif %}"
+                 role="progressbar"
+                 style="width: {% if macro_progress.calories.percentage > 100 %}100{% else %}{{ macro_progress.calories.percentage }}{% endif %}%">
+            </div>
+          </div>
+          <div class="mt-1 small text-muted">
+            {{ macro_progress.calories.current|floatformat:0 }} / {{ macro_progress.calories.target }} kcal
+          </div>
+        </div>
+
+        <!-- Protein Progress -->
+        <div class="col-md-6 col-lg-3">
+          <div class="mb-2 d-flex justify-content-between align-items-center">
+            <span class="fw-semibold"><i class="fas fa-drumstick-bite text-info me-1"></i> Protein</span>
+            <span class="{% if macro_progress.protein.exceeded %}text-info fw-bold{% else %}text-muted{% endif %}">
+              {% if macro_progress.protein.exceeded %}
+                {{ macro_progress.protein.percentage }}% of target
+              {% else %}
+                {{ macro_progress.protein.remaining|floatformat:0 }}g left
+              {% endif %}
+            </span>
+          </div>
+          <div class="progress" style="height: 12px; border-radius: 6px;">
+            <div class="progress-bar bg-info"
+                 role="progressbar"
+                 style="width: {% if macro_progress.protein.percentage > 100 %}100{% else %}{{ macro_progress.protein.percentage }}{% endif %}%">
+            </div>
+          </div>
+          <div class="mt-1 small text-muted">
+            {{ macro_progress.protein.current|floatformat:0 }} / {{ macro_progress.protein.target }}g
+          </div>
+        </div>
+
+        <!-- Carbs Progress -->
+        <div class="col-md-6 col-lg-3">
+          <div class="mb-2 d-flex justify-content-between align-items-center">
+            <span class="fw-semibold"><i class="fas fa-bread-slice text-warning me-1"></i> Carbs</span>
+            <span class="{% if macro_progress.carbs.exceeded %}text-danger fw-bold{% else %}text-muted{% endif %}">
+              {% if macro_progress.carbs.exceeded %}
+                {{ macro_progress.carbs.percentage }}% of target
+              {% else %}
+                {{ macro_progress.carbs.remaining|floatformat:0 }}g left
+              {% endif %}
+            </span>
+          </div>
+          <div class="progress" style="height: 12px; border-radius: 6px;">
+            <div class="progress-bar {% if macro_progress.carbs.percentage > 100 %}bg-danger{% elif macro_progress.carbs.percentage > 90 %}bg-warning{% else %}bg-warning{% endif %}"
+                 role="progressbar"
+                 style="width: {% if macro_progress.carbs.percentage > 100 %}100{% else %}{{ macro_progress.carbs.percentage }}{% endif %}%">
+            </div>
+          </div>
+          <div class="mt-1 small text-muted">
+            {{ macro_progress.carbs.current|floatformat:0 }} / {{ macro_progress.carbs.target }}g
+          </div>
+        </div>
+
+        <!-- Fat Progress -->
+        <div class="col-md-6 col-lg-3">
+          <div class="mb-2 d-flex justify-content-between align-items-center">
+            <span class="fw-semibold"><i class="fas fa-cheese text-secondary me-1"></i> Fat</span>
+            <span class="{% if macro_progress.fat.exceeded %}text-danger fw-bold{% else %}text-muted{% endif %}">
+              {% if macro_progress.fat.exceeded %}
+                {{ macro_progress.fat.percentage }}% of target
+              {% else %}
+                {{ macro_progress.fat.remaining|floatformat:0 }}g left
+              {% endif %}
+            </span>
+          </div>
+          <div class="progress" style="height: 12px; border-radius: 6px;">
+            <div class="progress-bar {% if macro_progress.fat.percentage > 100 %}bg-danger{% elif macro_progress.fat.percentage > 90 %}bg-warning{% else %}bg-secondary{% endif %}"
+                 role="progressbar"
+                 style="width: {% if macro_progress.fat.percentage > 100 %}100{% else %}{{ macro_progress.fat.percentage }}{% endif %}%">
+            </div>
+          </div>
+          <div class="mt-1 small text-muted">
+            {{ macro_progress.fat.current|floatformat:0 }} / {{ macro_progress.fat.target }}g
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Secondary Stats Row -->
   <div class="row g-3 mb-4">
     <div class="col-6 col-md-4 col-lg-2">

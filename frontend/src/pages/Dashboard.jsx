@@ -133,6 +133,47 @@ export default function Dashboard() {
     }
   };
 
+  // MacroProgressBar component
+  const MacroProgressBar = ({ label, current, target, unit, color, icon }) => {
+    const percentage = target > 0 ? Math.round((current / target) * 100) : 0;
+    const remaining = target - current;
+    const exceeded = current > target;
+
+    const colorClasses = {
+      orange: { bar: 'bg-orange-500', text: 'text-orange-400', bg: 'bg-orange-500/20' },
+      red: { bar: 'bg-red-500', text: 'text-red-400', bg: 'bg-red-500/20' },
+      blue: { bar: 'bg-blue-500', text: 'text-blue-400', bg: 'bg-blue-500/20' },
+      yellow: { bar: 'bg-yellow-500', text: 'text-yellow-400', bg: 'bg-yellow-500/20' },
+    };
+
+    const colors = colorClasses[color] || colorClasses.blue;
+    const barColor = exceeded ? 'bg-red-500' : percentage > 90 ? 'bg-yellow-500' : colors.bar;
+
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <span className={colors.text}>{icon}</span>
+            <span className="font-medium text-gray-200">{label}</span>
+          </div>
+          <span className={`text-sm font-medium ${exceeded ? 'text-red-400' : 'text-gray-400'}`}>
+            {exceeded ? `${percentage}% of target` : `${Math.round(remaining)}${unit} left`}
+          </span>
+        </div>
+        <div className="h-3 bg-gray-700 rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+            style={{ width: `${Math.min(percentage, 100)}%` }}
+          />
+        </div>
+        <div className="flex justify-between mt-1.5 text-xs text-gray-500">
+          <span>{Math.round(current)}{unit}</span>
+          <span>{target}{unit}</span>
+        </div>
+      </div>
+    );
+  };
+
   const macrosPieData = [
     { name: 'Protein', value: todayStats.protein * 4, color: CHART_COLORS.protein },
     { name: 'Carbs', value: todayStats.carbs * 4, color: CHART_COLORS.carbs },
@@ -303,6 +344,48 @@ export default function Dashboard() {
               <div className="text-sm text-white/70">Fat</div>
             </div>
           </div>
+        </div>
+      </Card>
+
+      {/* Macro Progress Bars */}
+      <Card title="Nutrition Progress" subtitle="Today's intake vs targets">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Calories Progress */}
+          <MacroProgressBar
+            label="Calories"
+            current={todayStats.calories}
+            target={todayStats.caloriesTarget}
+            unit="kcal"
+            color="orange"
+            icon={<Flame className="w-4 h-4" />}
+          />
+          {/* Protein Progress */}
+          <MacroProgressBar
+            label="Protein"
+            current={todayStats.protein}
+            target={todayStats.proteinTarget}
+            unit="g"
+            color="red"
+            icon={<Beef className="w-4 h-4" />}
+          />
+          {/* Carbs Progress */}
+          <MacroProgressBar
+            label="Carbs"
+            current={todayStats.carbs}
+            target={todayStats.carbsTarget}
+            unit="g"
+            color="blue"
+            icon={<Wheat className="w-4 h-4" />}
+          />
+          {/* Fat Progress */}
+          <MacroProgressBar
+            label="Fat"
+            current={todayStats.fat}
+            target={todayStats.fatTarget}
+            unit="g"
+            color="yellow"
+            icon={<Droplets className="w-4 h-4" />}
+          />
         </div>
       </Card>
 

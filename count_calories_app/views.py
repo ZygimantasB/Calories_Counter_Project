@@ -88,6 +88,36 @@ def home(request):
         else:
             break
 
+    # Get user settings for targets
+    settings = UserSettings.get_settings()
+    effective_targets = settings.get_effective_targets()
+
+    # Calculate macro progress and remaining
+    today_calories = float(today_stats['calories'] or 0)
+    today_protein = float(today_stats['protein'] or 0)
+    today_carbs = float(today_stats['carbs'] or 0)
+    today_fat = float(today_stats['fat'] or 0)
+
+    def calc_progress(current, target):
+        if target <= 0:
+            return {'current': current, 'target': target, 'remaining': 0, 'percentage': 0, 'exceeded': False}
+        remaining = target - current
+        percentage = round((current / target) * 100, 1)
+        return {
+            'current': round(current, 1),
+            'target': target,
+            'remaining': round(remaining, 1),
+            'percentage': percentage,
+            'exceeded': current > target,
+        }
+
+    macro_progress = {
+        'calories': calc_progress(today_calories, effective_targets['calories']),
+        'protein': calc_progress(today_protein, effective_targets['protein']),
+        'carbs': calc_progress(today_carbs, effective_targets['carbs']),
+        'fat': calc_progress(today_fat, effective_targets['fat']),
+    }
+
     context = {
         'today_stats': {
             'calories': today_stats['calories'] or 0,
@@ -114,6 +144,9 @@ def home(request):
         'recent_foods': recent_foods,
         'streak': streak,
         'current_date': now,
+        'macro_progress': macro_progress,
+        'fitness_goal': settings.fitness_goal,
+        'is_auto_macros': effective_targets['is_auto'],
     }
 
     return render(request, 'count_calories_app/home.html', context)
