@@ -7,7 +7,7 @@ from django.contrib import messages
 from django.core.paginator import Paginator
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
-from .models import FoodItem, Weight, Exercise, WorkoutSession, WorkoutExercise, RunningSession, WorkoutTable, BodyMeasurement
+from .models import FoodItem, Weight, Exercise, WorkoutSession, WorkoutExercise, RunningSession, WorkoutTable, BodyMeasurement, UserSettings
 from .forms import FoodItemForm, WeightForm, ExerciseForm, WorkoutSessionForm, WorkoutExerciseForm, RunningSessionForm, BodyMeasurementForm
 from .services import GeminiService
 import logging
@@ -3155,12 +3155,60 @@ def api_dashboard(request):
         else:
             break
 
+    # Get user settings for targets
+    settings = UserSettings.get_settings()
+    effective_targets = settings.get_effective_targets()
+
+    # Calculate macro warnings (when exceeded by more than 10%)
+    today_calories = today_stats['calories'] or 0
+    today_protein = today_stats['protein'] or 0
+    today_carbs = today_stats['carbs'] or 0
+    today_fat = today_stats['fat'] or 0
+
+    warnings = []
+    if today_calories > effective_targets['calories'] * 1.1:
+        excess = today_calories - effective_targets['calories']
+        warnings.append({
+            'type': 'calories',
+            'message': f'You have exceeded your daily calorie target by {int(excess)} kcal',
+            'severity': 'warning' if today_calories <= effective_targets['calories'] * 1.25 else 'error',
+            'current': today_calories,
+            'target': effective_targets['calories'],
+        })
+    if today_protein > effective_targets['protein'] * 1.1:
+        excess = today_protein - effective_targets['protein']
+        warnings.append({
+            'type': 'protein',
+            'message': f'You have exceeded your daily protein target by {int(excess)}g',
+            'severity': 'info',  # Exceeding protein is often okay
+            'current': round(today_protein, 1),
+            'target': effective_targets['protein'],
+        })
+    if today_carbs > effective_targets['carbs'] * 1.1:
+        excess = today_carbs - effective_targets['carbs']
+        warnings.append({
+            'type': 'carbs',
+            'message': f'You have exceeded your daily carbs target by {int(excess)}g',
+            'severity': 'warning',
+            'current': round(today_carbs, 1),
+            'target': effective_targets['carbs'],
+        })
+    if today_fat > effective_targets['fat'] * 1.1:
+        excess = today_fat - effective_targets['fat']
+        warnings.append({
+            'type': 'fat',
+            'message': f'You have exceeded your daily fat target by {int(excess)}g',
+            'severity': 'warning' if today_fat <= effective_targets['fat'] * 1.25 else 'error',
+            'current': round(today_fat, 1),
+            'target': effective_targets['fat'],
+        })
+
     return JsonResponse({
         'today': {
-            'calories': today_stats['calories'] or 0,
-            'protein': round(today_stats['protein'] or 0, 1),
-            'carbs': round(today_stats['carbs'] or 0, 1),
-            'fat': round(today_stats['fat'] or 0, 1),
+            'calories': today_calories,
+            'protein': round(today_protein, 1),
+            'carbs': round(today_carbs, 1),
+            'fat': round(today_fat, 1),
             'count': today_stats['count'] or 0,
         },
         'week': {
@@ -3180,11 +3228,16 @@ def api_dashboard(request):
         'recent_foods': recent_foods,
         'streak': streak,
         'goals': {
-            'daily_calories': 2500,
-            'daily_protein': 150,
-            'weekly_workouts': 4,
-            'weekly_runs': 2,
-        }
+            'daily_calories': effective_targets['calories'],
+            'daily_protein': effective_targets['protein'],
+            'daily_carbs': effective_targets['carbs'],
+            'daily_fat': effective_targets['fat'],
+            'weekly_workouts': settings.weekly_workout_goal,
+            'weekly_runs': 2,  # Could add to settings if needed
+            'is_auto': effective_targets['is_auto'],
+            'fitness_goal': settings.fitness_goal,
+        },
+        'warnings': warnings,
     })
 
 
@@ -3855,3 +3908,259 @@ def api_top_foods(request):
         })
 
     return JsonResponse({'items': items})
+
+
+# ==================== Settings Views ====================
+
+def settings_view(request):
+    """Main settings page with sidebar navigation"""
+    user_settings = UserSettings.get_settings()
+    section = request.GET.get('section', 'profile')
+
+    if request.method == 'POST':
+        section = request.POST.get('section', 'profile')
+
+        if section == 'profile':
+            user_settings.name = request.POST.get('name', '')
+            user_settings.age = request.POST.get('age') or None
+            user_settings.height = request.POST.get('height') or None
+            user_settings.current_weight = request.POST.get('current_weight') or None
+            user_settings.gender = request.POST.get('gender', 'male')
+            user_settings.activity_level = request.POST.get('activity_level', 'moderate')
+            user_settings.fitness_goal = request.POST.get('fitness_goal', 'maintain')
+            user_settings.use_auto_macros = request.POST.get('use_auto_macros') == 'on'
+            user_settings.daily_calorie_target = request.POST.get('daily_calorie_target') or 2000
+            user_settings.target_weight = request.POST.get('target_weight') or None
+            user_settings.weekly_workout_goal = request.POST.get('weekly_workout_goal') or 3
+            user_settings.protein_target = request.POST.get('protein_target') or 150
+            user_settings.carbs_target = request.POST.get('carbs_target') or 200
+            user_settings.fat_target = request.POST.get('fat_target') or 65
+            user_settings.save()
+            messages.success(request, 'Profile settings saved successfully!')
+
+        elif section == 'appearance':
+            user_settings.theme = request.POST.get('theme', 'dark')
+            user_settings.chart_color = request.POST.get('chart_color', 'blue')
+            user_settings.default_date_range = request.POST.get('default_date_range') or 30
+            user_settings.save()
+            messages.success(request, 'Appearance settings saved successfully!')
+
+        elif section == 'notifications':
+            user_settings.meal_reminder_enabled = request.POST.get('meal_reminder_enabled') == 'on'
+            meal_times = request.POST.getlist('meal_reminder_times')
+            user_settings.meal_reminder_times = [t for t in meal_times if t]
+            user_settings.workout_reminder_enabled = request.POST.get('workout_reminder_enabled') == 'on'
+            workout_time = request.POST.get('workout_reminder_time')
+            user_settings.workout_reminder_time = workout_time if workout_time else None
+            workout_days = request.POST.getlist('workout_reminder_days')
+            user_settings.workout_reminder_days = workout_days
+            user_settings.weight_reminder_enabled = request.POST.get('weight_reminder_enabled') == 'on'
+            weight_time = request.POST.get('weight_reminder_time')
+            user_settings.weight_reminder_time = weight_time if weight_time else None
+            user_settings.save()
+            messages.success(request, 'Notification preferences saved successfully!')
+
+        return redirect(f'/settings/?section={section}')
+
+    bmr = user_settings.calculate_bmr()
+    recommended_macros = user_settings.get_recommended_macros()
+    effective_targets = user_settings.get_effective_targets()
+
+    context = {
+        'settings': user_settings,
+        'section': section,
+        'bmr': bmr,
+        'recommended_macros': recommended_macros,
+        'effective_targets': effective_targets,
+        'activity_choices': UserSettings.ACTIVITY_CHOICES,
+        'gender_choices': UserSettings.GENDER_CHOICES,
+        'fitness_goal_choices': UserSettings.FITNESS_GOAL_CHOICES,
+        'theme_choices': UserSettings.THEME_CHOICES,
+        'chart_color_choices': UserSettings.CHART_COLOR_CHOICES,
+        'date_range_choices': UserSettings.DATE_RANGE_CHOICES,
+        'weekdays': [
+            ('monday', 'Monday'), ('tuesday', 'Tuesday'), ('wednesday', 'Wednesday'),
+            ('thursday', 'Thursday'), ('friday', 'Friday'), ('saturday', 'Saturday'), ('sunday', 'Sunday'),
+        ],
+    }
+    return render(request, 'count_calories_app/settings.html', context)
+
+
+def export_data(request):
+    """Handle data export requests"""
+    export_type = request.GET.get('type', 'all')
+    export_format = request.GET.get('format', 'csv')
+
+    if export_format == 'csv':
+        response = HttpResponse(content_type='text/csv')
+
+        if export_type == 'food':
+            response['Content-Disposition'] = 'attachment; filename="food_data.csv"'
+            writer = csv.writer(response)
+            writer.writerow(['Date', 'Product Name', 'Calories', 'Protein (g)', 'Carbs (g)', 'Fat (g)'])
+            for item in FoodItem.objects.all().order_by('-consumed_at'):
+                writer.writerow([item.consumed_at.strftime('%Y-%m-%d %H:%M'), item.product_name,
+                    float(item.calories), float(item.protein), float(item.carbohydrates), float(item.fat)])
+
+        elif export_type == 'weight':
+            response['Content-Disposition'] = 'attachment; filename="weight_data.csv"'
+            writer = csv.writer(response)
+            writer.writerow(['Date', 'Weight (kg)', 'Notes'])
+            for item in Weight.objects.all().order_by('-recorded_at'):
+                writer.writerow([item.recorded_at.strftime('%Y-%m-%d %H:%M'), float(item.weight), item.notes or ''])
+
+        elif export_type == 'workout':
+            response['Content-Disposition'] = 'attachment; filename="workout_data.csv"'
+            writer = csv.writer(response)
+            writer.writerow(['Date', 'Workout Name', 'Exercise', 'Sets', 'Reps', 'Weight (kg)', 'Notes'])
+            for workout in WorkoutSession.objects.all().order_by('-date'):
+                for exercise in workout.exercises.all():
+                    writer.writerow([workout.date.strftime('%Y-%m-%d'), workout.name or 'Unnamed',
+                        exercise.exercise.name, exercise.sets, exercise.reps,
+                        float(exercise.weight) if exercise.weight else '', exercise.notes or ''])
+
+        elif export_type == 'running':
+            response['Content-Disposition'] = 'attachment; filename="running_data.csv"'
+            writer = csv.writer(response)
+            writer.writerow(['Date', 'Distance (km)', 'Duration', 'Notes'])
+            for item in RunningSession.objects.all().order_by('-date'):
+                writer.writerow([item.date.strftime('%Y-%m-%d'), float(item.distance), str(item.duration), item.notes or ''])
+
+        elif export_type == 'body':
+            response['Content-Disposition'] = 'attachment; filename="body_measurements.csv"'
+            writer = csv.writer(response)
+            writer.writerow(['Date', 'Neck', 'Chest', 'Belly', 'Left Biceps', 'Right Biceps',
+                'Left Triceps', 'Right Triceps', 'Left Forearm', 'Right Forearm',
+                'Left Thigh', 'Right Thigh', 'Left Lower Leg', 'Right Lower Leg', 'Butt', 'Notes'])
+            for item in BodyMeasurement.objects.all().order_by('-date'):
+                writer.writerow([item.date.strftime('%Y-%m-%d'),
+                    float(item.neck) if item.neck else '', float(item.chest) if item.chest else '',
+                    float(item.belly) if item.belly else '', float(item.left_biceps) if item.left_biceps else '',
+                    float(item.right_biceps) if item.right_biceps else '', float(item.left_triceps) if item.left_triceps else '',
+                    float(item.right_triceps) if item.right_triceps else '', float(item.left_forearm) if item.left_forearm else '',
+                    float(item.right_forearm) if item.right_forearm else '', float(item.left_thigh) if item.left_thigh else '',
+                    float(item.right_thigh) if item.right_thigh else '', float(item.left_lower_leg) if item.left_lower_leg else '',
+                    float(item.right_lower_leg) if item.right_lower_leg else '', float(item.butt) if item.butt else '',
+                    item.notes or ''])
+
+        elif export_type == 'all':
+            import json as json_module
+            response = HttpResponse(content_type='application/json')
+            response['Content-Disposition'] = 'attachment; filename="all_data.json"'
+            data = {'food_items': [], 'weight': [], 'workouts': [], 'running': [], 'body_measurements': []}
+            for item in FoodItem.objects.all():
+                data['food_items'].append({
+                    'consumed_at': item.consumed_at.isoformat(), 'product_name': item.product_name,
+                    'calories': float(item.calories), 'protein': float(item.protein),
+                    'carbohydrates': float(item.carbohydrates), 'fat': float(item.fat)
+                })
+            for item in Weight.objects.all():
+                data['weight'].append({'recorded_at': item.recorded_at.isoformat(), 'weight': float(item.weight), 'notes': item.notes})
+            for item in RunningSession.objects.all():
+                data['running'].append({'date': item.date.isoformat(), 'distance': float(item.distance), 'duration': str(item.duration), 'notes': item.notes})
+            for item in BodyMeasurement.objects.all():
+                data['body_measurements'].append({
+                    'date': item.date.isoformat(), 'neck': float(item.neck) if item.neck else None,
+                    'chest': float(item.chest) if item.chest else None, 'belly': float(item.belly) if item.belly else None, 'notes': item.notes
+                })
+            for workout in WorkoutSession.objects.all():
+                workout_data = {'date': workout.date.isoformat(), 'name': workout.name, 'notes': workout.notes, 'exercises': []}
+                for ex in workout.exercises.all():
+                    workout_data['exercises'].append({'exercise_name': ex.exercise.name, 'sets': ex.sets, 'reps': ex.reps,
+                        'weight': float(ex.weight) if ex.weight else None, 'notes': ex.notes})
+                data['workouts'].append(workout_data)
+            response.write(json_module.dumps(data, indent=2))
+
+        return response
+    return redirect('/settings/?section=data')
+
+
+# ==================== React API for Settings ====================
+
+@require_http_methods(["GET"])
+def api_settings(request):
+    """Get user settings for React frontend"""
+    user_settings = UserSettings.get_settings()
+    recommended_macros = user_settings.get_recommended_macros()
+    effective_targets = user_settings.get_effective_targets()
+
+    return JsonResponse({
+        'profile': {
+            'name': user_settings.name, 'age': user_settings.age,
+            'height': float(user_settings.height) if user_settings.height else None,
+            'current_weight': float(user_settings.current_weight) if user_settings.current_weight else None,
+            'gender': user_settings.gender, 'activity_level': user_settings.activity_level,
+            'fitness_goal': user_settings.fitness_goal,
+            'use_auto_macros': user_settings.use_auto_macros,
+            'daily_calorie_target': user_settings.daily_calorie_target,
+            'target_weight': float(user_settings.target_weight) if user_settings.target_weight else None,
+            'weekly_workout_goal': user_settings.weekly_workout_goal,
+            'protein_target': user_settings.protein_target, 'carbs_target': user_settings.carbs_target,
+            'fat_target': user_settings.fat_target, 'bmr': user_settings.calculate_bmr(),
+        },
+        'recommended_macros': recommended_macros,
+        'effective_targets': effective_targets,
+        'appearance': {
+            'theme': user_settings.theme, 'chart_color': user_settings.chart_color,
+            'default_date_range': user_settings.default_date_range,
+        },
+        'notifications': {
+            'meal_reminder_enabled': user_settings.meal_reminder_enabled,
+            'meal_reminder_times': user_settings.meal_reminder_times,
+            'workout_reminder_enabled': user_settings.workout_reminder_enabled,
+            'workout_reminder_time': str(user_settings.workout_reminder_time) if user_settings.workout_reminder_time else None,
+            'workout_reminder_days': user_settings.workout_reminder_days,
+            'weight_reminder_enabled': user_settings.weight_reminder_enabled,
+            'weight_reminder_time': str(user_settings.weight_reminder_time) if user_settings.weight_reminder_time else None,
+        },
+        'choices': {
+            'activity_levels': [{'value': c[0], 'label': c[1]} for c in UserSettings.ACTIVITY_CHOICES],
+            'genders': [{'value': c[0], 'label': c[1]} for c in UserSettings.GENDER_CHOICES],
+            'fitness_goals': [{'value': c[0], 'label': c[1]} for c in UserSettings.FITNESS_GOAL_CHOICES],
+            'themes': [{'value': c[0], 'label': c[1]} for c in UserSettings.THEME_CHOICES],
+            'chart_colors': [{'value': c[0], 'label': c[1]} for c in UserSettings.CHART_COLOR_CHOICES],
+            'date_ranges': [{'value': c[0], 'label': c[1]} for c in UserSettings.DATE_RANGE_CHOICES],
+        }
+    })
+
+
+@require_http_methods(["PUT", "PATCH"])
+@csrf_exempt
+def api_update_settings(request):
+    """Update user settings from React frontend"""
+    try:
+        data = json.loads(request.body)
+        user_settings = UserSettings.get_settings()
+
+        if 'profile' in data:
+            profile = data['profile']
+            for field in ['name', 'age', 'height', 'current_weight', 'gender', 'activity_level',
+                         'fitness_goal', 'use_auto_macros', 'daily_calorie_target', 'target_weight',
+                         'weekly_workout_goal', 'protein_target', 'carbs_target', 'fat_target']:
+                if field in profile:
+                    setattr(user_settings, field, profile[field])
+
+        if 'appearance' in data:
+            appearance = data['appearance']
+            for field in ['theme', 'chart_color', 'default_date_range']:
+                if field in appearance:
+                    setattr(user_settings, field, appearance[field])
+
+        if 'notifications' in data:
+            notifications = data['notifications']
+            for field in ['meal_reminder_enabled', 'meal_reminder_times', 'workout_reminder_enabled',
+                         'workout_reminder_time', 'workout_reminder_days', 'weight_reminder_enabled',
+                         'weight_reminder_time']:
+                if field in notifications:
+                    setattr(user_settings, field, notifications[field])
+
+        user_settings.save()
+        return JsonResponse({
+            'success': True,
+            'message': 'Settings updated successfully',
+            'bmr': user_settings.calculate_bmr(),
+            'recommended_macros': user_settings.get_recommended_macros(),
+            'effective_targets': user_settings.get_effective_targets(),
+        })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)

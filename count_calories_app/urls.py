@@ -46,6 +46,10 @@ urlpatterns = [
 
     path('analytics/', views.analytics, name='analytics'),
 
+    # Settings
+    path('settings/', views.settings_view, name='settings'),
+    path('settings/export/', views.export_data, name='export_data'),
+
     # React API endpoints
     path('api/react/dashboard/', views.api_dashboard, name='api_dashboard'),
     path('api/react/food-items/', views.api_food_items, name='api_food_items'),
@@ -64,4 +68,6 @@ urlpatterns = [
     path('api/react/body-measurements/', views.api_body_measurements, name='api_body_measurements'),
     path('api/react/analytics/', views.api_analytics, name='api_analytics'),
     path('api/react/top-foods/', views.api_top_foods, name='api_top_foods'),
+    path('api/react/settings/', views.api_settings, name='api_settings'),
+    path('api/react/settings/update/', views.api_update_settings, name='api_update_settings'),
 ]

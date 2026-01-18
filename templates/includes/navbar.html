@@ -53,6 +53,9 @@
         <a href="/app/" class="btn btn-primary me-2">
           <i class="fas fa-rocket me-1"></i>New Dashboard
         </a>
+        <a href="{% url 'settings' %}" class="btn btn-outline-secondary me-2 {% if '/settings/' in request.path %}active{% endif %}" title="Settings">
+          <i class="fas fa-cog"></i>
+        </a>
         <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode">
           <i class="fas fa-moon"></i>
           <i class="fas fa-sun"></i>

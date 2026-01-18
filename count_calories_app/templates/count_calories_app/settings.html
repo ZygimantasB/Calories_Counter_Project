@@ -1,0 +1,544 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Settings{% endblock %}
+
+{% block css_files %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'count_calories_app/count_calories_app.css' %}">
+  <style>
+    .settings-sidebar {
+      background: var(--card-bg);
+      border-radius: 8px;
+      padding: 1rem;
+      height: fit-content;
+      position: sticky;
+      top: 20px;
+    }
+    .settings-sidebar .nav-link {
+      color: var(--text-secondary);
+      padding: 0.75rem 1rem;
+      border-radius: 6px;
+      margin-bottom: 0.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      transition: all 0.2s;
+    }
+    .settings-sidebar .nav-link:hover {
+      background: var(--hover-bg);
+      color: var(--text-primary);
+    }
+    .settings-sidebar .nav-link.active {
+      background: var(--primary-color);
+      color: white;
+    }
+    .settings-content {
+      background: var(--card-bg);
+      border-radius: 8px;
+      padding: 1.5rem;
+    }
+    .settings-section-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 1.5rem;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .form-section {
+      margin-bottom: 2rem;
+    }
+    .form-section h6 {
+      font-weight: 600;
+      margin-bottom: 1rem;
+      color: var(--text-primary);
+    }
+    .bmr-display {
+      background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+      color: white;
+      padding: 1rem 1.5rem;
+      border-radius: 8px;
+      margin-bottom: 1.5rem;
+    }
+    .bmr-display .label {
+      font-size: 0.875rem;
+      opacity: 0.9;
+    }
+    .bmr-display .value {
+      font-size: 1.75rem;
+      font-weight: 700;
+    }
+    .export-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+      transition: all 0.2s;
+    }
+    .export-card:hover {
+      border-color: var(--primary-color);
+    }
+    .export-card .info h6 {
+      margin: 0;
+      font-weight: 600;
+    }
+    .export-card .info p {
+      margin: 0;
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+    }
+    .reminder-card {
+      background: var(--hover-bg);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-bottom: 1rem;
+    }
+    .reminder-card .form-check {
+      margin-bottom: 0.75rem;
+    }
+    .color-option {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 3px solid transparent;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .color-option:hover, .color-option.selected {
+      transform: scale(1.1);
+      border-color: var(--text-primary);
+    }
+    .color-option.blue { background: #3b82f6; }
+    .color-option.green { background: #10b981; }
+    .color-option.purple { background: #8b5cf6; }
+    .color-option.orange { background: #f97316; }
+    .color-option.pink { background: #ec4899; }
+  </style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+  <!-- Messages -->
+  {% if messages %}
+    <div class="col-12 mb-3">
+      {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <!-- Sidebar -->
+  <div class="col-md-3 mb-4">
+    <div class="settings-sidebar">
+      <h5 class="mb-3"><i class="fas fa-cog me-2"></i>Settings</h5>
+      <nav class="nav flex-column">
+        <a class="nav-link {% if section == 'profile' %}active{% endif %}" href="?section=profile">
+          <i class="fas fa-user"></i> Profile & Goals
+        </a>
+        <a class="nav-link {% if section == 'appearance' %}active{% endif %}" href="?section=appearance">
+          <i class="fas fa-palette"></i> Appearance
+        </a>
+        <a class="nav-link {% if section == 'data' %}active{% endif %}" href="?section=data">
+          <i class="fas fa-database"></i> Data Management
+        </a>
+        <a class="nav-link {% if section == 'notifications' %}active{% endif %}" href="?section=notifications">
+          <i class="fas fa-bell"></i> Notifications
+        </a>
+      </nav>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div class="col-md-9">
+    <div class="settings-content">
+
+      {% if section == 'profile' %}
+      <!-- Profile & Goals Section -->
+      <h4 class="settings-section-title"><i class="fas fa-user me-2"></i>Profile & Goals</h4>
+
+      {% if bmr %}
+      <div class="bmr-display">
+        <div class="label">Your Estimated Daily Calorie Needs (TDEE)</div>
+        <div class="value">{{ bmr }} kcal</div>
+        <small>Based on your profile and activity level</small>
+      </div>
+      {% endif %}
+
+      <form method="post" action="{% url 'settings' %}">
+        {% csrf_token %}
+        <input type="hidden" name="section" value="profile">
+
+        <div class="form-section">
+          <h6><i class="fas fa-id-card me-2"></i>Personal Info</h6>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <label class="form-label">Name</label>
+              <input type="text" class="form-control" name="name" value="{{ settings.name }}" placeholder="Your name">
+            </div>
+            <div class="col-md-3 mb-3">
+              <label class="form-label">Age</label>
+              <input type="number" class="form-control" name="age" value="{{ settings.age|default:'' }}" min="1" max="120">
+            </div>
+            <div class="col-md-3 mb-3">
+              <label class="form-label">Gender</label>
+              <select class="form-select" name="gender">
+                {% for value, label in gender_choices %}
+                <option value="{{ value }}" {% if settings.gender == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Height (cm)</label>
+              <input type="number" class="form-control" name="height" value="{{ settings.height|default:'' }}" step="0.1" min="50" max="300">
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Current Weight (kg)</label>
+              <input type="number" class="form-control" name="current_weight" value="{{ settings.current_weight|default:'' }}" step="0.1" min="20" max="500">
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Activity Level</label>
+              <select class="form-select" name="activity_level">
+                {% for value, label in activity_choices %}
+                <option value="{{ value }}" {% if settings.activity_level == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h6><i class="fas fa-bullseye me-2"></i>Fitness Goal</h6>
+          <div class="row mb-4">
+            <div class="col-md-6">
+              <label class="form-label">What's your goal?</label>
+              <select class="form-select form-select-lg" name="fitness_goal" id="fitnessGoal">
+                {% for value, label in fitness_goal_choices %}
+                <option value="{{ value }}" {% if settings.fitness_goal == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-6 d-flex align-items-end">
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" name="use_auto_macros" id="useAutoMacros" {% if settings.use_auto_macros %}checked{% endif %}>
+                <label class="form-check-label" for="useAutoMacros">
+                  <strong>Auto-calculate macros</strong> based on your goal
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {% if recommended_macros %}
+          <div class="alert alert-info mb-4" id="recommendedMacrosCard">
+            <h6 class="alert-heading"><i class="fas fa-calculator me-2"></i>Recommended for {{ settings.get_fitness_goal_display }}</h6>
+            <p class="small mb-2">{{ recommended_macros.description }}</p>
+            <div class="row text-center">
+              <div class="col-3">
+                <strong>{{ recommended_macros.calories }}</strong><br><small>Calories</small>
+              </div>
+              <div class="col-3">
+                <strong>{{ recommended_macros.protein }}g</strong><br><small>Protein</small>
+              </div>
+              <div class="col-3">
+                <strong>{{ recommended_macros.carbs }}g</strong><br><small>Carbs</small>
+              </div>
+              <div class="col-3">
+                <strong>{{ recommended_macros.fat }}g</strong><br><small>Fat</small>
+              </div>
+            </div>
+          </div>
+          {% endif %}
+
+          <h6><i class="fas fa-sliders-h me-2"></i>Custom Targets</h6>
+          <div class="row">
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Daily Calorie Target</label>
+              <input type="number" class="form-control" name="daily_calorie_target" value="{{ settings.daily_calorie_target }}" min="500" max="10000" {% if settings.use_auto_macros %}disabled{% endif %}>
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Target Weight (kg)</label>
+              <input type="number" class="form-control" name="target_weight" value="{{ settings.target_weight|default:'' }}" step="0.1" min="20" max="500">
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Weekly Workout Goal</label>
+              <input type="number" class="form-control" name="weekly_workout_goal" value="{{ settings.weekly_workout_goal }}" min="0" max="14">
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section" id="macroTargetsSection">
+          <h6><i class="fas fa-chart-pie me-2"></i>Macro Targets (Daily) {% if settings.use_auto_macros %}<span class="badge bg-info ms-2">Auto</span>{% endif %}</h6>
+          <div class="row">
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Protein (g)</label>
+              <input type="number" class="form-control macro-input" name="protein_target" value="{{ settings.protein_target }}" min="0" max="500" {% if settings.use_auto_macros %}disabled{% endif %}>
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Carbohydrates (g)</label>
+              <input type="number" class="form-control macro-input" name="carbs_target" value="{{ settings.carbs_target }}" min="0" max="1000" {% if settings.use_auto_macros %}disabled{% endif %}>
+            </div>
+            <div class="col-md-4 mb-3">
+              <label class="form-label">Fat (g)</label>
+              <input type="number" class="form-control macro-input" name="fat_target" value="{{ settings.fat_target }}" min="0" max="500" {% if settings.use_auto_macros %}disabled{% endif %}>
+            </div>
+          </div>
+          {% if settings.use_auto_macros %}
+          <small class="text-muted"><i class="fas fa-info-circle me-1"></i>Macro targets are auto-calculated based on your fitness goal. Disable auto-calculation to set custom values.</small>
+          {% endif %}
+        </div>
+
+        <button type="submit" class="btn btn-primary">
+          <i class="fas fa-save me-2"></i>Save Profile
+        </button>
+      </form>
+
+      {% elif section == 'appearance' %}
+      <!-- Appearance Section -->
+      <h4 class="settings-section-title"><i class="fas fa-palette me-2"></i>Appearance</h4>
+
+      <form method="post" action="{% url 'settings' %}">
+        {% csrf_token %}
+        <input type="hidden" name="section" value="appearance">
+
+        <div class="form-section">
+          <h6><i class="fas fa-moon me-2"></i>Theme</h6>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <select class="form-select" name="theme" id="themeSelect">
+                {% for value, label in theme_choices %}
+                <option value="{{ value }}" {% if settings.theme == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+              <small class="text-muted">Changes apply after saving</small>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h6><i class="fas fa-chart-bar me-2"></i>Chart Color</h6>
+          <div class="d-flex gap-3 mb-3">
+            {% for value, label in chart_color_choices %}
+            <label class="color-option {{ value }} {% if settings.chart_color == value %}selected{% endif %}" title="{{ label }}">
+              <input type="radio" name="chart_color" value="{{ value }}" {% if settings.chart_color == value %}checked{% endif %} style="display: none;">
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="form-section">
+          <h6><i class="fas fa-calendar me-2"></i>Default Date Range for Analytics</h6>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <select class="form-select" name="default_date_range">
+                {% for value, label in date_range_choices %}
+                <option value="{{ value }}" {% if settings.default_date_range == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">
+          <i class="fas fa-save me-2"></i>Save Appearance
+        </button>
+      </form>
+
+      {% elif section == 'data' %}
+      <!-- Data Management Section -->
+      <h4 class="settings-section-title"><i class="fas fa-database me-2"></i>Data Management</h4>
+
+      <div class="form-section">
+        <h6><i class="fas fa-download me-2"></i>Export Your Data</h6>
+        <p class="text-muted mb-3">Download your data in CSV or JSON format for backup or analysis.</p>
+
+        <div class="export-card">
+          <div class="info">
+            <h6><i class="fas fa-utensils me-2"></i>Food Log</h6>
+            <p>All your food entries with nutritional information</p>
+          </div>
+          <a href="{% url 'export_data' %}?type=food&format=csv" class="btn btn-outline-primary btn-sm">
+            <i class="fas fa-download me-1"></i>Export CSV
+          </a>
+        </div>
+
+        <div class="export-card">
+          <div class="info">
+            <h6><i class="fas fa-weight me-2"></i>Weight History</h6>
+            <p>All your weight measurements over time</p>
+          </div>
+          <a href="{% url 'export_data' %}?type=weight&format=csv" class="btn btn-outline-primary btn-sm">
+            <i class="fas fa-download me-1"></i>Export CSV
+          </a>
+        </div>
+
+        <div class="export-card">
+          <div class="info">
+            <h6><i class="fas fa-dumbbell me-2"></i>Workout History</h6>
+            <p>All your workouts with exercises, sets, and reps</p>
+          </div>
+          <a href="{% url 'export_data' %}?type=workout&format=csv" class="btn btn-outline-primary btn-sm">
+            <i class="fas fa-download me-1"></i>Export CSV
+          </a>
+        </div>
+
+        <div class="export-card">
+          <div class="info">
+            <h6><i class="fas fa-running me-2"></i>Running Sessions</h6>
+            <p>All your runs with distance and duration</p>
+          </div>
+          <a href="{% url 'export_data' %}?type=running&format=csv" class="btn btn-outline-primary btn-sm">
+            <i class="fas fa-download me-1"></i>Export CSV
+          </a>
+        </div>
+
+        <div class="export-card">
+          <div class="info">
+            <h6><i class="fas fa-ruler me-2"></i>Body Measurements</h6>
+            <p>All your body measurement records</p>
+          </div>
+          <a href="{% url 'export_data' %}?type=body&format=csv" class="btn btn-outline-primary btn-sm">
+            <i class="fas fa-download me-1"></i>Export CSV
+          </a>
+        </div>
+
+        <div class="export-card" style="background: linear-gradient(135deg, var(--primary-color), var(--primary-dark)); color: white;">
+          <div class="info">
+            <h6 style="color: white;"><i class="fas fa-file-archive me-2"></i>Export All Data</h6>
+            <p style="color: rgba(255,255,255,0.8);">Complete backup of all your data in JSON format</p>
+          </div>
+          <a href="{% url 'export_data' %}?type=all&format=json" class="btn btn-light btn-sm">
+            <i class="fas fa-download me-1"></i>Export JSON
+          </a>
+        </div>
+      </div>
+
+      {% elif section == 'notifications' %}
+      <!-- Notifications Section -->
+      <h4 class="settings-section-title"><i class="fas fa-bell me-2"></i>Notification Preferences</h4>
+      <p class="text-muted mb-4">Set up reminder preferences for future mobile app integration.</p>
+
+      <form method="post" action="{% url 'settings' %}">
+        {% csrf_token %}
+        <input type="hidden" name="section" value="notifications">
+
+        <div class="reminder-card">
+          <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" name="meal_reminder_enabled" id="mealReminder" {% if settings.meal_reminder_enabled %}checked{% endif %}>
+            <label class="form-check-label fw-bold" for="mealReminder">
+              <i class="fas fa-utensils me-2"></i>Meal Logging Reminders
+            </label>
+          </div>
+          <div class="row" id="mealReminderTimes">
+            <div class="col-md-4 mb-2">
+              <label class="form-label small">Breakfast</label>
+              <input type="time" class="form-control form-control-sm" name="meal_reminder_times" value="{% if settings.meal_reminder_times %}{{ settings.meal_reminder_times.0 }}{% else %}08:00{% endif %}">
+            </div>
+            <div class="col-md-4 mb-2">
+              <label class="form-label small">Lunch</label>
+              <input type="time" class="form-control form-control-sm" name="meal_reminder_times" value="{% if settings.meal_reminder_times|length > 1 %}{{ settings.meal_reminder_times.1 }}{% else %}12:00{% endif %}">
+            </div>
+            <div class="col-md-4 mb-2">
+              <label class="form-label small">Dinner</label>
+              <input type="time" class="form-control form-control-sm" name="meal_reminder_times" value="{% if settings.meal_reminder_times|length > 2 %}{{ settings.meal_reminder_times.2 }}{% else %}18:00{% endif %}">
+            </div>
+          </div>
+        </div>
+
+        <div class="reminder-card">
+          <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" name="workout_reminder_enabled" id="workoutReminder" {% if settings.workout_reminder_enabled %}checked{% endif %}>
+            <label class="form-check-label fw-bold" for="workoutReminder">
+              <i class="fas fa-dumbbell me-2"></i>Workout Reminders
+            </label>
+          </div>
+          <div class="row">
+            <div class="col-md-4 mb-2">
+              <label class="form-label small">Reminder Time</label>
+              <input type="time" class="form-control form-control-sm" name="workout_reminder_time" value="{{ settings.workout_reminder_time|default:'17:00' }}">
+            </div>
+            <div class="col-md-8 mb-2">
+              <label class="form-label small">Reminder Days</label>
+              <div class="d-flex flex-wrap gap-2">
+                {% for value, label in weekdays %}
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="workout_reminder_days" value="{{ value }}" id="day_{{ value }}" {% if value in settings.workout_reminder_days %}checked{% endif %}>
+                  <label class="form-check-label small" for="day_{{ value }}">{{ label|slice:":3" }}</label>
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="reminder-card">
+          <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" name="weight_reminder_enabled" id="weightReminder" {% if settings.weight_reminder_enabled %}checked{% endif %}>
+            <label class="form-check-label fw-bold" for="weightReminder">
+              <i class="fas fa-weight me-2"></i>Weight Logging Reminder
+            </label>
+          </div>
+          <div class="row">
+            <div class="col-md-4">
+              <label class="form-label small">Reminder Time</label>
+              <input type="time" class="form-control form-control-sm" name="weight_reminder_time" value="{{ settings.weight_reminder_time|default:'07:00' }}">
+            </div>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">
+          <i class="fas fa-save me-2"></i>Save Notifications
+        </button>
+      </form>
+      {% endif %}
+
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block js_files %}
+  {{ block.super }}
+  <script>
+    // Color picker selection
+    document.querySelectorAll('.color-option').forEach(option => {
+      option.addEventListener('click', function() {
+        document.querySelectorAll('.color-option').forEach(o => o.classList.remove('selected'));
+        this.classList.add('selected');
+        this.querySelector('input').checked = true;
+      });
+    });
+
+    // Theme preview (optional - apply immediately)
+    document.getElementById('themeSelect')?.addEventListener('change', function() {
+      const theme = this.value;
+      if (theme === 'auto') {
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.setAttribute('data-theme', prefersDark ? 'dark' : 'light');
+      } else {
+        document.documentElement.setAttribute('data-theme', theme);
+      }
+    });
+
+    // Auto-macros toggle
+    document.getElementById('useAutoMacros')?.addEventListener('change', function() {
+      const macroInputs = document.querySelectorAll('.macro-input');
+      const calorieInput = document.querySelector('input[name="daily_calorie_target"]');
+      const isAuto = this.checked;
+
+      macroInputs.forEach(input => {
+        input.disabled = isAuto;
+      });
+      if (calorieInput) {
+        calorieInput.disabled = isAuto;
+      }
+    });
+  </script>
+{% endblock %}

@@ -24,6 +24,7 @@ const navigation = [
   { name: 'Body Measurements', href: '/body-measurements', icon: Ruler },
   { name: 'Analytics', href: '/analytics', icon: BarChart3 },
   { name: 'Top Foods', href: '/top-foods', icon: Trophy },
+  { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
 export default function Sidebar() {

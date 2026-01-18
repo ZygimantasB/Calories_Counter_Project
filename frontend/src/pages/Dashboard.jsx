@@ -13,6 +13,10 @@ import {
   Target,
   Zap,
   Utensils,
+  AlertTriangle,
+  AlertCircle,
+  Info,
+  X,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -45,6 +49,7 @@ export default function Dashboard() {
   const [caloriesData, setCaloriesData] = useState([]);
   const [error, setError] = useState(null);
   const [timeRange, setTimeRange] = useState('month');
+  const [dismissedWarnings, setDismissedWarnings] = useState([]);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -52,13 +57,20 @@ export default function Dashboard() {
         setLoading(true);
         const daysMap = { week: 7, month: 30, '3months': 90, '6months': 180, year: 365, all: 'all' };
         const days = daysMap[timeRange] || 30;
-        // Fetch calories trend
-        const caloriesTrend = await foodApi.getCaloriesTrend(days);
+
+        // Fetch dashboard data and calories trend in parallel
+        const [dashboard, caloriesTrend] = await Promise.all([
+          foodApi.getDashboard(),
+          foodApi.getCaloriesTrend(days),
+        ]);
+
+        setDashboardData(dashboard);
+
         if (caloriesTrend && caloriesTrend.data) {
           setCaloriesData(caloriesTrend.data.map(item => ({
             date: item.date,
             calories: item.calories,
-            target: 2500,
+            target: dashboard?.goals?.daily_calories || 2500,
           })));
         }
         setLoading(false);
@@ -71,30 +83,55 @@ export default function Dashboard() {
     fetchDashboardData();
   }, [timeRange]);
 
-  // Mock data for now - will be replaced with real API data
+  // Use real data from API or fallback to defaults
   const todayStats = {
-    calories: 1850,
-    caloriesTarget: 2500,
-    protein: 95,
-    proteinTarget: 150,
-    carbs: 180,
-    carbsTarget: 300,
-    fat: 55,
-    fatTarget: 70,
+    calories: dashboardData?.today?.calories || 0,
+    caloriesTarget: dashboardData?.goals?.daily_calories || 2500,
+    protein: dashboardData?.today?.protein || 0,
+    proteinTarget: dashboardData?.goals?.daily_protein || 150,
+    carbs: dashboardData?.today?.carbs || 0,
+    carbsTarget: dashboardData?.goals?.daily_carbs || 300,
+    fat: dashboardData?.today?.fat || 0,
+    fatTarget: dashboardData?.goals?.daily_fat || 70,
   };
 
   const weeklyStats = {
-    workouts: 3,
-    runs: 2,
-    avgCalories: 2150,
-    daysLogged: 5,
+    workouts: dashboardData?.week?.workouts || 0,
+    runs: dashboardData?.week?.runs || 0,
+    avgCalories: Math.round((dashboardData?.week?.calories || 0) / 7),
+    daysLogged: dashboardData?.today?.count || 0,
   };
 
-  const mockRecentMeals = [
-    { id: 1, name: 'Grilled Chicken Salad', calories: 450, time: '12:30 PM' },
-    { id: 2, name: 'Protein Shake', calories: 280, time: '10:00 AM' },
-    { id: 3, name: 'Oatmeal with Berries', calories: 350, time: '8:00 AM' },
-  ];
+  const warnings = (dashboardData?.warnings || []).filter(
+    w => !dismissedWarnings.includes(w.type)
+  );
+
+  const recentMeals = (dashboardData?.recent_foods || []).map(food => ({
+    id: food.id,
+    name: food.product_name,
+    calories: food.calories,
+    time: food.consumed_at ? format(new Date(food.consumed_at), 'h:mm a') : '',
+  }));
+
+  const dismissWarning = (type) => {
+    setDismissedWarnings(prev => [...prev, type]);
+  };
+
+  const getWarningIcon = (severity) => {
+    switch (severity) {
+      case 'error': return AlertCircle;
+      case 'warning': return AlertTriangle;
+      default: return Info;
+    }
+  };
+
+  const getWarningStyles = (severity) => {
+    switch (severity) {
+      case 'error': return 'bg-red-500/10 border-red-500/30 text-red-400';
+      case 'warning': return 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400';
+      default: return 'bg-blue-500/10 border-blue-500/30 text-blue-400';
+    }
+  };
 
   const macrosPieData = [
     { name: 'Protein', value: todayStats.protein * 4, color: CHART_COLORS.protein },
@@ -158,15 +195,69 @@ export default function Dashboard() {
               </button>
             ))}
           </div>
-          <Badge className="bg-green-500/20 text-green-400 border-0 px-3 py-1">
-            <Zap className="w-3.5 h-3.5 mr-1" />
-            5 day streak
-          </Badge>
+          {dashboardData?.streak > 0 && (
+            <Badge className="bg-green-500/20 text-green-400 border-0 px-3 py-1">
+              <Zap className="w-3.5 h-3.5 mr-1" />
+              {dashboardData.streak} day streak
+            </Badge>
+          )}
           <span className="text-sm text-gray-500">
             {format(new Date(), 'EEEE, MMMM d')}
           </span>
         </div>
       </div>
+
+      {/* Macro Warnings */}
+      {warnings.length > 0 && (
+        <div className="space-y-3">
+          {warnings.map((warning) => {
+            const WarningIcon = getWarningIcon(warning.severity);
+            return (
+              <div
+                key={warning.type}
+                className={`flex items-center justify-between p-4 rounded-xl border ${getWarningStyles(warning.severity)}`}
+              >
+                <div className="flex items-center gap-3">
+                  <WarningIcon className="w-5 h-5 flex-shrink-0" />
+                  <div>
+                    <p className="font-medium">{warning.message}</p>
+                    <p className="text-sm opacity-80">
+                      Current: {warning.current} / Target: {warning.target}
+                      {warning.type !== 'calories' && 'g'}
+                      {warning.type === 'calories' && ' kcal'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => dismissWarning(warning.type)}
+                  className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Fitness Goal Badge */}
+      {dashboardData?.goals?.fitness_goal && (
+        <div className="flex items-center gap-2">
+          <Badge className={`px-3 py-1.5 border-0 ${
+            dashboardData.goals.fitness_goal === 'bulk'
+              ? 'bg-green-500/20 text-green-400'
+              : dashboardData.goals.fitness_goal === 'cut'
+              ? 'bg-orange-500/20 text-orange-400'
+              : 'bg-blue-500/20 text-blue-400'
+          }`}>
+            {dashboardData.goals.fitness_goal === 'bulk' ? '💪 Bulking' :
+             dashboardData.goals.fitness_goal === 'cut' ? '🔥 Cutting' : '⚖️ Maintaining'}
+          </Badge>
+          {dashboardData.goals.is_auto && (
+            <span className="text-xs text-gray-500">Auto-calculated macros active</span>
+          )}
+        </div>
+      )}
 
       {/* Today's Progress Card */}
       <Card className="bg-gradient-to-br from-primary-600 to-primary-700 border-0 text-white">
@@ -237,12 +328,14 @@ export default function Dashboard() {
         />
         <StatCard
           title="Current Weight"
-          value="75.5 kg"
-          subtitle="Lost 0.5kg this week"
+          value={dashboardData?.weight?.current ? `${dashboardData.weight.current} kg` : '--'}
+          subtitle={dashboardData?.weight?.change
+            ? `${dashboardData.weight.change > 0 ? 'Gained' : 'Lost'} ${Math.abs(dashboardData.weight.change)}kg this week`
+            : 'No previous data'}
           icon={Scale}
           color="blue"
-          trend="down"
-          trendValue="-0.7%"
+          trend={dashboardData?.weight?.change ? (dashboardData.weight.change > 0 ? 'up' : 'down') : undefined}
+          trendValue={dashboardData?.weight?.change ? `${dashboardData.weight.change > 0 ? '+' : ''}${dashboardData.weight.change}kg` : undefined}
         />
         <StatCard
           title="Workouts"
@@ -363,27 +456,34 @@ export default function Dashboard() {
         {/* Recent Meals */}
         <Card title="Recent Meals" subtitle="Today's food log">
           <div className="space-y-3">
-            {mockRecentMeals.map((meal) => (
-              <div
-                key={meal.id}
-                className="flex items-center justify-between p-3 rounded-lg bg-gray-700/50 hover:bg-gray-700 transition-colors"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center">
-                    <Utensils className="w-5 h-5 text-white" />
+            {recentMeals.length > 0 ? (
+              recentMeals.map((meal) => (
+                <div
+                  key={meal.id}
+                  className="flex items-center justify-between p-3 rounded-lg bg-gray-700/50 hover:bg-gray-700 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center">
+                      <Utensils className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-100">{meal.name}</p>
+                      <p className="text-sm text-gray-500">{meal.time}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium text-gray-100">{meal.name}</p>
-                    <p className="text-sm text-gray-500">{meal.time}</p>
+                  <div className="text-right">
+                    <p className="font-semibold text-gray-100">
+                      {meal.calories} kcal
+                    </p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="font-semibold text-gray-100">
-                    {meal.calories} kcal
-                  </p>
-                </div>
+              ))
+            ) : (
+              <div className="text-center py-6 text-gray-500">
+                <Utensils className="w-10 h-10 mx-auto mb-2 opacity-50" />
+                <p>No meals logged yet today</p>
               </div>
-            ))}
+            )}
           </div>
           <a
             href="/app/food"
@@ -406,11 +506,13 @@ export default function Dashboard() {
                     Weekly Workouts
                   </span>
                 </div>
-                <Badge className="bg-green-500/20 text-green-400 border-0">3/4</Badge>
+                <Badge className="bg-green-500/20 text-green-400 border-0">
+                  {weeklyStats.workouts}/{dashboardData?.goals?.weekly_workouts || 4}
+                </Badge>
               </div>
               <ProgressBar
-                value={3}
-                max={4}
+                value={weeklyStats.workouts}
+                max={dashboardData?.goals?.weekly_workouts || 4}
                 color="green"
                 showValue={false}
                 size="lg"
@@ -424,11 +526,13 @@ export default function Dashboard() {
                   </div>
                   <span className="font-medium text-gray-100">Weekly Runs</span>
                 </div>
-                <Badge className="bg-blue-500/20 text-blue-400 border-0">1/2</Badge>
+                <Badge className="bg-blue-500/20 text-blue-400 border-0">
+                  {weeklyStats.runs}/{dashboardData?.goals?.weekly_runs || 2}
+                </Badge>
               </div>
               <ProgressBar
-                value={1}
-                max={2}
+                value={weeklyStats.runs}
+                max={dashboardData?.goals?.weekly_runs || 2}
                 color="blue"
                 showValue={false}
                 size="lg"
@@ -441,18 +545,14 @@ export default function Dashboard() {
                     <Target className="w-4 h-4 text-white" />
                   </div>
                   <span className="font-medium text-gray-100">
-                    Calorie Goal Days
+                    Today&apos;s Meals Logged
                   </span>
                 </div>
-                <Badge className="bg-purple-500/20 text-purple-400 border-0">5/7</Badge>
+                <Badge className="bg-purple-500/20 text-purple-400 border-0">{dashboardData?.today?.count || 0}</Badge>
               </div>
-              <ProgressBar
-                value={5}
-                max={7}
-                color="purple"
-                showValue={false}
-                size="lg"
-              />
+              <p className="text-sm text-gray-400">
+                You&apos;ve logged {dashboardData?.today?.count || 0} meals today
+              </p>
             </div>
           </div>
         </Card>
