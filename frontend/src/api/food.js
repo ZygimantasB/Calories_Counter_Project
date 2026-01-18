@@ -37,6 +37,14 @@ export const foodApi = {
     return response.data;
   },
 
+  // Search all foods in database
+  searchAllFoods: async (query = '', limit = 20) => {
+    const response = await apiClient.get('/api/react/search-foods/', {
+      params: { q: query, limit },
+    });
+    return response.data;
+  },
+
   // Get top foods
   getTopFoods: async (params = {}) => {
     const response = await apiClient.get('/api/react/top-foods/', { params });

@@ -53,6 +53,7 @@ urlpatterns = [
     path('api/react/food-items/<int:food_id>/update/', views.api_update_food, name='api_update_food'),
     path('api/react/food-items/<int:food_id>/delete/', views.api_delete_food, name='api_delete_food'),
     path('api/react/quick-add-foods/', views.api_quick_add_foods, name='api_quick_add_foods'),
+    path('api/react/search-foods/', views.api_search_all_foods, name='api_search_all_foods'),
     path('api/react/weight-items/', views.api_weight_items, name='api_weight_items'),
     path('api/react/weight-items/add/', views.api_add_weight, name='api_add_weight'),
     path('api/react/weight-items/<int:weight_id>/delete/', views.api_delete_weight, name='api_delete_weight'),

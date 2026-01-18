@@ -69,6 +69,12 @@ export default function FoodTracker() {
   const [addLoading, setAddLoading] = useState(false);
   const [filterQuery, setFilterQuery] = useState('');
 
+  // Database search states
+  const [dbSearchQuery, setDbSearchQuery] = useState('');
+  const [dbSearchResults, setDbSearchResults] = useState([]);
+  const [dbSearchLoading, setDbSearchLoading] = useState(false);
+  const [showDbSearch, setShowDbSearch] = useState(false);
+
   // Targets (can be made dynamic later)
   const targets = {
     calories: 2500,
@@ -110,6 +116,59 @@ export default function FoodTracker() {
   useEffect(() => {
     fetchQuickAddFoods();
   }, []);
+
+  // Database search function
+  const handleDbSearch = async (query) => {
+    setDbSearchQuery(query);
+    try {
+      setDbSearchLoading(true);
+      const response = await foodApi.searchAllFoods(query, 15);
+      setDbSearchResults(response.results || []);
+    } catch (err) {
+      console.error('Error searching foods:', err);
+    } finally {
+      setDbSearchLoading(false);
+    }
+  };
+
+  // Quick add from database search
+  const handleDbQuickAdd = async (food) => {
+    try {
+      await foodApi.addFood({
+        name: food.name,
+        calories: food.calories || 0,
+        protein: food.protein || 0,
+        carbs: food.carbs || 0,
+        fat: food.fat || 0,
+        weight: 100,
+        date: format(selectedDate, 'yyyy-MM-dd'),
+      });
+      fetchFoodItems();
+    } catch (err) {
+      console.error('Error adding food:', err);
+    }
+  };
+
+  // Edit from database search - opens form with prefilled values
+  const handleDbEditAdd = (food) => {
+    setNewFood({
+      name: food.name,
+      calories: food.calories?.toString() || '',
+      protein: food.protein?.toString() || '',
+      carbs: food.carbs?.toString() || '',
+      fat: food.fat?.toString() || '',
+      weight: '100',
+      date: format(selectedDate, 'yyyy-MM-dd'),
+    });
+    setShowAddModal(true);
+  };
+
+  // Load initial database results when search panel opens
+  useEffect(() => {
+    if (showDbSearch && dbSearchResults.length === 0) {
+      handleDbSearch('');
+    }
+  }, [showDbSearch]);
 
   // Calculate totals
   const totals = foodItems.reduce(
@@ -315,13 +374,112 @@ export default function FoodTracker() {
             Track your daily nutrition intake
           </p>
         </div>
-        <Button
-          icon={Plus}
-          onClick={() => setShowAddModal(true)}
-        >
-          Add Food
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant={showDbSearch ? 'primary' : 'ghost'}
+            icon={Search}
+            onClick={() => setShowDbSearch(!showDbSearch)}
+          >
+            {showDbSearch ? 'Close Search' : 'Search Foods'}
+          </Button>
+          <Button
+            icon={Plus}
+            onClick={() => setShowAddModal(true)}
+          >
+            Add Food
+          </Button>
+        </div>
       </div>
+
+      {/* Database Search Section */}
+      {showDbSearch && (
+        <Card className="border-2 border-primary-500/50">
+          <div className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search all your foods..."
+                value={dbSearchQuery}
+                onChange={(e) => handleDbSearch(e.target.value)}
+                className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-600 bg-gray-700 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500 text-lg"
+                autoFocus
+              />
+              {dbSearchLoading && (
+                <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-primary-500 animate-spin" />
+              )}
+            </div>
+
+            {/* Search Results */}
+            <div className="max-h-80 overflow-y-auto">
+              {dbSearchResults.length > 0 ? (
+                <div className="space-y-2">
+                  {dbSearchResults.map((food, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-3 rounded-lg bg-gray-700/50 hover:bg-gray-700 transition-colors"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-gray-100 truncate">
+                          {food.name}
+                        </div>
+                        <div className="text-sm text-gray-400">
+                          {food.calories} kcal · P: {food.protein}g · C: {food.carbs}g · F: {food.fat}g
+                        </div>
+                        {food.count > 1 && (
+                          <div className="text-xs text-gray-500">
+                            Logged {food.count} times
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2 ml-4">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => handleDbEditAdd(food)}
+                        >
+                          <Edit2 className="w-4 h-4 mr-1" />
+                          Edit
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => handleDbQuickAdd(food)}
+                        >
+                          <Plus className="w-4 h-4 mr-1" />
+                          Add
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : dbSearchQuery && !dbSearchLoading ? (
+                <div className="text-center py-8 text-gray-500">
+                  <p>No foods found for "{dbSearchQuery}"</p>
+                  <Button
+                    variant="ghost"
+                    icon={Plus}
+                    onClick={() => {
+                      setNewFood({
+                        ...newFood,
+                        name: dbSearchQuery,
+                        date: format(selectedDate, 'yyyy-MM-dd'),
+                      });
+                      setShowAddModal(true);
+                    }}
+                    className="mt-4"
+                  >
+                    Add "{dbSearchQuery}" as new food
+                  </Button>
+                </div>
+              ) : !dbSearchLoading ? (
+                <div className="text-center py-4 text-gray-500">
+                  <p>Type to search your food history</p>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Date Selector */}
       <div className="flex flex-col items-center gap-3">
@@ -520,7 +678,9 @@ export default function FoodTracker() {
                       {food.name}
                     </div>
                     <div className="text-xs text-gray-500 mt-1">{food.calories} kcal</div>
-                    <div className="text-xs text-gray-600">{food.weight}g</div>
+                    <div className="text-xs text-gray-600">
+                      P: {food.protein}g · C: {food.carbs}g · F: {food.fat}g
+                    </div>
                   </button>
                 ))}
               </div>

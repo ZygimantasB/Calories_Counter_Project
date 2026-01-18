@@ -3228,7 +3228,7 @@ def api_food_items(request):
         items.append({
             'id': item.id,
             'name': item.product_name,
-            'calories': item.calories,
+            'calories': float(item.calories) if item.calories else 0,
             'protein': float(item.protein) if item.protein else 0,
             'carbs': float(item.carbohydrates) if item.carbohydrates else 0,
             'fat': float(item.fat) if item.fat else 0,
@@ -3248,10 +3248,10 @@ def api_food_items(request):
     return JsonResponse({
         'items': items,
         'totals': {
-            'calories': totals['calories'] or 0,
-            'protein': round(totals['protein'] or 0, 1),
-            'carbs': round(totals['carbs'] or 0, 1),
-            'fat': round(totals['fat'] or 0, 1),
+            'calories': float(totals['calories']) if totals['calories'] else 0,
+            'protein': round(float(totals['protein']) if totals['protein'] else 0, 1),
+            'carbs': round(float(totals['carbs']) if totals['carbs'] else 0, 1),
+            'fat': round(float(totals['fat']) if totals['fat'] else 0, 1),
             'count': totals['count'] or 0,
         },
         'pagination': {
@@ -3268,14 +3268,27 @@ def api_food_items(request):
 def api_add_food(request):
     """Add a new food item via API"""
     try:
+        from datetime import datetime
         data = json.loads(request.body)
+
+        # Handle date parameter (YYYY-MM-DD format from frontend)
+        consumed_at = timezone.now()
+        if data.get('date'):
+            try:
+                date_obj = datetime.strptime(data['date'], '%Y-%m-%d').date()
+                consumed_at = timezone.make_aware(datetime.combine(date_obj, datetime.now().time()))
+            except ValueError:
+                pass
+        elif data.get('consumed_at'):
+            consumed_at = data['consumed_at']
+
         food_item = FoodItem.objects.create(
             product_name=data.get('name', ''),
             calories=data.get('calories', 0),
             protein=data.get('protein', 0),
             carbohydrates=data.get('carbs', 0),
             fat=data.get('fat', 0),
-            consumed_at=timezone.now() if not data.get('consumed_at') else data.get('consumed_at'),
+            consumed_at=consumed_at,
         )
         return JsonResponse({
             'success': True,
@@ -3350,6 +3363,55 @@ def api_quick_add_foods(request):
 
     return JsonResponse({
         'foods': foods
+    })
+
+
+@require_http_methods(["GET"])
+def api_search_all_foods(request):
+    """Search all foods in database by name for React frontend"""
+    query = request.GET.get('q', '').strip()
+    limit = int(request.GET.get('limit', 20))
+
+    if not query:
+        # Return most frequently logged foods if no query
+        foods = FoodItem.objects.values('product_name').annotate(
+            count=Count('id'),
+            avg_calories=Avg('calories'),
+            avg_protein=Avg('protein'),
+            avg_carbs=Avg('carbohydrates'),
+            avg_fat=Avg('fat'),
+            last_used=Max('consumed_at'),
+        ).order_by('-count')[:limit]
+    else:
+        # Search by name (case-insensitive)
+        foods = FoodItem.objects.filter(
+            product_name__icontains=query
+        ).values('product_name').annotate(
+            count=Count('id'),
+            avg_calories=Avg('calories'),
+            avg_protein=Avg('protein'),
+            avg_carbs=Avg('carbohydrates'),
+            avg_fat=Avg('fat'),
+            last_used=Max('consumed_at'),
+        ).order_by('-count')[:limit]
+
+    # Transform to frontend-expected format
+    results = []
+    for food in foods:
+        results.append({
+            'name': food['product_name'],
+            'calories': round(food['avg_calories'] or 0),
+            'protein': round(food['avg_protein'] or 0, 1),
+            'carbs': round(food['avg_carbs'] or 0, 1),
+            'fat': round(food['avg_fat'] or 0, 1),
+            'count': food['count'],
+            'last_used': food['last_used'].isoformat() if food['last_used'] else None,
+        })
+
+    return JsonResponse({
+        'results': results,
+        'query': query,
+        'total': len(results),
     })
 
 
