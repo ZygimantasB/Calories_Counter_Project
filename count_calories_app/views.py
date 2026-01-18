@@ -279,9 +279,9 @@ def food_tracker(request):
     date_range_selected = False
     show_averages = False
 
-    # Default to 90 days if no parameters specified
+    # Default to today if no parameters specified
     if not time_range and not selected_date_str and not start_date_str and not days_param:
-        days_param = '90'
+        time_range = 'today'
 
     current_days = days_param if days_param else None
 
