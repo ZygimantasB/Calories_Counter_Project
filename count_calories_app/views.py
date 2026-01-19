@@ -965,9 +965,21 @@ def get_calories_trend_data(request):
         total_calories=Sum('calories')
     ).order_by('day')
 
+    # Build response with both formats for compatibility
+    daily_list = list(daily_calories)
+
     calories_data = {
-        'labels': [item['day'].strftime('%Y-%m-%d') for item in daily_calories],
-        'data': [float(item['total_calories']) for item in daily_calories]
+        # Format for Django Chart.js templates (labels + data arrays)
+        'labels': [item['day'].strftime('%Y-%m-%d') for item in daily_list],
+        'data': [float(item['total_calories']) for item in daily_list],
+        # Format for React frontend (array of objects)
+        'trend': [
+            {
+                'date': item['day'].strftime('%b %d'),
+                'calories': float(item['total_calories'])
+            }
+            for item in daily_list
+        ],
     }
 
     return JsonResponse(calories_data)

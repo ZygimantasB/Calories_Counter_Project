@@ -66,10 +66,18 @@ export default function Dashboard() {
 
         setDashboardData(dashboard);
 
-        if (caloriesTrend && caloriesTrend.data) {
-          setCaloriesData(caloriesTrend.data.map(item => ({
+        // Use 'trend' array for React format, fallback to building from labels/data arrays
+        if (caloriesTrend && caloriesTrend.trend && caloriesTrend.trend.length > 0) {
+          setCaloriesData(caloriesTrend.trend.map(item => ({
             date: item.date,
             calories: item.calories,
+            target: dashboard?.goals?.daily_calories || 2500,
+          })));
+        } else if (caloriesTrend && caloriesTrend.labels && caloriesTrend.data) {
+          // Fallback: build from labels + data arrays
+          setCaloriesData(caloriesTrend.labels.map((label, index) => ({
+            date: label,
+            calories: caloriesTrend.data[index] || 0,
             target: dashboard?.goals?.daily_calories || 2500,
           })));
         }
