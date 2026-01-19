@@ -12,7 +12,12 @@ def serve_react_app(request):
     react_index_path = os.path.join(settings.BASE_DIR, 'static', 'react', 'index.html')
     try:
         with open(react_index_path, 'r', encoding='utf-8') as f:
-            return HttpResponse(f.read(), content_type='text/html')
+            response = HttpResponse(f.read(), content_type='text/html')
+            # Prevent caching to ensure latest build is served
+            response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            response['Pragma'] = 'no-cache'
+            response['Expires'] = '0'
+            return response
     except FileNotFoundError:
         return HttpResponse(
             '<h1>React app not built</h1><p>Run "npm run build" in the frontend folder.</p>',

@@ -16,6 +16,7 @@ import {
   Loader2,
   Check,
   AlertCircle,
+  Calendar,
 } from 'lucide-react';
 import {
   PieChart,
@@ -511,18 +512,30 @@ export default function FoodTracker() {
           >
             <ChevronLeft className="w-5 h-5" />
           </button>
-          <div className="text-center min-w-[160px]">
-            <h2 className="text-lg font-semibold text-gray-100">
-              {isToday(selectedDate) ? 'Today' : format(selectedDate, 'EEEE')}
-            </h2>
-            <p className="text-sm text-gray-500">
-              {format(selectedDate, 'MMMM d, yyyy')}
-            </p>
+          <div className="text-center min-w-[160px] relative">
+            <label className="cursor-pointer group">
+              <input
+                type="date"
+                value={format(selectedDate, 'yyyy-MM-dd')}
+                onChange={(e) => {
+                  if (e.target.value) {
+                    setSelectedDate(new Date(e.target.value + 'T12:00:00'));
+                  }
+                }}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+              />
+              <h2 className="text-lg font-semibold text-gray-100 group-hover:text-primary-400 transition-colors flex items-center justify-center gap-2">
+                {isToday(selectedDate) ? 'Today' : format(selectedDate, 'EEEE')}
+                <Calendar className="w-4 h-4 opacity-50 group-hover:opacity-100" />
+              </h2>
+              <p className="text-sm text-gray-500 group-hover:text-gray-400">
+                {format(selectedDate, 'MMMM d, yyyy')}
+              </p>
+            </label>
           </div>
           <button
             onClick={() => handleDateChange('next')}
-            className="p-2 rounded-lg hover:bg-gray-700 text-gray-400 transition-colors disabled:opacity-50"
-            disabled={isToday(selectedDate)}
+            className="p-2 rounded-lg hover:bg-gray-700 text-gray-400 transition-colors"
           >
             <ChevronRight className="w-5 h-5" />
           </button>
