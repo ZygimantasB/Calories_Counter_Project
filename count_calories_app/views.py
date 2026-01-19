@@ -3199,10 +3199,11 @@ def api_dashboard(request):
     effective_targets = settings.get_effective_targets()
 
     # Calculate macro warnings (when exceeded by more than 10%)
-    today_calories = today_stats['calories'] or 0
-    today_protein = today_stats['protein'] or 0
-    today_carbs = today_stats['carbs'] or 0
-    today_fat = today_stats['fat'] or 0
+    # Convert to float to ensure proper JSON serialization (not Decimal strings)
+    today_calories = float(today_stats['calories'] or 0)
+    today_protein = float(today_stats['protein'] or 0)
+    today_carbs = float(today_stats['carbs'] or 0)
+    today_fat = float(today_stats['fat'] or 0)
 
     warnings = []
     if today_calories > effective_targets['calories'] * 1.1:
