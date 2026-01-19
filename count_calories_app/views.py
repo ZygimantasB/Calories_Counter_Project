@@ -3787,7 +3787,10 @@ def api_body_measurements(request):
 
 @require_http_methods(["GET"])
 def api_analytics(request):
-    """Get analytics data for React frontend"""
+    """Get comprehensive analytics data for React frontend - mirrors Django analytics view"""
+    import statistics
+    from django.db.models.functions import TruncDate, TruncWeek, TruncMonth
+
     period = request.GET.get('period', '90')
     now = timezone.now()
 
@@ -3800,102 +3803,464 @@ def api_analytics(request):
         except ValueError:
             start_date = now - timedelta(days=90)
 
-    # Get food items
+    # Get food items and weights
     if start_date:
-        food_items = FoodItem.objects.filter(consumed_at__gte=start_date)
+        food_items = FoodItem.objects.filter(consumed_at__gte=start_date, consumed_at__lte=now)
+        weights = Weight.objects.filter(recorded_at__gte=start_date, recorded_at__lte=now).order_by('recorded_at')
     else:
-        food_items = FoodItem.objects.all()
+        food_items = FoodItem.objects.filter(consumed_at__lte=now)
+        weights = Weight.objects.filter(recorded_at__lte=now).order_by('recorded_at')
 
-    # Daily stats
-    from django.db.models.functions import TruncDate
+    # === DAILY STATS ===
     daily_stats = food_items.annotate(
         day=TruncDate('consumed_at')
     ).values('day').annotate(
-        calories=Sum('calories'),
-        protein=Sum('protein'),
-        carbs=Sum('carbohydrates'),
-        fat=Sum('fat'),
+        total_calories=Sum('calories'),
+        total_protein=Sum('protein'),
+        total_carbs=Sum('carbohydrates'),
+        total_fat=Sum('fat')
     ).order_by('day')
 
+    daily_stats_list = list(daily_stats)
     daily_data = []
-    for stat in daily_stats:
+    for stat in daily_stats_list:
         if stat['day']:
             daily_data.append({
                 'date': stat['day'].isoformat(),
-                'calories': stat['calories'] or 0,
-                'protein': round(float(stat['protein'] or 0), 1),
-                'carbs': round(float(stat['carbs'] or 0), 1),
-                'fat': round(float(stat['fat'] or 0), 1),
+                'calories': float(stat['total_calories'] or 0),
+                'protein': round(float(stat['total_protein'] or 0), 1),
+                'carbs': round(float(stat['total_carbs'] or 0), 1),
+                'fat': round(float(stat['total_fat'] or 0), 1),
             })
 
-    # Weekly summary
+    # === THIS WEEK SUMMARY ===
     this_week_start = now - timedelta(days=now.weekday())
     this_week_start = this_week_start.replace(hour=0, minute=0, second=0, microsecond=0)
     last_week_start = this_week_start - timedelta(days=7)
+    last_week_end = this_week_start
 
-    this_week_food = FoodItem.objects.filter(consumed_at__gte=this_week_start)
-    last_week_food = FoodItem.objects.filter(consumed_at__gte=last_week_start, consumed_at__lt=this_week_start)
+    this_week_food = FoodItem.objects.filter(consumed_at__gte=this_week_start, consumed_at__lte=now)
+    last_week_food = FoodItem.objects.filter(consumed_at__gte=last_week_start, consumed_at__lt=last_week_end)
 
-    this_week_stats = this_week_food.aggregate(
-        calories=Sum('calories'),
-        protein=Sum('protein'),
-        days=Count('consumed_at__date', distinct=True)
+    this_week_daily = this_week_food.annotate(day=TruncDate('consumed_at')).values('day').annotate(
+        total_cal=Sum('calories'), total_prot=Sum('protein')
     )
-    last_week_stats = last_week_food.aggregate(
-        calories=Sum('calories'),
-        protein=Sum('protein'),
-        days=Count('consumed_at__date', distinct=True)
+    this_week_days_logged = this_week_daily.count()
+    this_week_total_cal = sum([d['total_cal'] or 0 for d in this_week_daily])
+    this_week_total_prot = sum([d['total_prot'] or 0 for d in this_week_daily])
+    this_week_avg_cal = round(this_week_total_cal / this_week_days_logged, 0) if this_week_days_logged else 0
+    this_week_avg_prot = round(float(this_week_total_prot) / this_week_days_logged, 1) if this_week_days_logged else 0
+
+    last_week_daily = last_week_food.annotate(day=TruncDate('consumed_at')).values('day').annotate(
+        total_cal=Sum('calories'), total_prot=Sum('protein')
     )
+    last_week_days_logged = last_week_daily.count()
+    last_week_total_cal = sum([d['total_cal'] or 0 for d in last_week_daily])
+    last_week_total_prot = sum([d['total_prot'] or 0 for d in last_week_daily])
+    last_week_avg_cal = round(last_week_total_cal / last_week_days_logged, 0) if last_week_days_logged else 0
+    last_week_avg_prot = round(float(last_week_total_prot) / last_week_days_logged, 1) if last_week_days_logged else 0
 
     this_week_workouts = WorkoutSession.objects.filter(date__gte=this_week_start.date()).count()
-    last_week_workouts = WorkoutSession.objects.filter(
-        date__gte=last_week_start.date(),
-        date__lt=this_week_start.date()
-    ).count()
-
+    last_week_workouts = WorkoutSession.objects.filter(date__gte=last_week_start.date(), date__lt=this_week_start.date()).count()
     this_week_runs = RunningSession.objects.filter(date__gte=this_week_start.date()).count()
 
     weekly_summary = {
         'this_week': {
-            'days_logged': this_week_stats['days'] or 0,
-            'total_calories': this_week_stats['calories'] or 0,
-            'avg_calories': round((this_week_stats['calories'] or 0) / max(this_week_stats['days'] or 1, 1), 0),
-            'total_protein': round(float(this_week_stats['protein'] or 0), 0),
+            'days_logged': this_week_days_logged,
+            'total_calories': float(this_week_total_cal),
+            'avg_calories': float(this_week_avg_cal),
+            'total_protein': round(float(this_week_total_prot), 0),
+            'avg_protein': float(this_week_avg_prot),
             'workouts': this_week_workouts,
             'runs': this_week_runs,
         },
         'last_week': {
-            'days_logged': last_week_stats['days'] or 0,
-            'avg_calories': round((last_week_stats['calories'] or 0) / max(last_week_stats['days'] or 1, 1), 0),
+            'days_logged': last_week_days_logged,
+            'avg_calories': float(last_week_avg_cal),
+            'avg_protein': float(last_week_avg_prot),
             'workouts': last_week_workouts,
         },
+        'comparison': {
+            'calories_diff': round(this_week_avg_cal - last_week_avg_cal, 0) if last_week_avg_cal else None,
+            'protein_diff': round(this_week_avg_prot - last_week_avg_prot, 1) if last_week_avg_prot else None,
+            'workouts_diff': this_week_workouts - last_week_workouts,
+        }
     }
 
-    # Goals
-    goals = {
-        'daily_calories': {'current': weekly_summary['this_week']['avg_calories'], 'target': 2500},
-        'daily_protein': {'current': round(float(this_week_stats['protein'] or 0) / max(this_week_stats['days'] or 1, 1), 0), 'target': 150},
-        'weekly_workouts': {'current': this_week_workouts, 'target': 4},
-        'weekly_runs': {'current': this_week_runs, 'target': 2},
-    }
+    # === OVERALL STATS ===
+    overall_stats = {}
+    calories_list = []
+    if daily_stats_list:
+        calories_list = [float(d['total_calories']) for d in daily_stats_list if d['total_calories']]
+        if calories_list:
+            overall_stats['avg_daily_calories'] = round(statistics.mean(calories_list), 0)
+            overall_stats['total_days_logged'] = len(daily_stats_list)
+            overall_stats['calorie_min'] = round(min(calories_list), 0)
+            overall_stats['calorie_max'] = round(max(calories_list), 0)
 
-    # Streak
-    streak = 0
-    check_date = now.date()
-    while True:
-        day_start = timezone.make_aware(timezone.datetime.combine(check_date, timezone.datetime.min.time()))
-        day_end = timezone.make_aware(timezone.datetime.combine(check_date, timezone.datetime.max.time()))
-        if FoodItem.objects.filter(consumed_at__gte=day_start, consumed_at__lte=day_end).exists():
-            streak += 1
-            check_date -= timedelta(days=1)
+            protein_list = [float(d['total_protein']) for d in daily_stats_list if d['total_protein']]
+            carbs_list = [float(d['total_carbs']) for d in daily_stats_list if d['total_carbs']]
+            fat_list = [float(d['total_fat']) for d in daily_stats_list if d['total_fat']]
+
+            if protein_list:
+                overall_stats['avg_daily_protein'] = round(statistics.mean(protein_list), 1)
+                overall_stats['total_protein'] = round(sum(protein_list), 0)
+            if carbs_list:
+                overall_stats['avg_daily_carbs'] = round(statistics.mean(carbs_list), 1)
+                overall_stats['total_carbs'] = round(sum(carbs_list), 0)
+            if fat_list:
+                overall_stats['avg_daily_fat'] = round(statistics.mean(fat_list), 1)
+                overall_stats['total_fat'] = round(sum(fat_list), 0)
+
+    # === STREAKS ===
+    streaks = {}
+    if daily_stats_list:
+        sorted_days = sorted([d['day'] for d in daily_stats_list if d['day']])
+        if sorted_days:
+            current_streak = 1
+            for i in range(len(sorted_days) - 1, 0, -1):
+                if (sorted_days[i] - sorted_days[i-1]).days == 1:
+                    current_streak += 1
+                else:
+                    break
+
+            longest_streak = 1
+            temp_streak = 1
+            for i in range(1, len(sorted_days)):
+                if (sorted_days[i] - sorted_days[i-1]).days == 1:
+                    temp_streak += 1
+                    longest_streak = max(longest_streak, temp_streak)
+                else:
+                    temp_streak = 1
+
+            streaks['current_streak'] = current_streak
+            streaks['longest_streak'] = longest_streak
+            streaks['total_days'] = len(sorted_days)
+
+            if sorted_days:
+                days_since_start = (now.date() - sorted_days[0]).days + 1
+                streaks['consistency_rate'] = round((len(sorted_days) / days_since_start) * 100, 1) if days_since_start > 0 else 0
+
+    # === WEIGHT ANALYSIS ===
+    weight_analysis = {}
+    weights_list = list(weights)
+    if len(weights_list) >= 2:
+        first_weight = float(weights_list[0].weight)
+        last_weight = float(weights_list[-1].weight)
+        weight_analysis['start_weight'] = first_weight
+        weight_analysis['current_weight'] = last_weight
+        weight_analysis['total_change'] = round(last_weight - first_weight, 1)
+
+        weight_values = [float(w.weight) for w in weights_list]
+        weight_analysis['min_weight'] = min(weight_values)
+        weight_analysis['max_weight'] = max(weight_values)
+        weight_analysis['avg_weight'] = round(statistics.mean(weight_values), 1)
+        weight_analysis['days_tracked'] = len(weights_list)
+
+    # === WEIGHT PACE ===
+    weight_pace = {}
+    if len(weights_list) >= 2:
+        first_date = weights_list[0].recorded_at
+        last_date = weights_list[-1].recorded_at
+        days_diff = (last_date - first_date).days
+        if days_diff > 0:
+            total_change = float(weights_list[-1].weight) - float(weights_list[0].weight)
+            weight_pace['weekly_rate'] = round((total_change / days_diff) * 7, 2)
+            weight_pace['monthly_rate'] = round((total_change / days_diff) * 30, 1)
+            weight_pace['days'] = days_diff
+
+            if total_change < 0:
+                weight_pace['status'] = 'losing'
+                if abs(weight_pace['weekly_rate']) >= 0.5:
+                    weight_pace['pace_assessment'] = 'Healthy weight loss pace (0.5-1 kg/week)'
+                else:
+                    weight_pace['pace_assessment'] = 'Slow but steady weight loss (<0.5 kg/week)'
+            elif total_change > 0:
+                weight_pace['status'] = 'gaining'
+            else:
+                weight_pace['status'] = 'maintaining'
+
+            if days_diff >= 7:
+                weight_pace['estimated_daily_deficit'] = round((total_change * 7700) / days_diff, 0)
+
+    # === PROJECTIONS ===
+    projections = {}
+    if weight_pace.get('weekly_rate') and weights_list:
+        current_weight = float(weights_list[-1].weight)
+        weekly_rate = weight_pace['weekly_rate']
+        if weekly_rate != 0:
+            projections['4_weeks'] = round(current_weight + (weekly_rate * 4), 1)
+            projections['8_weeks'] = round(current_weight + (weekly_rate * 8), 1)
+            projections['12_weeks'] = round(current_weight + (weekly_rate * 12), 1)
+
+            if weekly_rate < 0:
+                goal_weights = [70, 75, 80, 85, 90, 95]
+                projections['goals'] = []
+                for goal in goal_weights:
+                    if goal < current_weight:
+                        weeks_to_goal = (current_weight - goal) / abs(weekly_rate)
+                        if weeks_to_goal <= 52:
+                            target_date = now + timedelta(weeks=weeks_to_goal)
+                            projections['goals'].append({
+                                'weight': goal,
+                                'weeks': round(weeks_to_goal, 0),
+                                'date': target_date.strftime('%B %d, %Y')
+                            })
+
+    # === MACRO ANALYSIS ===
+    macro_analysis = {}
+    if overall_stats.get('avg_daily_protein') and overall_stats.get('avg_daily_carbs') and overall_stats.get('avg_daily_fat'):
+        protein_g = overall_stats['avg_daily_protein']
+        carbs_g = overall_stats['avg_daily_carbs']
+        fat_g = overall_stats['avg_daily_fat']
+
+        protein_cal = protein_g * 4
+        carbs_cal = carbs_g * 4
+        fat_cal = fat_g * 9
+        total_macro_cal = protein_cal + carbs_cal + fat_cal
+
+        if total_macro_cal > 0:
+            macro_analysis['protein_percent'] = round((protein_cal / total_macro_cal) * 100, 1)
+            macro_analysis['carbs_percent'] = round((carbs_cal / total_macro_cal) * 100, 1)
+            macro_analysis['fat_percent'] = round((fat_cal / total_macro_cal) * 100, 1)
+
+            if weights_list:
+                latest_weight = float(weights_list[-1].weight)
+                macro_analysis['protein_per_kg'] = round(protein_g / latest_weight, 2)
+
+    # === DAY OF WEEK ANALYSIS ===
+    day_of_week_stats = {}
+    day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    if daily_stats_list:
+        for day_num in range(7):
+            day_data = [d for d in daily_stats_list if d['day'] and d['day'].weekday() == day_num]
+            if day_data:
+                day_calories = [float(d['total_calories']) for d in day_data if d['total_calories']]
+                if day_calories:
+                    day_of_week_stats[day_names[day_num]] = {
+                        'avg_calories': round(statistics.mean(day_calories), 0),
+                        'count': len(day_calories),
+                    }
+
+    weekday_insights = {}
+    if day_of_week_stats:
+        sorted_days = sorted(day_of_week_stats.items(), key=lambda x: x[1]['avg_calories'])
+        if sorted_days:
+            weekday_insights['lowest_day'] = {'name': sorted_days[0][0], 'calories': sorted_days[0][1]['avg_calories']}
+            weekday_insights['highest_day'] = {'name': sorted_days[-1][0], 'calories': sorted_days[-1][1]['avg_calories']}
+
+            weekday_cals = [v['avg_calories'] for k, v in day_of_week_stats.items() if k in ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']]
+            weekend_cals = [v['avg_calories'] for k, v in day_of_week_stats.items() if k in ['Saturday', 'Sunday']]
+
+            if weekday_cals and weekend_cals:
+                weekday_insights['weekday_avg'] = round(statistics.mean(weekday_cals), 0)
+                weekday_insights['weekend_avg'] = round(statistics.mean(weekend_cals), 0)
+                weekday_insights['weekend_difference'] = round(weekday_insights['weekend_avg'] - weekday_insights['weekday_avg'], 0)
+
+    # === CALORIE CONSISTENCY SCORE ===
+    consistency_score = {}
+    if calories_list and len(calories_list) >= 7:
+        avg_cal = statistics.mean(calories_list)
+        std_dev = statistics.stdev(calories_list) if len(calories_list) > 1 else 0
+        cv = (std_dev / avg_cal) * 100 if avg_cal > 0 else 0
+
+        if cv < 10:
+            consistency_score = {'rating': 'Excellent', 'score': 95, 'cv': round(cv, 1)}
+        elif cv < 15:
+            consistency_score = {'rating': 'Good', 'score': 80, 'cv': round(cv, 1)}
+        elif cv < 25:
+            consistency_score = {'rating': 'Moderate', 'score': 60, 'cv': round(cv, 1)}
         else:
-            break
+            consistency_score = {'rating': 'Variable', 'score': 40, 'cv': round(cv, 1)}
+
+    # === INSIGHTS ===
+    insights = []
+
+    if macro_analysis.get('protein_per_kg'):
+        if macro_analysis['protein_per_kg'] >= 1.6:
+            insights.append({
+                'type': 'protein', 'icon': '💪', 'title': 'Strong Protein Intake',
+                'description': f'Excellent! You\'re getting {macro_analysis["protein_per_kg"]:.2f}g protein per kg body weight.',
+                'recommendation': 'Keep up the good protein intake for muscle health.'
+            })
+
+    if streaks.get('current_streak', 0) >= 7:
+        insights.append({
+            'type': 'streak', 'icon': '🔥', 'title': 'Logging Streak',
+            'description': f'Great job! You\'ve logged {streaks["current_streak"]} days in a row. Your longest streak is {streaks["longest_streak"]} days.',
+            'recommendation': 'Keep the momentum going!'
+        })
+
+    # === ACHIEVEMENTS ===
+    achievements = []
+    if streaks.get('current_streak', 0) >= 30:
+        achievements.append({'icon': '🔥', 'title': 'Monthly Warrior', 'desc': '30+ day logging streak'})
+    if weight_pace.get('weekly_rate') and weight_analysis.get('total_change', 0) <= -2:
+        achievements.append({'icon': '🥈', 'title': 'Good Start', 'desc': 'Lost 2+ kg'})
+    if macro_analysis.get('protein_per_kg', 0) >= 2.0:
+        achievements.append({'icon': '💪', 'title': 'Protein Champion', 'desc': '2+ g protein per kg body weight'})
+    if streaks.get('total_days', 0) >= 50:
+        achievements.append({'icon': '📈', 'title': 'Dedicated Tracker', 'desc': '50+ days logged'})
+    if streaks.get('consistency_rate', 0) >= 90:
+        achievements.append({'icon': '⭐', 'title': 'Super Consistent', 'desc': '90%+ logging consistency'})
+
+    # === NUTRITION SCORE ===
+    nutrition_score = {}
+    if macro_analysis and overall_stats.get('avg_daily_calories'):
+        score = 0
+        breakdown = []
+
+        protein_per_kg = macro_analysis.get('protein_per_kg', 0)
+        if protein_per_kg >= 1.6:
+            score += 25
+            breakdown.append({'name': 'Protein', 'score': 25, 'max': 25})
+        elif protein_per_kg >= 1.2:
+            score += 20
+            breakdown.append({'name': 'Protein', 'score': 20, 'max': 25})
+        else:
+            score += 10
+            breakdown.append({'name': 'Protein', 'score': 10, 'max': 25})
+
+        balance_score = 25
+        if macro_analysis.get('carbs_percent', 0) < 40 or macro_analysis.get('carbs_percent', 0) > 65:
+            balance_score -= 8
+        breakdown.append({'name': 'Macro Balance', 'score': max(0, balance_score), 'max': 25})
+        score += max(0, balance_score)
+
+        if consistency_score.get('score'):
+            cons_points = round(consistency_score['score'] * 0.25)
+            breakdown.append({'name': 'Consistency', 'score': cons_points, 'max': 25})
+            score += cons_points
+
+        if streaks.get('consistency_rate'):
+            log_score = min(25, round(streaks['consistency_rate'] * 0.25))
+            breakdown.append({'name': 'Logging', 'score': log_score, 'max': 25})
+            score += log_score
+
+        nutrition_score['total'] = min(100, score)
+        nutrition_score['breakdown'] = breakdown
+        nutrition_score['grade'] = 'A' if score >= 85 else 'B' if score >= 70 else 'C' if score >= 55 else 'D'
+
+    # === WEEKLY REPORTS ===
+    weekly_stats = food_items.annotate(week=TruncWeek('consumed_at')).values('week').annotate(
+        total_calories=Sum('calories'), total_protein=Sum('protein'),
+        total_carbs=Sum('carbohydrates'), total_fat=Sum('fat'),
+        days_logged=Count('consumed_at__date', distinct=True)
+    ).order_by('-week')
+
+    weekly_reports = []
+    for week in weekly_stats[:12]:
+        days = week['days_logged'] or 1
+        weekly_reports.append({
+            'week_start': week['week'].isoformat() if week['week'] else None,
+            'avg_calories': round((week['total_calories'] or 0) / days, 0),
+            'avg_protein': round(float(week['total_protein'] or 0) / days, 0),
+            'avg_carbs': round(float(week['total_carbs'] or 0) / days, 0),
+            'avg_fat': round(float(week['total_fat'] or 0) / days, 0),
+            'days_logged': days
+        })
+
+    # === MONTHLY REPORTS ===
+    monthly_stats = food_items.annotate(month=TruncMonth('consumed_at')).values('month').annotate(
+        total_calories=Sum('calories'), total_protein=Sum('protein'),
+        total_carbs=Sum('carbohydrates'), total_fat=Sum('fat'),
+        days_logged=Count('consumed_at__date', distinct=True)
+    ).order_by('-month')
+
+    monthly_reports = []
+    for month in monthly_stats[:12]:
+        days = month['days_logged'] or 1
+        monthly_reports.append({
+            'month': month['month'].isoformat() if month['month'] else None,
+            'avg_calories': round((month['total_calories'] or 0) / days, 0),
+            'avg_protein': round(float(month['total_protein'] or 0) / days, 0),
+            'avg_carbs': round(float(month['total_carbs'] or 0) / days, 0),
+            'avg_fat': round(float(month['total_fat'] or 0) / days, 0),
+            'days_logged': days
+        })
+
+    # === TOP FOODS ===
+    top_foods = []
+    if food_items.exists():
+        frequent_foods = food_items.values('product_name').annotate(
+            count=Count('id'), total_calories=Sum('calories')
+        ).order_by('-count')[:10]
+        top_foods = [{'name': f['product_name'], 'count': f['count'], 'total_calories': float(f['total_calories'] or 0)} for f in frequent_foods]
+
+    # === BEST/WORST DAYS ===
+    best_worst_days = {}
+    if daily_stats_list:
+        valid_days = [d for d in daily_stats_list if d['total_calories'] and d['total_calories'] >= 500]
+        if valid_days:
+            lowest = min(valid_days, key=lambda x: x['total_calories'])
+            highest = max(valid_days, key=lambda x: x['total_calories'])
+            best_worst_days['lowest_calorie_day'] = {'date': lowest['day'].isoformat(), 'calories': float(lowest['total_calories'])}
+            best_worst_days['highest_calorie_day'] = {'date': highest['day'].isoformat(), 'calories': float(highest['total_calories'])}
+
+            highest_protein = max(valid_days, key=lambda x: x['total_protein'] or 0)
+            best_worst_days['highest_protein_day'] = {'date': highest_protein['day'].isoformat(), 'protein': float(highest_protein['total_protein'] or 0)}
+
+    # === CALORIE DISTRIBUTION ===
+    calorie_distribution = []
+    if calories_list and len(calories_list) >= 10:
+        total = len(calories_list)
+        calorie_distribution = [
+            {'label': '<1500 kcal', 'count': sum(1 for c in calories_list if c < 1500), 'percent': round(sum(1 for c in calories_list if c < 1500)/total*100, 1)},
+            {'label': '1500-2000 kcal', 'count': sum(1 for c in calories_list if 1500 <= c < 2000), 'percent': round(sum(1 for c in calories_list if 1500 <= c < 2000)/total*100, 1)},
+            {'label': '2000-2500 kcal', 'count': sum(1 for c in calories_list if 2000 <= c < 2500), 'percent': round(sum(1 for c in calories_list if 2000 <= c < 2500)/total*100, 1)},
+            {'label': '2500-3000 kcal', 'count': sum(1 for c in calories_list if 2500 <= c < 3000), 'percent': round(sum(1 for c in calories_list if 2500 <= c < 3000)/total*100, 1)},
+            {'label': '3000+ kcal', 'count': sum(1 for c in calories_list if c >= 3000), 'percent': round(sum(1 for c in calories_list if c >= 3000)/total*100, 1)},
+        ]
+
+    # === MEAL TIMING ===
+    meal_timing = {}
+    if food_items.exists():
+        hour_data = {}
+        for item in food_items:
+            hour = item.consumed_at.hour
+            if hour not in hour_data:
+                hour_data[hour] = 0
+            hour_data[hour] += float(item.calories or 0)
+
+        if hour_data:
+            morning = sum(hour_data.get(h, 0) for h in range(5, 11))
+            midday = sum(hour_data.get(h, 0) for h in range(11, 15))
+            afternoon = sum(hour_data.get(h, 0) for h in range(15, 18))
+            evening = sum(hour_data.get(h, 0) for h in range(18, 22))
+            night = sum(hour_data.get(h, 0) for h in list(range(22, 24)) + list(range(0, 5)))
+
+            total_cal = morning + midday + afternoon + evening + night
+            if total_cal > 0:
+                meal_timing = {
+                    'morning': round((morning/total_cal)*100, 1),
+                    'midday': round((midday/total_cal)*100, 1),
+                    'afternoon': round((afternoon/total_cal)*100, 1),
+                    'evening': round((evening/total_cal)*100, 1),
+                    'night': round((night/total_cal)*100, 1),
+                }
 
     return JsonResponse({
+        'period': period,
         'daily_data': daily_data,
         'weekly_summary': weekly_summary,
-        'goals': goals,
-        'streak': streak,
+        'overall_stats': overall_stats,
+        'streaks': streaks,
+        'weight_analysis': weight_analysis,
+        'weight_pace': weight_pace,
+        'projections': projections,
+        'macro_analysis': macro_analysis,
+        'day_of_week_stats': day_of_week_stats,
+        'weekday_insights': weekday_insights,
+        'consistency_score': consistency_score,
+        'insights': insights,
+        'achievements': achievements,
+        'nutrition_score': nutrition_score,
+        'weekly_reports': weekly_reports,
+        'monthly_reports': monthly_reports,
+        'top_foods': top_foods,
+        'best_worst_days': best_worst_days,
+        'calorie_distribution': calorie_distribution,
+        'meal_timing': meal_timing,
     })
 
 
