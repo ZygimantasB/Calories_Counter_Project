@@ -397,8 +397,8 @@ export default function Dashboard() {
           subtitle={`${caloriesPercentage}% of daily goal`}
           icon={Flame}
           color="orange"
-          trend="up"
-          trendValue="+12%"
+          trend={dashboardData?.comparison?.calories_percent ? (dashboardData.comparison.calories_percent >= 0 ? 'up' : 'down') : undefined}
+          trendValue={dashboardData?.comparison?.calories_percent ? `${dashboardData.comparison.calories_percent > 0 ? '+' : ''}${dashboardData.comparison.calories_percent}%` : undefined}
         />
         <StatCard
           title="Protein"
@@ -406,8 +406,8 @@ export default function Dashboard() {
           subtitle={`${Math.round((todayStats.protein / todayStats.proteinTarget) * 100)}% of goal`}
           icon={Beef}
           color="red"
-          trend="up"
-          trendValue="+8%"
+          trend={dashboardData?.comparison?.protein_percent ? (dashboardData.comparison.protein_percent >= 0 ? 'up' : 'down') : undefined}
+          trendValue={dashboardData?.comparison?.protein_percent ? `${dashboardData.comparison.protein_percent > 0 ? '+' : ''}${dashboardData.comparison.protein_percent}%` : undefined}
         />
         <StatCard
           title="Current Weight"
@@ -426,8 +426,8 @@ export default function Dashboard() {
           subtitle="This week"
           icon={Dumbbell}
           color="purple"
-          trend="up"
-          trendValue="+1"
+          trend={dashboardData?.comparison?.workouts_diff ? (dashboardData.comparison.workouts_diff >= 0 ? 'up' : 'down') : undefined}
+          trendValue={dashboardData?.comparison?.workouts_diff !== undefined ? `${dashboardData.comparison.workouts_diff > 0 ? '+' : ''}${dashboardData.comparison.workouts_diff}` : undefined}
         />
       </div>
 
@@ -440,16 +440,9 @@ export default function Dashboard() {
           className="lg:col-span-2"
         >
           <div className="h-72">
+            {caloriesData.length > 0 ? (
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={caloriesData.length > 0 ? caloriesData : [
-                { date: 'Mon', calories: 2100, target: 2500 },
-                { date: 'Tue', calories: 2350, target: 2500 },
-                { date: 'Wed', calories: 1980, target: 2500 },
-                { date: 'Thu', calories: 2450, target: 2500 },
-                { date: 'Fri', calories: 2200, target: 2500 },
-                { date: 'Sat', calories: 2600, target: 2500 },
-                { date: 'Sun', calories: 1850, target: 2500 },
-              ]}>
+              <AreaChart data={caloriesData}>
                 <defs>
                   <linearGradient id="colorCalories" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor={CHART_COLORS.primary} stopOpacity={0.4} />
@@ -467,7 +460,7 @@ export default function Dashboard() {
                   axisLine={false}
                   tickLine={false}
                   tick={{ fill: CHART_COLORS.text, fontSize: 12 }}
-                  domain={[1500, 3000]}
+                  domain={['auto', 'auto']}
                 />
                 <Tooltip content={<CustomTooltip />} />
                 <Area
@@ -488,6 +481,11 @@ export default function Dashboard() {
                 />
               </AreaChart>
             </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-gray-500">
+                No calorie data available
+              </div>
+            )}
           </div>
         </Card>
 

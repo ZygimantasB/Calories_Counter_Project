@@ -27,7 +27,7 @@ import {
 } from 'recharts';
 import { format, addDays, subDays, isToday, parseISO } from 'date-fns';
 import { Card, Button, Badge, ProgressBar } from '../components/ui';
-import { foodApi } from '../api';
+import { foodApi, settingsApi } from '../api';
 
 const MACRO_COLORS = {
   protein: '#ef4444',
@@ -77,13 +77,13 @@ export default function FoodTracker() {
   const [dbSearchLoading, setDbSearchLoading] = useState(false);
   const [showDbSearch, setShowDbSearch] = useState(false);
 
-  // Targets (can be made dynamic later)
-  const targets = {
+  // Targets (fetched from user settings)
+  const [targets, setTargets] = useState({
     calories: 2500,
     protein: 150,
     carbs: 300,
     fat: 70,
-  };
+  });
 
   // Fetch food items
   const fetchFoodItems = useCallback(async () => {
@@ -118,6 +118,27 @@ export default function FoodTracker() {
 
   useEffect(() => {
     fetchQuickAddFoods();
+  }, []);
+
+  // Fetch user targets from settings
+  useEffect(() => {
+    const fetchTargets = async () => {
+      try {
+        const settings = await settingsApi.getSettings();
+        if (settings.effective_targets) {
+          setTargets({
+            calories: settings.effective_targets.calories || 2500,
+            protein: settings.effective_targets.protein || 150,
+            carbs: settings.effective_targets.carbs || 300,
+            fat: settings.effective_targets.fat || 70,
+          });
+        }
+      } catch (err) {
+        console.error('Error fetching user targets:', err);
+        // Keep default values if fetch fails
+      }
+    };
+    fetchTargets();
   }, []);
 
   // Database search function

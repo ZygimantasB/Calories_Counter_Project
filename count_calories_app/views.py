@@ -3175,6 +3175,30 @@ def api_dashboard(request):
         count=Count('id')
     )
 
+    # Last week data for comparison
+    last_week_start = week_start - timedelta(days=7)
+    last_week_end = week_start
+    last_week_food = FoodItem.objects.filter(consumed_at__gte=last_week_start, consumed_at__lt=last_week_end)
+    last_week_daily = last_week_food.annotate(day=TruncDate('consumed_at')).values('day').annotate(
+        total_cal=Sum('calories'), total_prot=Sum('protein')
+    )
+    last_week_days = last_week_daily.count()
+    last_week_total_cal = sum([d['total_cal'] or 0 for d in last_week_daily])
+    last_week_total_prot = sum([float(d['total_prot'] or 0) for d in last_week_daily])
+    last_week_avg_cal = round(last_week_total_cal / last_week_days, 0) if last_week_days else 0
+    last_week_avg_prot = round(last_week_total_prot / last_week_days, 1) if last_week_days else 0
+    last_week_workouts = WorkoutSession.objects.filter(date__gte=last_week_start.date(), date__lt=last_week_end.date()).count()
+
+    # This week averages
+    this_week_daily = week_food.annotate(day=TruncDate('consumed_at')).values('day').annotate(
+        total_cal=Sum('calories'), total_prot=Sum('protein')
+    )
+    this_week_days = this_week_daily.count()
+    this_week_total_cal = sum([d['total_cal'] or 0 for d in this_week_daily])
+    this_week_total_prot = sum([float(d['total_prot'] or 0) for d in this_week_daily])
+    this_week_avg_cal = round(this_week_total_cal / this_week_days, 0) if this_week_days else 0
+    this_week_avg_prot = round(this_week_total_prot / this_week_days, 1) if this_week_days else 0
+
     # Recent food items
     recent_foods = list(FoodItem.objects.order_by('-consumed_at')[:5].values(
         'id', 'product_name', 'calories', 'protein', 'carbohydrates', 'fat', 'consumed_at'
@@ -3260,6 +3284,22 @@ def api_dashboard(request):
             'workouts': week_workouts,
             'runs': week_run_stats['count'] or 0,
             'run_distance': float(week_run_stats['total_distance'] or 0),
+            'avg_calories': float(this_week_avg_cal),
+            'avg_protein': float(this_week_avg_prot),
+            'days_logged': this_week_days,
+        },
+        'last_week': {
+            'avg_calories': float(last_week_avg_cal),
+            'avg_protein': float(last_week_avg_prot),
+            'workouts': last_week_workouts,
+            'days_logged': last_week_days,
+        },
+        'comparison': {
+            'calories_diff': round(this_week_avg_cal - last_week_avg_cal, 0) if last_week_avg_cal else None,
+            'calories_percent': round(((this_week_avg_cal - last_week_avg_cal) / last_week_avg_cal) * 100, 1) if last_week_avg_cal else None,
+            'protein_diff': round(this_week_avg_prot - last_week_avg_prot, 1) if last_week_avg_prot else None,
+            'protein_percent': round(((this_week_avg_prot - last_week_avg_prot) / last_week_avg_prot) * 100, 1) if last_week_avg_prot else None,
+            'workouts_diff': week_workouts - last_week_workouts,
         },
         'weight': {
             'current': float(latest_weight.weight) if latest_weight else None,
