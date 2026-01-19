@@ -37,6 +37,7 @@ const MACRO_COLORS = {
 export default function FoodTracker() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [foodItems, setFoodItems] = useState([]);
+  const [totals, setTotals] = useState({ calories: 0, protein: 0, carbs: 0, fat: 0 });
   const [quickAddFoods, setQuickAddFoods] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -91,6 +92,7 @@ export default function FoodTracker() {
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
       const response = await foodApi.getFoodItems({ date: dateStr });
       setFoodItems(response.items || []);
+      setTotals(response.totals || { calories: 0, protein: 0, carbs: 0, fat: 0 });
     } catch (err) {
       console.error('Error fetching food items:', err);
       setError('Failed to load food items');
@@ -170,16 +172,7 @@ export default function FoodTracker() {
     }
   }, [showDbSearch]);
 
-  // Calculate totals
-  const totals = foodItems.reduce(
-    (acc, item) => ({
-      calories: acc.calories + (item.calories || 0),
-      protein: acc.protein + (item.protein || 0),
-      carbs: acc.carbs + (item.carbs || 0),
-      fat: acc.fat + (item.fat || 0),
-    }),
-    { calories: 0, protein: 0, carbs: 0, fat: 0 }
-  );
+  // Totals now come from API (includes all items, not just paginated)
 
   const macrosPieData = [
     { name: 'Protein', value: totals.protein * 4, color: MACRO_COLORS.protein },

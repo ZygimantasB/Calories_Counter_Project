@@ -21,8 +21,9 @@ from google.api_core.exceptions import GoogleAPICallError, PermissionDenied, Una
 logger = logging.getLogger('count_calories_app')
 
 def home(request):
+    from django.db.models.functions import TruncDate
     now = timezone.now()
-    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_date = now.date()
     today_end = now.replace(hour=23, minute=59, second=59, microsecond=999999)
 
     # Week start (Monday)
@@ -32,8 +33,10 @@ def home(request):
     # Month start
     month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
-    # Today's food stats
-    today_food = FoodItem.objects.filter(consumed_at__gte=today_start, consumed_at__lte=today_end)
+    # Today's food stats - use TruncDate for consistent filtering with food_tracker view
+    today_food = FoodItem.objects.annotate(
+        consumed_date=TruncDate('consumed_at')
+    ).filter(consumed_date=today_date)
     today_stats = today_food.aggregate(
         calories=Sum('calories'),
         protein=Sum('protein'),
@@ -3128,14 +3131,17 @@ def analytics(request):
 @require_http_methods(["GET"])
 def api_dashboard(request):
     """Dashboard data for React frontend"""
+    from django.db.models.functions import TruncDate
     now = timezone.now()
-    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    today_end = now.replace(hour=23, minute=59, second=59, microsecond=999999)
+    today_date = now.date()
     week_start = now - timedelta(days=now.weekday())
     week_start = week_start.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_end = now.replace(hour=23, minute=59, second=59, microsecond=999999)
 
-    # Today's food stats
-    today_food = FoodItem.objects.filter(consumed_at__gte=today_start, consumed_at__lte=today_end)
+    # Today's food stats - use TruncDate for consistent filtering
+    today_food = FoodItem.objects.annotate(
+        consumed_date=TruncDate('consumed_at')
+    ).filter(consumed_date=today_date)
     today_stats = today_food.aggregate(
         calories=Sum('calories'),
         protein=Sum('protein'),
