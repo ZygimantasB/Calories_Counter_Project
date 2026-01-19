@@ -160,8 +160,28 @@
 
     window.calculateResult = function() {
       try {
-        // Use Function constructor to safely evaluate the expression
-        const result = new Function('return ' + calculatorDisplay.value)();
+        // Sanitize input - only allow numbers, operators, parentheses, and decimal points
+        const expression = calculatorDisplay.value;
+        const sanitized = expression.replace(/[^0-9+\-*/.()]/g, '');
+
+        // Reject if input was modified (contained invalid characters)
+        if (sanitized !== expression) {
+          throw new Error('Invalid characters in expression');
+        }
+
+        // Additional validation - prevent empty or malformed expressions
+        if (!sanitized || !/^[\d.+\-*/()]+$/.test(sanitized)) {
+          throw new Error('Invalid expression');
+        }
+
+        // Safely evaluate using Function constructor with sanitized input
+        const result = new Function('return ' + sanitized)();
+
+        // Validate result is a finite number
+        if (typeof result !== 'number' || !isFinite(result)) {
+          throw new Error('Invalid result');
+        }
+
         calculatorDisplay.value = parseFloat(result.toFixed(2));
       } catch (error) {
         calculatorDisplay.value = 'Error';

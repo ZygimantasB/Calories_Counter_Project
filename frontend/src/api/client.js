@@ -3,6 +3,19 @@ import axios from 'axios';
 // Use empty string for production (same-origin), or localhost for dev server
 const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
+// Helper function to get CSRF token from cookies
+function getCsrfToken() {
+  const name = 'csrftoken';
+  const cookies = document.cookie.split(';');
+  for (const cookie of cookies) {
+    const [cookieName, cookieValue] = cookie.trim().split('=');
+    if (cookieName === name) {
+      return cookieValue;
+    }
+  }
+  return null;
+}
+
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -11,10 +24,16 @@ const apiClient = axios.create({
   withCredentials: true,
 });
 
-// Request interceptor for adding auth tokens if needed
+// Request interceptor for adding CSRF token to mutating requests
 apiClient.interceptors.request.use(
   (config) => {
-    // Add any auth token here if needed in the future
+    // Add CSRF token for state-changing requests
+    if (['post', 'put', 'patch', 'delete'].includes(config.method?.toLowerCase())) {
+      const csrfToken = getCsrfToken();
+      if (csrfToken) {
+        config.headers['X-CSRFToken'] = csrfToken;
+      }
+    }
     return config;
   },
   (error) => {

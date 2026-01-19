@@ -6,7 +6,7 @@ from django.http import JsonResponse, HttpResponse
 from django.contrib import messages
 from django.core.paginator import Paginator
 from django.views.decorators.http import require_http_methods
-from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.csrf import ensure_csrf_cookie
 from .models import FoodItem, Weight, Exercise, WorkoutSession, WorkoutExercise, RunningSession, WorkoutTable, BodyMeasurement, UserSettings
 from .forms import FoodItemForm, WeightForm, ExerciseForm, WorkoutSessionForm, WorkoutExerciseForm, RunningSessionForm, BodyMeasurementForm
 from .services import GeminiService
@@ -3408,13 +3408,47 @@ def api_food_items(request):
     })
 
 
+def _validate_food_data(data):
+    """Validate food item data and return (is_valid, errors, sanitized_data)"""
+    errors = []
+    sanitized = {}
+
+    # Validate product name
+    name = str(data.get('name', '')).strip()
+    if not name:
+        errors.append('Product name is required')
+    elif len(name) > 200:
+        errors.append('Product name must be 200 characters or less')
+    sanitized['name'] = name[:200] if name else ''
+
+    # Validate numeric fields (calories, protein, carbs, fat)
+    for field in ['calories', 'protein', 'carbs', 'fat']:
+        try:
+            value = float(data.get(field, 0) or 0)
+            if value < 0:
+                errors.append(f'{field.capitalize()} cannot be negative')
+                value = 0
+            elif value > 50000:
+                errors.append(f'{field.capitalize()} value is too large')
+                value = 50000
+            sanitized[field] = value
+        except (TypeError, ValueError):
+            sanitized[field] = 0
+
+    return len(errors) == 0, errors, sanitized
+
+
 @require_http_methods(["POST"])
-@csrf_exempt
 def api_add_food(request):
     """Add a new food item via API"""
     try:
         from datetime import datetime
         data = json.loads(request.body)
+
+        # Validate input data
+        is_valid, errors, sanitized = _validate_food_data(data)
+        if not is_valid:
+            return JsonResponse({'success': False, 'error': '; '.join(errors)}, status=400)
 
         # Handle date parameter (YYYY-MM-DD format from frontend)
         consumed_at = timezone.now()
@@ -3428,11 +3462,11 @@ def api_add_food(request):
             consumed_at = data['consumed_at']
 
         food_item = FoodItem.objects.create(
-            product_name=data.get('name', ''),
-            calories=data.get('calories', 0),
-            protein=data.get('protein', 0),
-            carbohydrates=data.get('carbs', 0),
-            fat=data.get('fat', 0),
+            product_name=sanitized['name'],
+            calories=sanitized['calories'],
+            protein=sanitized['protein'],
+            carbohydrates=sanitized['carbs'],
+            fat=sanitized['fat'],
             consumed_at=consumed_at,
         )
         return JsonResponse({
@@ -3441,11 +3475,11 @@ def api_add_food(request):
             'message': 'Food item added successfully'
         })
     except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+        logger.error(f"Error adding food item: {str(e)}")
+        return JsonResponse({'success': False, 'error': 'Failed to add food item. Please try again.'}, status=400)
 
 
 @require_http_methods(["PUT", "PATCH"])
-@csrf_exempt
 def api_update_food(request, food_id):
     """Update a food item via API"""
     try:
@@ -3466,11 +3500,11 @@ def api_update_food(request, food_id):
         food_item.save()
         return JsonResponse({'success': True, 'message': 'Food item updated'})
     except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+        logger.error(f"Error updating food item {food_id}: {str(e)}")
+        return JsonResponse({'success': False, 'error': 'Failed to update food item. Please try again.'}, status=400)
 
 
 @require_http_methods(["DELETE"])
-@csrf_exempt
 def api_delete_food(request, food_id):
     """Delete a food item via API"""
     try:
@@ -3478,7 +3512,8 @@ def api_delete_food(request, food_id):
         food_item.delete()
         return JsonResponse({'success': True, 'message': 'Food item deleted'})
     except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+        logger.error(f"Error deleting food item {food_id}: {str(e)}")
+        return JsonResponse({'success': False, 'error': 'Failed to delete food item. Please try again.'}, status=400)
 
 
 @require_http_methods(["GET"])
@@ -3515,7 +3550,10 @@ def api_quick_add_foods(request):
 def api_search_all_foods(request):
     """Search all foods in database by name for React frontend"""
     query = request.GET.get('q', '').strip()
-    limit = int(request.GET.get('limit', 20))
+    try:
+        limit = min(max(int(request.GET.get('limit', 20)), 1), 100)  # Cap between 1 and 100
+    except (ValueError, TypeError):
+        limit = 20
 
     if not query:
         # Return most frequently logged foods if no query
@@ -3606,7 +3644,6 @@ def api_weight_items(request):
 
 
 @require_http_methods(["POST"])
-@csrf_exempt
 def api_add_weight(request):
     """Add a weight entry via API"""
     try:
@@ -3618,11 +3655,11 @@ def api_add_weight(request):
         )
         return JsonResponse({'success': True, 'id': weight.id})
     except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+        logger.error(f"Error adding weight entry: {str(e)}")
+        return JsonResponse({'success': False, 'error': 'Failed to add weight entry. Please try again.'}, status=400)
 
 
 @require_http_methods(["DELETE"])
-@csrf_exempt
 def api_delete_weight(request, weight_id):
     """Delete a weight entry via API"""
     try:
@@ -3630,7 +3667,8 @@ def api_delete_weight(request, weight_id):
         weight.delete()
         return JsonResponse({'success': True})
     except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+        logger.error(f"Error deleting weight entry {weight_id}: {str(e)}")
+        return JsonResponse({'success': False, 'error': 'Failed to delete weight entry. Please try again.'}, status=400)
 
 
 @require_http_methods(["GET"])
@@ -3688,7 +3726,6 @@ def api_running_items(request):
 
 
 @require_http_methods(["POST"])
-@csrf_exempt
 def api_add_running(request):
     """Add a running session via API"""
     try:
@@ -3713,7 +3750,8 @@ def api_add_running(request):
         )
         return JsonResponse({'success': True, 'id': run.id})
     except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+        logger.error(f"Error adding running session: {str(e)}")
+        return JsonResponse({'success': False, 'error': 'Failed to add running session. Please try again.'}, status=400)
 
 
 @require_http_methods(["GET"])
@@ -4535,8 +4573,9 @@ def export_data(request):
 # ==================== React API for Settings ====================
 
 @require_http_methods(["GET"])
+@ensure_csrf_cookie
 def api_settings(request):
-    """Get user settings for React frontend"""
+    """Get user settings for React frontend - also sets CSRF cookie for React"""
     user_settings = UserSettings.get_settings()
     recommended_macros = user_settings.get_recommended_macros()
     effective_targets = user_settings.get_effective_targets()
@@ -4582,7 +4621,6 @@ def api_settings(request):
 
 
 @require_http_methods(["PUT", "PATCH"])
-@csrf_exempt
 def api_update_settings(request):
     """Update user settings from React frontend"""
     try:
@@ -4620,4 +4658,5 @@ def api_update_settings(request):
             'effective_targets': user_settings.get_effective_targets(),
         })
     except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+        logger.error(f"Error updating settings: {str(e)}")
+        return JsonResponse({'success': False, 'error': 'Failed to update settings. Please try again.'}, status=400)
