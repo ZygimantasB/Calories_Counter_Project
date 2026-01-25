@@ -8,10 +8,16 @@
   <link rel="stylesheet" href="{% static 'count_calories_app/count_calories_app.css' %}">
   <style>
     .edit-form-container {
-      background-color: #f8f9fa;
+      background-color: var(--bg-card, #f8f9fa);
       padding: 1.5rem;
       border-radius: 0.5rem;
       margin-bottom: 2rem;
+    }
+    .edit-form-container .form-label {
+      color: var(--text-primary, #212529) !important;
+    }
+    .edit-form-container h4 {
+      color: var(--text-primary, #212529) !important;
     }
   </style>
 {% endblock %}
