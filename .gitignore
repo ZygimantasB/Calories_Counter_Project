@@ -13,6 +13,7 @@ TESTING_ANALYSIS.md
 README.md
 nul
 .playwright-mcp
+.vscode
 
 
 ### PyCharm+iml template
