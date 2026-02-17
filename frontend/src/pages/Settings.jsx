@@ -337,7 +337,7 @@ function ProfileSection({ settings, choices, recommendedMacros, onChange, onSave
         </h3>
 
         {/* Fitness Goal Selector */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {choices?.fitness_goals?.map(opt => (
             <button
               key={opt.value}
@@ -350,15 +350,16 @@ function ProfileSection({ settings, choices, recommendedMacros, onChange, onSave
               }`}
             >
               <div className="text-2xl mb-2">
-                {opt.value === 'bulk' ? '💪' : opt.value === 'cut' ? '🔥' : '⚖️'}
+                {opt.value === 'bulk' ? '💪' : opt.value === 'cut' ? '🔥' : opt.value === 'ripped' ? '⚡' : '⚖️'}
               </div>
               <div className={`font-medium ${settings.fitness_goal === opt.value ? 'text-primary-400' : 'text-white'}`}>
                 {opt.label}
               </div>
               <div className="text-xs text-gray-400 mt-1">
-                {opt.value === 'bulk' ? 'Calorie surplus for muscle gain' :
-                 opt.value === 'cut' ? 'Calorie deficit for fat loss' :
-                 'Maintain current weight'}
+                {opt.value === 'bulk' ? 'TDEE + 300 kcal surplus' :
+                 opt.value === 'cut' ? 'TDEE - 500 kcal deficit' :
+                 opt.value === 'ripped' ? 'TDEE - 750 kcal aggressive cut' :
+                 'Maintain at TDEE'}
               </div>
             </button>
           ))}
@@ -388,7 +389,7 @@ function ProfileSection({ settings, choices, recommendedMacros, onChange, onSave
           <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30 rounded-xl p-5">
             <div className="flex items-center gap-2 mb-3">
               <Activity className="w-5 h-5 text-green-400" />
-              <span className="font-medium text-green-400">Recommended Macros for {recommendedMacros.goal === 'bulk' ? 'Bulking' : recommendedMacros.goal === 'cut' ? 'Cutting' : 'Maintenance'}</span>
+              <span className="font-medium text-green-400">Recommended Macros for {recommendedMacros.goal === 'bulk' ? 'Bulking' : recommendedMacros.goal === 'cut' ? 'Cutting' : recommendedMacros.goal === 'ripped' ? 'Get Ripped' : 'Maintenance'}</span>
             </div>
             <p className="text-sm text-gray-300 mb-4">{recommendedMacros.description}</p>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

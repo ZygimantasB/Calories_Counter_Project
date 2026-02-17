@@ -231,17 +231,20 @@ class RecommendedMacrosTestCase(TestCase):
         )
 
         macros = settings.get_recommended_macros()
+        tdee = settings.calculate_bmr()
 
-        # Weight = 80kg
-        # Protein: 80 * 2.0 = 160g
-        # Carbs: 80 * 5.0 = 400g
-        # Fat: 80 * 1.0 = 80g
-        self.assertEqual(macros['protein'], 160)
-        self.assertEqual(macros['carbs'], 400)
-        self.assertEqual(macros['fat'], 80)
+        # Weight = 80kg, Calories = TDEE + 300
+        # Protein: 80 * 1.8 = 144g
+        # Fat: 80 * 0.9 = 72g
+        # Carbs: (calories - 144*4 - 72*9) / 4 = remainder
+        expected_cal = round(tdee + 300)
+        self.assertEqual(macros['protein'], 144)
+        self.assertEqual(macros['fat'], 72)
+        self.assertEqual(macros['calories'], expected_cal)
+        # Carbs = remainder
+        expected_carbs = max(round((expected_cal - 144 * 4 - 72 * 9) / 4), 0)
+        self.assertEqual(macros['carbs'], expected_carbs)
         self.assertEqual(macros['goal'], 'bulk')
-        self.assertIn('calories', macros)
-        self.assertGreater(macros['calories'], 0)
 
     def test_recommended_macros_maintain(self):
         """Test recommended macros for maintenance goal."""
@@ -255,14 +258,17 @@ class RecommendedMacrosTestCase(TestCase):
         )
 
         macros = settings.get_recommended_macros()
+        tdee = settings.calculate_bmr()
 
-        # Weight = 75kg
+        # Weight = 75kg, Calories = TDEE + 0
         # Protein: 75 * 1.8 = 135g
-        # Carbs: 75 * 4.0 = 300g
-        # Fat: 75 * 0.9 = 67.5 -> 68g (rounded)
+        # Fat: 75 * 0.9 = 68g (banker's rounding)
+        # Carbs: remainder
         self.assertEqual(macros['protein'], 135)
-        self.assertEqual(macros['carbs'], 300)
         self.assertEqual(macros['fat'], 68)
+        self.assertEqual(macros['calories'], tdee)
+        expected_carbs = max(round((tdee - 135 * 4 - 68 * 9) / 4), 0)
+        self.assertEqual(macros['carbs'], expected_carbs)
         self.assertEqual(macros['goal'], 'maintain')
 
     def test_recommended_macros_cut(self):
@@ -277,14 +283,18 @@ class RecommendedMacrosTestCase(TestCase):
         )
 
         macros = settings.get_recommended_macros()
+        tdee = settings.calculate_bmr()
 
-        # Weight = 85kg
-        # Protein: 85 * 2.4 = 204g
-        # Carbs: 85 * 2.5 = 212.5 -> 212g (rounded)
-        # Fat: 85 * 0.7 = 59.5 -> 59g (rounded)
-        self.assertEqual(macros['protein'], 204)
-        self.assertEqual(macros['carbs'], 212)
-        self.assertEqual(macros['fat'], 59)  # Python's round() uses banker's rounding
+        # Weight = 85kg, Calories = TDEE - 500
+        # Protein: 85 * 2.2 = 187g
+        # Fat: 85 * 0.9 = 76g (banker's rounding)
+        # Carbs: remainder
+        expected_cal = round(tdee - 500)
+        self.assertEqual(macros['protein'], 187)
+        self.assertEqual(macros['fat'], 76)
+        self.assertEqual(macros['calories'], expected_cal)
+        expected_carbs = max(round((expected_cal - 187 * 4 - 76 * 9) / 4), 0)
+        self.assertEqual(macros['carbs'], expected_carbs)
         self.assertEqual(macros['goal'], 'cut')
 
     def test_recommended_macros_female_bulk(self):
@@ -299,17 +309,20 @@ class RecommendedMacrosTestCase(TestCase):
         )
 
         macros = settings.get_recommended_macros()
+        tdee = settings.calculate_bmr()
 
-        # Weight = 60kg
-        # Protein: 60 * 2.0 = 120g
-        # Carbs: 60 * 5.0 = 300g
-        # Fat: 60 * 1.0 = 60g
-        self.assertEqual(macros['protein'], 120)
-        self.assertEqual(macros['carbs'], 300)
-        self.assertEqual(macros['fat'], 60)
+        # Weight = 60kg, Calories = TDEE + 300
+        # Protein: 60 * 1.8 = 108g
+        # Fat: 60 * 0.9 = 54g
+        # Carbs: remainder
+        expected_cal = round(tdee + 300)
+        self.assertEqual(macros['protein'], 108)
+        self.assertEqual(macros['fat'], 54)
+        expected_carbs = max(round((expected_cal - 108 * 4 - 54 * 9) / 4), 0)
+        self.assertEqual(macros['carbs'], expected_carbs)
 
     def test_recommended_macros_calories_bulk(self):
-        """Test that bulk calories are 15% above TDEE."""
+        """Test that bulk calories are TDEE + 300."""
         settings = UserSettings.objects.create(
             age=25,
             height=Decimal('180.0'),
@@ -319,10 +332,10 @@ class RecommendedMacrosTestCase(TestCase):
             fitness_goal='bulk'
         )
 
-        bmr = settings.calculate_bmr()
+        tdee = settings.calculate_bmr()
         macros = settings.get_recommended_macros()
 
-        expected_calories = round(bmr * 1.15)
+        expected_calories = round(tdee + 300)
         self.assertEqual(macros['calories'], expected_calories)
 
     def test_recommended_macros_calories_maintain(self):
@@ -336,14 +349,13 @@ class RecommendedMacrosTestCase(TestCase):
             fitness_goal='maintain'
         )
 
-        bmr = settings.calculate_bmr()
+        tdee = settings.calculate_bmr()
         macros = settings.get_recommended_macros()
 
-        expected_calories = round(bmr * 1.0)
-        self.assertEqual(macros['calories'], expected_calories)
+        self.assertEqual(macros['calories'], tdee)
 
     def test_recommended_macros_calories_cut(self):
-        """Test that cutting calories are 20% below TDEE."""
+        """Test that cutting calories are TDEE - 500."""
         settings = UserSettings.objects.create(
             age=25,
             height=Decimal('180.0'),
@@ -353,10 +365,10 @@ class RecommendedMacrosTestCase(TestCase):
             fitness_goal='cut'
         )
 
-        bmr = settings.calculate_bmr()
+        tdee = settings.calculate_bmr()
         macros = settings.get_recommended_macros()
 
-        expected_calories = round(bmr * 0.80)
+        expected_calories = round(tdee - 500)
         self.assertEqual(macros['calories'], expected_calories)
 
     def test_recommended_macros_returns_none_without_weight(self):
