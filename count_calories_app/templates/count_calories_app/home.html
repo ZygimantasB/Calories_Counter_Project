@@ -171,6 +171,41 @@
     </div>
   </div>
 
+  <!-- Fitness Goal Selector -->
+  <div class="card shadow-sm mb-4" style="border-radius: 12px; border: none;">
+    <div class="card-body py-3">
+      <div class="d-flex align-items-center gap-2 mb-3">
+        <i class="fas fa-bullseye text-primary"></i>
+        <span class="fw-semibold">Fitness Goal</span>
+        {% if is_auto_macros %}
+          <span class="badge bg-light text-muted ms-auto">Auto-calculated macros</span>
+        {% endif %}
+      </div>
+      <div class="row g-2">
+        <div class="col-6 col-md-3">
+          <button type="button" class="btn w-100 goal-btn {% if fitness_goal == 'maintain' %}btn-primary{% else %}btn-outline-secondary{% endif %}" data-goal="maintain">
+            <i class="fas fa-balance-scale me-1"></i> Maintain
+          </button>
+        </div>
+        <div class="col-6 col-md-3">
+          <button type="button" class="btn w-100 goal-btn {% if fitness_goal == 'bulk' %}btn-success{% else %}btn-outline-secondary{% endif %}" data-goal="bulk">
+            <i class="fas fa-dumbbell me-1"></i> Gain Mass
+          </button>
+        </div>
+        <div class="col-6 col-md-3">
+          <button type="button" class="btn w-100 goal-btn {% if fitness_goal == 'cut' %}btn-warning{% else %}btn-outline-secondary{% endif %}" data-goal="cut">
+            <i class="fas fa-fire me-1"></i> Lose Fat
+          </button>
+        </div>
+        <div class="col-6 col-md-3">
+          <button type="button" class="btn w-100 goal-btn {% if fitness_goal == 'ripped' %}btn-danger{% else %}btn-outline-secondary{% endif %}" data-goal="ripped">
+            <i class="fas fa-bolt me-1"></i> Get Ripped
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Macro Progress Section -->
   <div class="card shadow-sm mb-4" style="border-radius: 12px; border: none;">
     <div class="card-header bg-white border-0 pt-4 pb-2">
@@ -178,16 +213,6 @@
         <h5 class="section-title mb-0">
           <i class="fas fa-chart-pie"></i> Today's Nutrition Progress
         </h5>
-        <div class="d-flex align-items-center gap-2">
-          {% if fitness_goal %}
-            <span class="badge {% if fitness_goal == 'bulk' %}bg-success{% elif fitness_goal == 'cut' %}bg-warning{% else %}bg-info{% endif %}">
-              {% if fitness_goal == 'bulk' %}💪 Bulking{% elif fitness_goal == 'cut' %}🔥 Cutting{% else %}⚖️ Maintaining{% endif %}
-            </span>
-          {% endif %}
-          {% if is_auto_macros %}
-            <span class="badge bg-light text-muted">Auto-calculated</span>
-          {% endif %}
-        </div>
       </div>
     </div>
     <div class="card-body">
@@ -610,4 +635,45 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_body %}
+<script>
+(function() {
+  function getCookie(name) {
+    var cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+      var cookies = document.cookie.split(';');
+      for (var i = 0; i < cookies.length; i++) {
+        var cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
+
+  document.querySelectorAll('.goal-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var goal = this.getAttribute('data-goal');
+      fetch('{% url "api_update_fitness_goal" %}', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({fitness_goal: goal})
+      })
+      .then(function(response) { return response.json(); })
+      .then(function(data) {
+        if (data.success) {
+          window.location.reload();
+        }
+      });
+    });
+  });
+})();
+</script>
 {% endblock %}

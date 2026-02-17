@@ -17,6 +17,7 @@ import {
   AlertCircle,
   Info,
   X,
+  Shield,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -33,6 +34,7 @@ import {
 import { format } from 'date-fns';
 import { StatCard, Card, ProgressBar, Badge } from '../components/ui';
 import { foodApi, weightApi } from '../api';
+import settingsApi from '../api/settings';
 
 const CHART_COLORS = {
   primary: '#0ea5e9',
@@ -120,6 +122,23 @@ export default function Dashboard() {
     calories: food.calories,
     time: food.consumed_at ? format(new Date(food.consumed_at), 'h:mm a') : '',
   }));
+
+  const [updatingGoal, setUpdatingGoal] = useState(false);
+
+  const handleGoalChange = async (goal) => {
+    if (updatingGoal || goal === dashboardData?.goals?.fitness_goal) return;
+    try {
+      setUpdatingGoal(true);
+      await settingsApi.updateFitnessGoal(goal);
+      // Refetch dashboard data
+      const dashboard = await foodApi.getDashboard();
+      setDashboardData(dashboard);
+    } catch (err) {
+      console.error('Error updating fitness goal:', err);
+    } finally {
+      setUpdatingGoal(false);
+    }
+  };
 
   const dismissWarning = (type) => {
     setDismissedWarnings(prev => [...prev, type]);
@@ -289,24 +308,32 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Fitness Goal Badge */}
-      {dashboardData?.goals?.fitness_goal && (
-        <div className="flex items-center gap-2">
-          <Badge className={`px-3 py-1.5 border-0 ${
-            dashboardData.goals.fitness_goal === 'bulk'
-              ? 'bg-green-500/20 text-green-400'
-              : dashboardData.goals.fitness_goal === 'cut'
-              ? 'bg-orange-500/20 text-orange-400'
-              : 'bg-blue-500/20 text-blue-400'
-          }`}>
-            {dashboardData.goals.fitness_goal === 'bulk' ? '💪 Bulking' :
-             dashboardData.goals.fitness_goal === 'cut' ? '🔥 Cutting' : '⚖️ Maintaining'}
-          </Badge>
-          {dashboardData.goals.is_auto && (
-            <span className="text-xs text-gray-500">Auto-calculated macros active</span>
-          )}
-        </div>
-      )}
+      {/* Fitness Goal Selector */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[
+          { key: 'maintain', label: 'Maintain', icon: Scale, color: 'blue', border: 'border-blue-500', bg: 'bg-blue-500/20', text: 'text-blue-400' },
+          { key: 'bulk', label: 'Gain Mass', icon: Dumbbell, color: 'green', border: 'border-green-500', bg: 'bg-green-500/20', text: 'text-green-400' },
+          { key: 'cut', label: 'Lose Fat', icon: Flame, color: 'orange', border: 'border-orange-500', bg: 'bg-orange-500/20', text: 'text-orange-400' },
+          { key: 'ripped', label: 'Get Ripped', icon: Shield, color: 'red', border: 'border-red-500', bg: 'bg-red-500/20', text: 'text-red-400' },
+        ].map(({ key, label, icon: Icon, border, bg, text }) => {
+          const isActive = dashboardData?.goals?.fitness_goal === key;
+          return (
+            <button
+              key={key}
+              onClick={() => handleGoalChange(key)}
+              disabled={updatingGoal}
+              className={`flex items-center gap-2 px-4 py-3 rounded-xl border-2 transition-all ${
+                isActive
+                  ? `${border} ${bg} ${text}`
+                  : 'border-gray-700 bg-gray-800/50 text-gray-400 hover:border-gray-600 hover:text-gray-300'
+              } ${updatingGoal ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+            >
+              <Icon className="w-4 h-4" />
+              <span className="text-sm font-medium">{label}</span>
+            </button>
+          );
+        })}
+      </div>
 
       {/* Today's Progress Card */}
       <Card className="bg-gradient-to-br from-primary-600 to-primary-700 border-0 text-white">

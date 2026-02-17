@@ -177,6 +177,7 @@ class UserSettings(models.Model):
         ('maintain', 'Maintain Weight'),
         ('bulk', 'Bulk (Gain Muscle)'),
         ('cut', 'Cut (Lose Fat)'),
+        ('ripped', 'Get Ripped'),
     ]
     fitness_goal = models.CharField(max_length=10, choices=FITNESS_GOAL_CHOICES, default='maintain', help_text="Your fitness goal")
 
@@ -231,12 +232,20 @@ class UserSettings(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def _get_latest_weight(self):
+        """Get the latest weight from the Weight model, falling back to current_weight."""
+        latest = Weight.objects.order_by('-recorded_at').first()
+        if latest:
+            return latest.weight
+        return self.current_weight
+
     def calculate_bmr(self):
         """Calculate Basal Metabolic Rate using Mifflin-St Jeor equation."""
-        if not all([self.age, self.height, self.current_weight]):
+        effective_weight = self._get_latest_weight()
+        if not all([self.age, self.height, effective_weight]):
             return None
 
-        weight = float(self.current_weight)
+        weight = float(effective_weight)
         height = float(self.height)
         age = self.age
 
@@ -257,56 +266,77 @@ class UserSettings(models.Model):
 
     def get_recommended_macros(self):
         """
-        Calculate recommended macros based on fitness goal and body weight.
+        Calculate recommended macros using Mifflin-St Jeor TDEE + weight-based macros.
 
-        Research-based recommendations:
-        - Bulk: Protein 2.0g/kg, Carbs 5g/kg, Fat 1.0g/kg, Calories TDEE+15%
-        - Maintain: Protein 1.8g/kg, Carbs 4g/kg, Fat 0.9g/kg, Calories TDEE
-        - Cut: Protein 2.4g/kg, Carbs 2.5g/kg, Fat 0.7g/kg, Calories TDEE-20%
+        Calorie targets (fixed offset from TDEE):
+        - Maintain: TDEE (no change)
+        - Gain Mass: TDEE + 300 kcal (conservative surplus)
+        - Lose Weight: TDEE - 500 kcal (~0.5 kg/week loss)
+        - Get Ripped: TDEE - 750 kcal (aggressive cut)
 
-        Sources: Helms et al. (2014), Ribeiro et al. (2019), ISSN Position Stand
+        Macro priorities:
+        1. Protein (g/kg bodyweight) - higher when cutting to preserve muscle
+        2. Fat (g/kg bodyweight) - minimum for hormone regulation
+        3. Carbs - remainder of calories after protein and fat
         """
-        if not self.current_weight:
+        effective_weight = self._get_latest_weight()
+        if not effective_weight:
             return None
 
-        weight_kg = float(self.current_weight)
+        weight_kg = float(effective_weight)
         tdee = self.calculate_bmr()
 
         if not tdee:
             return None
 
-        # Macro multipliers per kg bodyweight based on fitness goal
-        macro_configs = {
-            'bulk': {
-                'protein_per_kg': 2.0,
-                'carbs_per_kg': 5.0,
-                'fat_per_kg': 1.0,
-                'calorie_multiplier': 1.15,  # +15% surplus
-                'description': 'High carbs for energy and muscle growth',
-            },
+        # Goal configs: calorie offset, protein per kg, fat per kg
+        goal_configs = {
             'maintain': {
+                'calorie_offset': 0,
                 'protein_per_kg': 1.8,
-                'carbs_per_kg': 4.0,
                 'fat_per_kg': 0.9,
-                'calorie_multiplier': 1.0,  # maintenance
                 'description': 'Balanced macros for weight maintenance',
             },
+            'bulk': {
+                'calorie_offset': 300,
+                'protein_per_kg': 1.8,
+                'fat_per_kg': 0.9,
+                'description': 'Conservative surplus for lean muscle growth',
+            },
             'cut': {
-                'protein_per_kg': 2.4,  # Higher protein to preserve muscle
-                'carbs_per_kg': 2.5,
-                'fat_per_kg': 0.7,
-                'calorie_multiplier': 0.80,  # -20% deficit
+                'calorie_offset': -500,
+                'protein_per_kg': 2.2,
+                'fat_per_kg': 0.9,
                 'description': 'High protein to preserve muscle while losing fat',
+            },
+            'ripped': {
+                'calorie_offset': -750,
+                'protein_per_kg': 2.2,
+                'fat_per_kg': 0.9,
+                'description': 'Aggressive deficit with high protein for muscle preservation',
             },
         }
 
-        config = macro_configs.get(self.fitness_goal, macro_configs['maintain'])
+        config = goal_configs.get(self.fitness_goal, goal_configs['maintain'])
+
+        # Step 1: Calculate calorie target
+        total_calories = round(tdee + config['calorie_offset'])
+
+        # Step 2: Calculate protein and fat from bodyweight
+        protein_g = round(weight_kg * config['protein_per_kg'])
+        fat_g = round(weight_kg * config['fat_per_kg'])
+
+        # Step 3: Carbs = remaining calories after protein (4 kcal/g) and fat (9 kcal/g)
+        protein_calories = protein_g * 4
+        fat_calories = fat_g * 9
+        remaining_calories = total_calories - protein_calories - fat_calories
+        carbs_g = max(round(remaining_calories / 4), 0)
 
         return {
-            'protein': round(weight_kg * config['protein_per_kg']),
-            'carbs': round(weight_kg * config['carbs_per_kg']),
-            'fat': round(weight_kg * config['fat_per_kg']),
-            'calories': round(tdee * config['calorie_multiplier']),
+            'protein': protein_g,
+            'carbs': carbs_g,
+            'fat': fat_g,
+            'calories': total_calories,
             'description': config['description'],
             'goal': self.fitness_goal,
         }
@@ -315,7 +345,7 @@ class UserSettings(models.Model):
         """
         Returns the effective macro targets - either auto-calculated or manual.
         """
-        if self.use_auto_macros and self.current_weight:
+        if self.use_auto_macros and self._get_latest_weight():
             recommended = self.get_recommended_macros()
             if recommended:
                 return {

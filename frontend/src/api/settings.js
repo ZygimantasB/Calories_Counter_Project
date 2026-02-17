@@ -11,6 +11,11 @@ const settingsApi = {
     return response.data;
   },
 
+  updateFitnessGoal: async (goal) => {
+    const response = await apiClient.post('/api/react/settings/fitness-goal/', { fitness_goal: goal });
+    return response.data;
+  },
+
   exportData: (type = 'all', format = 'csv') => {
     window.location.href = `/settings/export/?type=${type}&format=${format}`;
   },

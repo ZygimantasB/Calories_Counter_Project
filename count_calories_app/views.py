@@ -20,6 +20,7 @@ from google.api_core.exceptions import GoogleAPICallError, PermissionDenied, Una
 
 logger = logging.getLogger('count_calories_app')
 
+@ensure_csrf_cookie
 def home(request):
     from django.db.models.functions import TruncDate
     now = timezone.now()
@@ -91,8 +92,11 @@ def home(request):
         else:
             break
 
-    # Get user settings for targets
+    # Get user settings for targets (sync weight from latest entry)
     settings = UserSettings.get_settings()
+    if latest_weight and (not settings.current_weight or float(settings.current_weight) != float(latest_weight.weight)):
+        settings.current_weight = latest_weight.weight
+        settings.save(update_fields=['current_weight'])
     effective_targets = settings.get_effective_targets()
 
     # Calculate macro progress and remaining
@@ -149,6 +153,7 @@ def home(request):
         'current_date': now,
         'macro_progress': macro_progress,
         'fitness_goal': settings.fitness_goal,
+        'fitness_goal_choices': UserSettings.FITNESS_GOAL_CHOICES,
         'is_auto_macros': effective_targets['is_auto'],
     }
 
@@ -3230,8 +3235,11 @@ def api_dashboard(request):
         else:
             break
 
-    # Get user settings for targets
+    # Get user settings for targets (sync weight from latest entry)
     settings = UserSettings.get_settings()
+    if latest_weight and (not settings.current_weight or float(settings.current_weight) != float(latest_weight.weight)):
+        settings.current_weight = latest_weight.weight
+        settings.save(update_fields=['current_weight'])
     effective_targets = settings.get_effective_targets()
 
     # Calculate macro warnings (when exceeded by more than 10%)
@@ -4660,3 +4668,34 @@ def api_update_settings(request):
     except Exception as e:
         logger.error(f"Error updating settings: {str(e)}")
         return JsonResponse({'success': False, 'error': 'Failed to update settings. Please try again.'}, status=400)
+
+
+@require_http_methods(["POST"])
+def api_update_fitness_goal(request):
+    """Quick update fitness goal from dashboard"""
+    try:
+        data = json.loads(request.body)
+        fitness_goal = data.get('fitness_goal')
+        valid_goals = [c[0] for c in UserSettings.FITNESS_GOAL_CHOICES]
+        if fitness_goal not in valid_goals:
+            return JsonResponse({'success': False, 'error': f'Invalid fitness goal. Must be one of: {", ".join(valid_goals)}'}, status=400)
+
+        user_settings = UserSettings.get_settings()
+        user_settings.fitness_goal = fitness_goal
+
+        # Sync current_weight from latest Weight entry
+        latest_weight = Weight.objects.order_by('-recorded_at').first()
+        if latest_weight:
+            user_settings.current_weight = latest_weight.weight
+
+        user_settings.save()
+        effective_targets = user_settings.get_effective_targets()
+
+        return JsonResponse({
+            'success': True,
+            'fitness_goal': fitness_goal,
+            'effective_targets': effective_targets,
+        })
+    except Exception as e:
+        logger.error(f"Error updating fitness goal: {str(e)}")
+        return JsonResponse({'success': False, 'error': 'Failed to update fitness goal.'}, status=400)

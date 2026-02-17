@@ -70,4 +70,5 @@ urlpatterns = [
     path('api/react/top-foods/', views.api_top_foods, name='api_top_foods'),
     path('api/react/settings/', views.api_settings, name='api_settings'),
     path('api/react/settings/update/', views.api_update_settings, name='api_update_settings'),
+    path('api/react/settings/fitness-goal/', views.api_update_fitness_goal, name='api_update_fitness_goal'),
 ]
