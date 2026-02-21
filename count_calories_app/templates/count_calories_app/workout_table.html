@@ -83,6 +83,21 @@
     .save-table-btn {
       margin-top: 20px;
     }
+    /* Volume summary row */
+    .workout-table .volume-summary-label {
+      font-style: italic;
+      color: var(--text-muted, #6c757d);
+      background-color: var(--bg-tertiary, #f8f9fa) !important;
+      font-weight: 600;
+    }
+    .workout-table .volume-summary-cell {
+      text-align: center;
+      font-size: 0.82rem;
+      color: var(--text-muted, #6c757d);
+      background-color: var(--bg-tertiary, #f8f9fa);
+      font-weight: 600;
+      letter-spacing: 0.01em;
+    }
     /* PR (personal record) cell */
     .workout-table .pr-cell {
       background-color: rgba(255, 193, 7, 0.18) !important;
@@ -226,6 +241,64 @@
     </div>
   </div>
 
+  <!-- Table-Level Summary -->
+  <div class="row mt-3 d-none" id="table-summary-card">
+    <div class="col-12">
+      <div class="card shadow-sm rounded border-0">
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+          <h2 class="h5 mb-0"><i class="fas fa-table me-2"></i>Table Summary</h2>
+          <span id="summary-table-name" class="text-white-50 small"></span>
+        </div>
+        <div class="card-body">
+          <div class="row g-3 mb-3">
+            <div class="col-6 col-md-3">
+              <div class="card text-center border-0 bg-light h-100">
+                <div class="card-body py-2">
+                  <div class="text-muted small">Sessions</div>
+                  <div class="fw-bold fs-4" id="summary-sessions">—</div>
+                </div>
+              </div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="card text-center border-0 bg-light h-100">
+                <div class="card-body py-2">
+                  <div class="text-muted small">Exercises</div>
+                  <div class="fw-bold fs-4" id="summary-exercises">—</div>
+                </div>
+              </div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="card text-center border-0 bg-light h-100">
+                <div class="card-body py-2">
+                  <div class="text-muted small">vs Last Session</div>
+                  <div class="fw-bold fs-5" id="summary-trend">—</div>
+                </div>
+              </div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="card text-center border-0 bg-light h-100">
+                <div class="card-body py-2">
+                  <div class="text-muted small">Overall Volume Progress</div>
+                  <div class="fw-bold fs-5" id="summary-overall">—</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="row align-items-center">
+            <div class="col-md-9">
+              <canvas id="summary-chart" height="80"></canvas>
+            </div>
+            <div class="col-md-3 text-center">
+              <div class="text-muted small mb-1">🏆 Best Session</div>
+              <div class="fw-bold" id="summary-best-vol">—</div>
+              <div class="text-muted small" id="summary-best-date"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Saved Tables Section -->
   <div class="row mt-4">
     <div class="col-12">
@@ -314,7 +387,11 @@
         });
         workoutTable.querySelectorAll('.editable[contenteditable="true"]').forEach(el => {
           el.removeEventListener('blur', highlightPRs);
+          el.removeEventListener('blur', updateVolumeSummary);
+          el.removeEventListener('blur', updateTableSummary);
           el.addEventListener('blur', highlightPRs);
+          el.addEventListener('blur', updateVolumeSummary);
+          el.addEventListener('blur', updateTableSummary);
         });
       }
 
@@ -351,13 +428,160 @@
       function highlightPRs() {
         workoutTable.querySelectorAll('.pr-cell').forEach(el => el.classList.remove('pr-cell'));
         Array.from(workoutTable.tBodies[0].rows).forEach(row => {
-          if (row.id === 'add-row-row') return;
+          if (row.id === 'add-row-row' || row.id === 'volume-summary-row') return;
           let best = -Infinity, bestIdx = -1;
           for (let j = 1; j < row.cells.length - 1; j++) {
             const stats = calcStats(parseCell(row.cells[j].textContent.trim()));
             if (stats && stats.maxWeight > best) { best = stats.maxWeight; bestIdx = j; }
           }
           if (bestIdx > 0) row.cells[bestIdx].classList.add('pr-cell');
+        });
+      }
+
+      // Rebuild the volume-summary row at the bottom of the table
+      function updateVolumeSummary() {
+        const existing = document.getElementById('volume-summary-row');
+        if (existing) existing.remove();
+
+        const headerRow = document.getElementById('header-row');
+        const colCount  = headerRow.cells.length - 2; // exclude Exercise + Add Column
+        const totals    = new Array(colCount).fill(0);
+        let   hasData   = false;
+
+        Array.from(workoutTable.tBodies[0].rows).forEach(row => {
+          if (row.id === 'add-row-row' || row.id === 'volume-summary-row') return;
+          for (let j = 0; j < colCount; j++) {
+            const cellIdx = j + 1;
+            if (cellIdx >= row.cells.length - 1) continue;
+            const stats = calcStats(parseCell(row.cells[cellIdx].textContent.trim()));
+            if (stats) { totals[j] += stats.totalVolume; hasData = true; }
+          }
+        });
+
+        if (!hasData) return;
+
+        const summaryRow = document.createElement('tr');
+        summaryRow.id = 'volume-summary-row';
+
+        const labelCell = document.createElement('td');
+        labelCell.className = 'exercise-name volume-summary-label';
+        labelCell.textContent = '📊 Session Volume';
+        summaryRow.appendChild(labelCell);
+
+        for (let j = 0; j < colCount; j++) {
+          const cell = document.createElement('td');
+          cell.className = 'volume-summary-cell';
+          cell.textContent = totals[j] > 0 ? totals[j].toLocaleString() + ' kg' : '—';
+          summaryRow.appendChild(cell);
+        }
+
+        const emptyCell = document.createElement('td');
+        emptyCell.className = 'add-column';
+        summaryRow.appendChild(emptyCell);
+
+        workoutTable.tBodies[0].insertBefore(summaryRow, document.getElementById('add-row-row'));
+      }
+
+      // Render the table-level summary card (stats + bar chart)
+      function updateTableSummary() {
+        const card = document.getElementById('table-summary-card');
+
+        // Collect session labels
+        const headerRow = document.getElementById('header-row');
+        const sessions  = [];
+        for (let i = 1; i < headerRow.cells.length - 1; i++) {
+          sessions.push(cleanCellText(headerRow.cells[i]));
+        }
+        const colCount = sessions.length;
+
+        // Sum volume per session, count exercises
+        const colVolumes  = new Array(colCount).fill(0);
+        let   exerciseCount = 0;
+
+        Array.from(workoutTable.tBodies[0].rows).forEach(row => {
+          if (row.id === 'add-row-row' || row.id === 'volume-summary-row') return;
+          exerciseCount++;
+          for (let j = 0; j < colCount; j++) {
+            const idx = j + 1;
+            if (idx >= row.cells.length - 1) continue;
+            const stats = calcStats(parseCell(row.cells[idx].textContent.trim()));
+            if (stats) colVolumes[j] += stats.totalVolume;
+          }
+        });
+
+        const withData = colVolumes.map((v, i) => ({ v, i })).filter(x => x.v > 0);
+        if (!withData.length) { card.classList.add('d-none'); return; }
+        card.classList.remove('d-none');
+
+        // Best session
+        const bestEntry   = withData.reduce((a, b) => a.v >= b.v ? a : b);
+        const bestVol     = bestEntry.v;
+        const bestLabel   = sessions[bestEntry.i] || `Session ${bestEntry.i + 1}`;
+
+        // Volume trend: latest vs previous
+        let trendHtml = '<span class="text-muted">—</span>';
+        if (withData.length >= 2) {
+          const prev = withData[withData.length - 2].v;
+          const curr = withData[withData.length - 1].v;
+          const pct  = ((curr - prev) / prev * 100).toFixed(1);
+          const pos  = parseFloat(pct) >= 0;
+          trendHtml  = `<span class="${pos ? 'text-success' : 'text-danger'}">${pos ? '↑' : '↓'} ${Math.abs(pct)}%</span>`;
+        }
+
+        // Overall progress: first vs latest
+        const firstVol   = withData[0].v;
+        const latestVol  = withData[withData.length - 1].v;
+        const overallPct = ((latestVol - firstVol) / firstVol * 100).toFixed(1);
+        const overallPos = parseFloat(overallPct) >= 0;
+        const overallHtml = `<span class="${overallPos ? 'text-success' : 'text-danger'}">${overallPos ? '↑' : '↓'} ${Math.abs(overallPct)}%</span>`;
+
+        // Update stat elements
+        document.getElementById('summary-table-name').textContent = tableNameInput.value.trim();
+        document.getElementById('summary-sessions').textContent   = withData.length;
+        document.getElementById('summary-exercises').textContent  = exerciseCount;
+        document.getElementById('summary-trend').innerHTML        = trendHtml;
+        document.getElementById('summary-overall').innerHTML      = overallHtml;
+        document.getElementById('summary-best-vol').textContent   = bestVol.toLocaleString() + ' kg';
+        document.getElementById('summary-best-date').textContent  = bestLabel;
+
+        // Bar chart — gold for best session, blue for rest
+        const existing = Chart.getChart('summary-chart');
+        if (existing) existing.destroy();
+
+        const chartLabels = withData.map(x => sessions[x.i] || `Session ${x.i + 1}`);
+        const chartData   = withData.map(x => x.v);
+        const colours     = chartData.map(v =>
+          v === bestVol
+            ? { bg: 'rgba(255,193,7,0.75)', border: 'rgba(255,193,7,1)' }
+            : { bg: 'rgba(13,110,253,0.55)', border: 'rgba(13,110,253,0.9)' }
+        );
+
+        new Chart(document.getElementById('summary-chart'), {
+          type: 'bar',
+          data: {
+            labels: chartLabels,
+            datasets: [{
+              data:            chartData,
+              backgroundColor: colours.map(c => c.bg),
+              borderColor:     colours.map(c => c.border),
+              borderWidth: 1,
+              borderRadius: 4
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { display: false },
+              tooltip: { callbacks: { label: ctx => ctx.parsed.y.toLocaleString() + ' kg' } }
+            },
+            scales: {
+              y: {
+                beginAtZero: false,
+                ticks: { callback: v => v.toLocaleString() + ' kg', font: { size: 11 } }
+              },
+              x: { ticks: { maxRotation: 45, font: { size: 11 } } }
+            }
+          }
         });
       }
 
@@ -560,6 +784,8 @@
         applyPasteHandlers();
         applyProgressButtons();
         highlightPRs();
+        updateVolumeSummary();
+        updateTableSummary();
       });
 
       // Add a new column (workout)
@@ -577,7 +803,7 @@
         // Add cells to each row
         const rows = workoutTable.tBodies[0].rows;
         for (let i = 0; i < rows.length - 1; i++) { // Skip the add row button
-          if (rows[i].id !== 'add-row-row') {
+          if (rows[i].id !== 'add-row-row' && rows[i].id !== 'volume-summary-row') {
             const newCell = document.createElement('td');
             newCell.className = 'editable';
             newCell.contentEditable = true;
@@ -593,6 +819,8 @@
         applyPasteHandlers();
         applyProgressButtons();
         highlightPRs();
+        updateVolumeSummary();
+        updateTableSummary();
       });
 
       // Setup delete buttons for rows and columns
@@ -621,7 +849,7 @@
             // Remove the corresponding cell in each row
             const rows = workoutTable.tBodies[0].rows;
             for (let i = 0; i < rows.length - 1; i++) { // Skip the add row button
-              if (rows[i].id !== 'add-row-row') {
+              if (rows[i].id !== 'add-row-row' && rows[i].id !== 'volume-summary-row') {
                 rows[i].deleteCell(columnIndex);
               }
             }
@@ -689,31 +917,28 @@
           return;
         }
 
-        // Get current row count (excluding the add row button)
+        // Count only actual exercise rows (exclude add-row-row and volume-summary-row)
         const tbody = workoutTable.tBodies[0];
-        const currentRowCount = tbody.rows.length - 1;
+        const exerciseRows = () => Array.from(tbody.rows).filter(
+          r => r.id !== 'add-row-row' && r.id !== 'volume-summary-row'
+        );
+        const currentRowCount = exerciseRows().length;
 
         if (rowCount === currentRowCount) {
           return; // No change needed
         }
 
         if (rowCount > currentRowCount) {
-          // Add rows
           for (let i = 0; i < rowCount - currentRowCount; i++) {
-            // Simulate clicking the add row button
             addRowBtn.click();
           }
         } else {
-          // Remove rows from the end
           for (let i = 0; i < currentRowCount - rowCount; i++) {
-            // Get the last exercise row (before the add row button)
-            const lastRowIndex = tbody.rows.length - 2;
-            const lastRow = tbody.rows[lastRowIndex];
-
-            // Simulate clicking its delete button
-            const deleteBtn = lastRow.cells[0].querySelector('.delete-btn');
-            if (deleteBtn) {
-              deleteBtn.click();
+            const rows = exerciseRows();
+            const lastRow = rows[rows.length - 1];
+            if (lastRow) {
+              const deleteBtn = lastRow.cells[0].querySelector('.delete-btn');
+              if (deleteBtn) deleteBtn.click();
             }
           }
         }
@@ -756,7 +981,7 @@
           const workoutCount = tableData.workouts.length; // Get the number of workout columns
 
           for (let i = 0; i < rows.length - 1; i++) { // Skip the add row button
-            if (rows[i].id !== 'add-row-row') {
+            if (rows[i].id !== 'add-row-row' && rows[i].id !== 'volume-summary-row') {
               // Clone the cell to manipulate it safely
               const cellClone = rows[i].cells[0].cloneNode(true);
 
@@ -988,6 +1213,8 @@
           applyPasteHandlers();
           applyProgressButtons();
           highlightPRs();
+          updateVolumeSummary();
+          updateTableSummary();
         }
 
         // If the caller already has the list, use it directly
@@ -1150,6 +1377,8 @@
         applyPasteHandlers();
         applyProgressButtons();
         highlightPRs();
+        updateVolumeSummary();
+        updateTableSummary();
       }
 
       // New table button
