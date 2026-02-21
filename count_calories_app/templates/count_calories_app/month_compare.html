@@ -1,0 +1,644 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Month Comparison{% endblock %}
+
+{% block css_files %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'count_calories_app/count_calories_app.css' %}">
+  <style>
+    /* ── Diff colours ── */
+    .diff-positive       { color: #198754; font-weight: 600; }
+    .diff-negative       { color: #dc3545; font-weight: 600; }
+    .diff-zero           { color: #6c757d; }
+    /* calories: more = bad (red), less = good (green) */
+    .diff-cal-positive   { color: #dc3545; font-weight: 600; }
+    .diff-cal-negative   { color: #198754; font-weight: 600; }
+
+    /* ── Table column tints ── */
+    .month-col-1  { background: rgba(13,110,253,.06); }
+    .month-col-2  { background: rgba(25,135,84,.06);  }
+    .diff-col     { background: rgba(108,117,125,.05); }
+
+    /* ── Overview stat box ── */
+    .stat-box {
+      border-radius: 10px;
+      padding: 14px 10px;
+      text-align: center;
+      height: 100%;
+    }
+    .stat-box .stat-lbl  { font-size: .75rem; color: #6c757d; }
+    .stat-box .stat-vals { display: flex; justify-content: space-around; margin: 8px 0 4px; }
+    .stat-box .val-a     { font-weight: 700; color: #0d6efd; font-size: 1.1rem; }
+    .stat-box .val-b     { font-weight: 700; color: #198754; font-size: 1.1rem; }
+    .stat-box .stat-diff { font-size: .8rem; }
+
+    /* ── Macro bar ── */
+    .macro-bar {
+      height: 22px; border-radius: 5px; overflow: hidden;
+      display: flex; margin-top: 6px;
+    }
+    .macro-seg {
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: .65rem; font-weight: 700;
+      transition: width .3s;
+      overflow: hidden; white-space: nowrap;
+    }
+
+    /* ── Table ── */
+    .table-compare td, .table-compare th { vertical-align: middle; }
+    th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+    th.sortable:hover { background: rgba(0,0,0,.05); }
+    th.sortable .sort-icon { opacity: .4; margin-left: 3px; font-size: .75rem; }
+    th.sort-asc  .sort-icon::after { content: "▲"; opacity: 1; }
+    th.sort-desc .sort-icon::after { content: "▼"; opacity: 1; }
+    th.sortable:not(.sort-asc):not(.sort-desc) .sort-icon::after { content: "⇅"; }
+
+    /* ── Row border by status ── */
+    tr[data-status="only-a"] { border-left: 3px solid #0d6efd; }
+    tr[data-status="only-b"] { border-left: 3px solid #198754; }
+    tr[data-status="both"]   { border-left: 3px solid #dee2e6; }
+
+    /* ── New / Dropped pills ── */
+    .food-pill {
+      display: inline-block; background: var(--bs-light,#f8f9fa);
+      border-radius: 20px; padding: 3px 10px; margin: 3px;
+      font-size: .8rem; border: 1px solid #dee2e6;
+    }
+    .winner-badge {
+      display: inline-block; font-size: .62rem; padding: 1px 6px;
+      border-radius: 20px; vertical-align: middle; margin-left: 4px;
+    }
+
+    /* ── Weight change colour ── */
+    .wt-gain  { color: #dc3545; }
+    .wt-loss  { color: #198754; }
+  </style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <div class="row mb-3">
+    <div class="col-12">
+      <h1 class="h3 mb-3">Analytics & Insights</h1>
+
+      <!-- Navigation Tabs -->
+      <ul class="nav nav-tabs mb-3">
+        <li class="nav-item">
+          <a class="nav-link" href="{% url 'analytics' %}">
+            <i class="fas fa-chart-bar me-1"></i>Overview
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link active" href="{% url 'month_compare' %}">
+            <i class="fas fa-calendar-alt me-1"></i>Month Comparison
+          </a>
+        </li>
+      </ul>
+
+      <!-- Month Pickers -->
+      <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body py-3">
+          <form method="get" class="row g-3 align-items-end">
+            <div class="col-sm-4 col-md-3">
+              <label class="form-label fw-semibold text-primary mb-1">
+                <span class="badge bg-primary me-1">A</span>Month A
+              </label>
+              <select name="month1" class="form-select">
+                {% for choice in month_choices %}
+                  <option value="{{ choice.value }}" {% if choice.value == month1_str %}selected{% endif %}>{{ choice.label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-auto d-flex align-items-end pb-1">
+              <span class="fw-bold text-muted fs-5">vs</span>
+            </div>
+            <div class="col-sm-4 col-md-3">
+              <label class="form-label fw-semibold text-success mb-1">
+                <span class="badge bg-success me-1">B</span>Month B
+              </label>
+              <select name="month2" class="form-select">
+                {% for choice in month_choices %}
+                  <option value="{{ choice.value }}" {% if choice.value == month2_str %}selected{% endif %}>{{ choice.label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-auto d-flex align-items-end">
+              <button type="submit" class="btn btn-primary">
+                <i class="fas fa-sync-alt me-1"></i>Compare
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ Overview Stats ══ -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card shadow-sm border-0">
+        <div class="card-header bg-dark text-white d-flex align-items-center justify-content-between">
+          <h2 class="h5 mb-0"><i class="fas fa-balance-scale me-2"></i>Overview Comparison</h2>
+          <div class="d-flex gap-2">
+            <span class="badge bg-primary px-3">A: {{ month1_label }}</span>
+            <span class="badge bg-success px-3">B: {{ month2_label }}</span>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+
+            {% comment %}Macro: diff sign convention
+              calories / fat / carbs: positive diff = bad (red), negative = good (green)
+              protein / days: positive = good (green)
+            {% endcomment %}
+
+            <!-- Days Logged -->
+            <div class="col-6 col-md-4 col-xl-2">
+              <div class="stat-box border">
+                <div class="stat-lbl"><i class="fas fa-calendar-check me-1"></i>Days Logged</div>
+                <div class="stat-vals">
+                  <div><div class="val-a">{{ data1.days_logged }}</div><small class="text-muted">A</small></div>
+                  <div class="border-start"></div>
+                  <div><div class="val-b">{{ data2.days_logged }}</div><small class="text-muted">B</small></div>
+                </div>
+                <div class="stat-diff">
+                  {% with d=overview_diffs.days_logged %}
+                    {% if d > 0 %}<span class="diff-positive">▲ +{{ d }} days</span>
+                    {% elif d < 0 %}<span class="diff-negative">▼ {{ d }} days</span>
+                    {% else %}<span class="diff-zero">= same</span>{% endif %}
+                  {% endwith %}
+                </div>
+              </div>
+            </div>
+
+            <!-- Avg Daily Calories -->
+            <div class="col-6 col-md-4 col-xl-2">
+              <div class="stat-box border">
+                <div class="stat-lbl"><i class="fas fa-fire text-danger me-1"></i>Avg Daily Cal</div>
+                <div class="stat-vals">
+                  <div><div class="val-a">{{ data1.avg_daily_calories|floatformat:0 }}</div><small class="text-muted">A</small></div>
+                  <div class="border-start"></div>
+                  <div><div class="val-b">{{ data2.avg_daily_calories|floatformat:0 }}</div><small class="text-muted">B</small></div>
+                </div>
+                <div class="stat-diff">
+                  {% with d=overview_diffs.avg_daily_calories %}
+                    {% if d > 0 %}<span class="diff-cal-positive">▲ +{{ d|floatformat:0 }} kcal</span>
+                    {% elif d < 0 %}<span class="diff-cal-negative">▼ {{ d|floatformat:0 }} kcal</span>
+                    {% else %}<span class="diff-zero">= same</span>{% endif %}
+                  {% endwith %}
+                </div>
+              </div>
+            </div>
+
+            <!-- Total Calories -->
+            <div class="col-6 col-md-4 col-xl-2">
+              <div class="stat-box border">
+                <div class="stat-lbl"><i class="fas fa-fire-alt text-warning me-1"></i>Total Calories</div>
+                <div class="stat-vals">
+                  <div><div class="val-a">{{ data1.total_calories|floatformat:0 }}</div><small class="text-muted">A</small></div>
+                  <div class="border-start"></div>
+                  <div><div class="val-b">{{ data2.total_calories|floatformat:0 }}</div><small class="text-muted">B</small></div>
+                </div>
+                <div class="stat-diff">
+                  {% with d=overview_diffs.total_calories %}
+                    {% if d > 0 %}<span class="diff-cal-positive">▲ +{{ d|floatformat:0 }}</span>
+                    {% elif d < 0 %}<span class="diff-cal-negative">▼ {{ d|floatformat:0 }}</span>
+                    {% else %}<span class="diff-zero">= same</span>{% endif %}
+                  {% endwith %}
+                </div>
+              </div>
+            </div>
+
+            <!-- Avg Daily Protein -->
+            <div class="col-6 col-md-4 col-xl-2">
+              <div class="stat-box border">
+                <div class="stat-lbl"><i class="fas fa-drumstick-bite text-success me-1"></i>Avg Daily Protein</div>
+                <div class="stat-vals">
+                  <div><div class="val-a">{{ data1.avg_daily_protein|floatformat:0 }}g</div><small class="text-muted">A</small></div>
+                  <div class="border-start"></div>
+                  <div><div class="val-b">{{ data2.avg_daily_protein|floatformat:0 }}g</div><small class="text-muted">B</small></div>
+                </div>
+                <div class="stat-diff">
+                  {% with d=overview_diffs.avg_daily_protein %}
+                    {% if d > 0 %}<span class="diff-positive">▲ +{{ d|floatformat:0 }}g</span>
+                    {% elif d < 0 %}<span class="diff-negative">▼ {{ d|floatformat:0 }}g</span>
+                    {% else %}<span class="diff-zero">= same</span>{% endif %}
+                  {% endwith %}
+                </div>
+              </div>
+            </div>
+
+            <!-- Avg Daily Fat -->
+            <div class="col-6 col-md-4 col-xl-2">
+              <div class="stat-box border">
+                <div class="stat-lbl"><i class="fas fa-cheese text-warning me-1"></i>Avg Daily Fat</div>
+                <div class="stat-vals">
+                  <div><div class="val-a">{{ data1.avg_daily_fat|floatformat:0 }}g</div><small class="text-muted">A</small></div>
+                  <div class="border-start"></div>
+                  <div><div class="val-b">{{ data2.avg_daily_fat|floatformat:0 }}g</div><small class="text-muted">B</small></div>
+                </div>
+                <div class="stat-diff">
+                  {% with d=overview_diffs.avg_daily_fat %}
+                    {% if d > 0 %}<span class="diff-cal-positive">▲ +{{ d|floatformat:0 }}g</span>
+                    {% elif d < 0 %}<span class="diff-cal-negative">▼ {{ d|floatformat:0 }}g</span>
+                    {% else %}<span class="diff-zero">= same</span>{% endif %}
+                  {% endwith %}
+                </div>
+              </div>
+            </div>
+
+            <!-- Avg Daily Carbs -->
+            <div class="col-6 col-md-4 col-xl-2">
+              <div class="stat-box border">
+                <div class="stat-lbl"><i class="fas fa-bread-slice text-info me-1"></i>Avg Daily Carbs</div>
+                <div class="stat-vals">
+                  <div><div class="val-a">{{ data1.avg_daily_carbs|floatformat:0 }}g</div><small class="text-muted">A</small></div>
+                  <div class="border-start"></div>
+                  <div><div class="val-b">{{ data2.avg_daily_carbs|floatformat:0 }}g</div><small class="text-muted">B</small></div>
+                </div>
+                <div class="stat-diff">
+                  {% with d=overview_diffs.avg_daily_carbs %}
+                    {% if d > 0 %}<span class="diff-cal-positive">▲ +{{ d|floatformat:0 }}g</span>
+                    {% elif d < 0 %}<span class="diff-cal-negative">▼ {{ d|floatformat:0 }}g</span>
+                    {% else %}<span class="diff-zero">= same</span>{% endif %}
+                  {% endwith %}
+                </div>
+              </div>
+            </div>
+
+          </div><!-- /row -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ Macro bar charts + Weight (side by side) ══ -->
+  <div class="row mb-4 g-3">
+
+    <!-- Macro breakdown bars -->
+    <div class="col-lg-{% if data1.weight or data2.weight %}7{% else %}12{% endif %}">
+      <div class="card shadow-sm border-0 h-100">
+        <div class="card-header bg-secondary text-white">
+          <h2 class="h6 mb-0"><i class="fas fa-chart-pie me-2"></i>Macro Breakdown</h2>
+        </div>
+        <div class="card-body">
+          <!-- Month A bar -->
+          <div class="mb-3">
+            <div class="d-flex justify-content-between mb-1">
+              <span class="small fw-semibold"><span class="badge bg-primary me-1">A</span>{{ month1_label }}</span>
+              <span class="small text-muted">
+                P {{ data1.macro_pct.protein }}% &nbsp; F {{ data1.macro_pct.fat }}% &nbsp; C {{ data1.macro_pct.carbs }}%
+              </span>
+            </div>
+            <div class="macro-bar">
+              <div class="macro-seg bg-success"   style="width:{{ data1.macro_pct.protein }}%">{% if data1.macro_pct.protein >= 8 %}P {{ data1.macro_pct.protein }}%{% endif %}</div>
+              <div class="macro-seg bg-warning"   style="width:{{ data1.macro_pct.fat }}%">{% if data1.macro_pct.fat >= 8 %}F {{ data1.macro_pct.fat }}%{% endif %}</div>
+              <div class="macro-seg bg-info"      style="width:{{ data1.macro_pct.carbs }}%">{% if data1.macro_pct.carbs >= 8 %}C {{ data1.macro_pct.carbs }}%{% endif %}</div>
+            </div>
+          </div>
+          <!-- Month B bar -->
+          <div class="mb-3">
+            <div class="d-flex justify-content-between mb-1">
+              <span class="small fw-semibold"><span class="badge bg-success me-1">B</span>{{ month2_label }}</span>
+              <span class="small text-muted">
+                P {{ data2.macro_pct.protein }}% &nbsp; F {{ data2.macro_pct.fat }}% &nbsp; C {{ data2.macro_pct.carbs }}%
+              </span>
+            </div>
+            <div class="macro-bar">
+              <div class="macro-seg bg-success"   style="width:{{ data2.macro_pct.protein }}%">{% if data2.macro_pct.protein >= 8 %}P {{ data2.macro_pct.protein }}%{% endif %}</div>
+              <div class="macro-seg bg-warning"   style="width:{{ data2.macro_pct.fat }}%">{% if data2.macro_pct.fat >= 8 %}F {{ data2.macro_pct.fat }}%{% endif %}</div>
+              <div class="macro-seg bg-info"      style="width:{{ data2.macro_pct.carbs }}%">{% if data2.macro_pct.carbs >= 8 %}C {{ data2.macro_pct.carbs }}%{% endif %}</div>
+            </div>
+          </div>
+          <!-- Legend -->
+          <div class="d-flex gap-3 small text-muted mt-2">
+            <span><span class="badge bg-success">P</span> Protein</span>
+            <span><span class="badge bg-warning text-dark">F</span> Fat</span>
+            <span><span class="badge bg-info text-dark">C</span> Carbs</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Weight comparison (only if data exists) -->
+    {% if data1.weight or data2.weight %}
+    <div class="col-lg-5">
+      <div class="card shadow-sm border-0 h-100">
+        <div class="card-header bg-info text-white">
+          <h2 class="h6 mb-0"><i class="fas fa-weight me-2"></i>Weight Comparison</h2>
+        </div>
+        <div class="card-body p-0">
+          <table class="table table-sm mb-0">
+            <thead class="table-light">
+              <tr>
+                <th></th>
+                <th class="text-center text-primary"><span class="badge bg-primary">A</span> {{ month1_label }}</th>
+                <th class="text-center text-success"><span class="badge bg-success">B</span> {{ month2_label }}</th>
+                {% if data1.weight and data2.weight %}<th class="text-center">Diff</th>{% endif %}
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="text-muted small">Avg Weight</td>
+                <td class="text-center fw-semibold">{% if data1.weight %}{{ data1.weight.avg }} kg{% else %}<span class="text-muted">—</span>{% endif %}</td>
+                <td class="text-center fw-semibold">{% if data2.weight %}{{ data2.weight.avg }} kg{% else %}<span class="text-muted">—</span>{% endif %}</td>
+                {% if data1.weight and data2.weight %}
+                <td class="text-center small">
+                  {% with d=overview_diffs.weight_avg %}
+                    {% if d > 0 %}<span class="wt-gain">+{{ d }} kg</span>
+                    {% elif d < 0 %}<span class="wt-loss">{{ d }} kg</span>
+                    {% else %}<span class="diff-zero">0</span>{% endif %}
+                  {% endwith %}
+                </td>
+                {% endif %}
+              </tr>
+              <tr>
+                <td class="text-muted small">Start → End</td>
+                <td class="text-center small">{% if data1.weight %}{{ data1.weight.start }} → {{ data1.weight.end }} kg{% else %}<span class="text-muted">—</span>{% endif %}</td>
+                <td class="text-center small">{% if data2.weight %}{{ data2.weight.start }} → {{ data2.weight.end }} kg{% else %}<span class="text-muted">—</span>{% endif %}</td>
+                {% if data1.weight and data2.weight %}<td></td>{% endif %}
+              </tr>
+              <tr>
+                <td class="text-muted small">Monthly Change</td>
+                <td class="text-center fw-semibold">
+                  {% if data1.weight %}
+                    <span class="{% if data1.weight.change > 0 %}wt-gain{% elif data1.weight.change < 0 %}wt-loss{% endif %}">
+                      {% if data1.weight.change > 0 %}+{% endif %}{{ data1.weight.change }} kg
+                    </span>
+                  {% else %}<span class="text-muted">—</span>{% endif %}
+                </td>
+                <td class="text-center fw-semibold">
+                  {% if data2.weight %}
+                    <span class="{% if data2.weight.change > 0 %}wt-gain{% elif data2.weight.change < 0 %}wt-loss{% endif %}">
+                      {% if data2.weight.change > 0 %}+{% endif %}{{ data2.weight.change }} kg
+                    </span>
+                  {% else %}<span class="text-muted">—</span>{% endif %}
+                </td>
+                {% if data1.weight and data2.weight %}
+                <td class="text-center small">
+                  {% with d=overview_diffs.weight_change %}
+                    {% if d > 0 %}<span class="wt-gain">+{{ d }} kg</span>
+                    {% elif d < 0 %}<span class="wt-loss">{{ d }} kg</span>
+                    {% else %}<span class="diff-zero">0</span>{% endif %}
+                  {% endwith %}
+                </td>
+                {% endif %}
+              </tr>
+              <tr>
+                <td class="text-muted small">Min / Max</td>
+                <td class="text-center small">{% if data1.weight %}{{ data1.weight.min }} / {{ data1.weight.max }} kg{% else %}<span class="text-muted">—</span>{% endif %}</td>
+                <td class="text-center small">{% if data2.weight %}{{ data2.weight.min }} / {{ data2.weight.max }} kg{% else %}<span class="text-muted">—</span>{% endif %}</td>
+                {% if data1.weight and data2.weight %}<td></td>{% endif %}
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+  </div><!-- /macro + weight row -->
+
+  <!-- ══ New / Dropped Foods ══ -->
+  {% if only_in_a or only_in_b %}
+  <div class="row mb-4 g-3">
+
+    {% if only_in_a %}
+    <div class="col-md-6">
+      <div class="card shadow-sm border-0 h-100">
+        <div class="card-header" style="background:#e7f0ff; border-left:4px solid #0d6efd;">
+          <h2 class="h6 mb-0 text-primary">
+            <i class="fas fa-plus-circle me-1"></i>
+            Only in <span class="badge bg-primary">A</span> {{ month1_label }}
+            <span class="badge bg-primary ms-1">{{ only_in_a|length }}</span>
+          </h2>
+          <small class="text-muted">Foods eaten in A but not in B</small>
+        </div>
+        <div class="card-body">
+          {% for f in only_in_a %}
+            <span class="food-pill">
+              <span class="text-primary fw-semibold">{{ f.name }}</span>
+              <span class="text-muted ms-1">×{{ f.count1 }}</span>
+              <span class="text-danger ms-1">{{ f.calories1 }} kcal</span>
+            </span>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if only_in_b %}
+    <div class="col-md-6">
+      <div class="card shadow-sm border-0 h-100">
+        <div class="card-header" style="background:#e8f5ee; border-left:4px solid #198754;">
+          <h2 class="h6 mb-0 text-success">
+            <i class="fas fa-minus-circle me-1"></i>
+            Only in <span class="badge bg-success">B</span> {{ month2_label }}
+            <span class="badge bg-success ms-1">{{ only_in_b|length }}</span>
+          </h2>
+          <small class="text-muted">Foods eaten in B but not in A</small>
+        </div>
+        <div class="card-body">
+          {% for f in only_in_b %}
+            <span class="food-pill">
+              <span class="text-success fw-semibold">{{ f.name }}</span>
+              <span class="text-muted ms-1">×{{ f.count2 }}</span>
+              <span class="text-danger ms-1">{{ f.calories2 }} kcal</span>
+            </span>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+  {% endif %}
+
+  <!-- ══ Top Foods Comparison Table ══ -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card shadow-sm border-0">
+        <div class="card-header bg-primary text-white d-flex align-items-center justify-content-between flex-wrap gap-2">
+          <h2 class="h5 mb-0"><i class="fas fa-utensils me-2"></i>Top Foods Comparison</h2>
+          <!-- Filter Buttons -->
+          <div class="d-flex gap-1 flex-wrap" id="tableFilterBtns">
+            <button class="btn btn-sm btn-light active" data-filter="all">All <span class="badge bg-secondary ms-1" id="cnt-all"></span></button>
+            <button class="btn btn-sm btn-outline-light" data-filter="both">In Both <span class="badge bg-secondary ms-1" id="cnt-both"></span></button>
+            <button class="btn btn-sm btn-outline-light" data-filter="only-a">Only A <span class="badge bg-secondary ms-1" id="cnt-only-a"></span></button>
+            <button class="btn btn-sm btn-outline-light" data-filter="only-b">Only B <span class="badge bg-secondary ms-1" id="cnt-only-b"></span></button>
+          </div>
+        </div>
+        <div class="card-body p-0">
+          {% if comparison_foods %}
+          <div class="table-responsive">
+            <table class="table table-hover table-compare mb-0" id="compareTable">
+              <thead class="table-light">
+                <tr>
+                  <th class="sortable" data-col="0" style="min-width:150px;">
+                    Food <span class="sort-icon"></span>
+                  </th>
+                  <th class="text-center month-col-1 sortable" data-col="1"><span class="badge bg-primary">A</span> Times <span class="sort-icon"></span></th>
+                  <th class="text-center month-col-2 sortable" data-col="2"><span class="badge bg-success">B</span> Times <span class="sort-icon"></span></th>
+                  <th class="text-center diff-col sortable" data-col="3">Δ Times <span class="sort-icon"></span></th>
+                  <th class="text-center month-col-1 sortable" data-col="4">A Cal <span class="sort-icon"></span></th>
+                  <th class="text-center month-col-2 sortable" data-col="5">B Cal <span class="sort-icon"></span></th>
+                  <th class="text-center diff-col sortable" data-col="6">Δ Cal <span class="sort-icon"></span></th>
+                  <th class="text-center month-col-1 sortable" data-col="7">A Prot <span class="sort-icon"></span></th>
+                  <th class="text-center month-col-2 sortable" data-col="8">B Prot <span class="sort-icon"></span></th>
+                  <th class="text-center diff-col sortable" data-col="9">Δ Prot <span class="sort-icon"></span></th>
+                  <th class="text-center month-col-1 sortable" data-col="10">A Fat <span class="sort-icon"></span></th>
+                  <th class="text-center month-col-2 sortable" data-col="11">B Fat <span class="sort-icon"></span></th>
+                  <th class="text-center diff-col sortable" data-col="12">Δ Fat <span class="sort-icon"></span></th>
+                  <th class="text-center month-col-1 sortable" data-col="13">A Carbs <span class="sort-icon"></span></th>
+                  <th class="text-center month-col-2 sortable" data-col="14">B Carbs <span class="sort-icon"></span></th>
+                  <th class="text-center diff-col sortable" data-col="15">Δ Carbs <span class="sort-icon"></span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for food in comparison_foods %}
+                <tr data-status="{% if food.count2 == 0 %}only-a{% elif food.count1 == 0 %}only-b{% else %}both{% endif %}"
+                    data-vals="{{ food.name }}|{{ food.count1 }}|{{ food.count2 }}|{{ food.count_diff }}|{{ food.calories1 }}|{{ food.calories2 }}|{{ food.calories_diff }}|{{ food.protein1 }}|{{ food.protein2 }}|{{ food.protein_diff }}|{{ food.fat1 }}|{{ food.fat2 }}|{{ food.fat_diff }}|{{ food.carbs1 }}|{{ food.carbs2 }}|{{ food.carbs_diff }}">
+                  <td>
+                    <span class="fw-semibold">{{ food.name }}</span>
+                    {% if food.count2 == 0 %}<span class="winner-badge bg-primary text-white">Only A</span>
+                    {% elif food.count1 == 0 %}<span class="winner-badge bg-success text-white">Only B</span>{% endif %}
+                  </td>
+                  <!-- Times -->
+                  <td class="text-center month-col-1">{% if food.count1 %}<span class="badge bg-primary">{{ food.count1 }}</span>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+                  <td class="text-center month-col-2">{% if food.count2 %}<span class="badge bg-success">{{ food.count2 }}</span>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+                  <td class="text-center diff-col small">
+                    {% if food.count_diff > 0 %}<span class="diff-positive">+{{ food.count_diff }}</span>
+                    {% elif food.count_diff < 0 %}<span class="diff-negative">{{ food.count_diff }}</span>
+                    {% else %}<span class="diff-zero">0</span>{% endif %}
+                  </td>
+                  <!-- Calories -->
+                  <td class="text-center month-col-1 small">{% if food.calories1 %}{{ food.calories1 }}{% else %}—{% endif %}</td>
+                  <td class="text-center month-col-2 small">{% if food.calories2 %}{{ food.calories2 }}{% else %}—{% endif %}</td>
+                  <td class="text-center diff-col small">
+                    {% if food.calories_diff > 0 %}<span class="diff-cal-positive">+{{ food.calories_diff }}</span>
+                    {% elif food.calories_diff < 0 %}<span class="diff-cal-negative">{{ food.calories_diff }}</span>
+                    {% else %}<span class="diff-zero">0</span>{% endif %}
+                  </td>
+                  <!-- Protein -->
+                  <td class="text-center month-col-1 small">{% if food.protein1 %}{{ food.protein1 }}g{% else %}—{% endif %}</td>
+                  <td class="text-center month-col-2 small">{% if food.protein2 %}{{ food.protein2 }}g{% else %}—{% endif %}</td>
+                  <td class="text-center diff-col small">
+                    {% if food.protein_diff > 0 %}<span class="diff-positive">+{{ food.protein_diff }}g</span>
+                    {% elif food.protein_diff < 0 %}<span class="diff-negative">{{ food.protein_diff }}g</span>
+                    {% else %}<span class="diff-zero">0</span>{% endif %}
+                  </td>
+                  <!-- Fat -->
+                  <td class="text-center month-col-1 small">{% if food.fat1 %}{{ food.fat1 }}g{% else %}—{% endif %}</td>
+                  <td class="text-center month-col-2 small">{% if food.fat2 %}{{ food.fat2 }}g{% else %}—{% endif %}</td>
+                  <td class="text-center diff-col small">
+                    {% if food.fat_diff > 0 %}<span class="diff-cal-positive">+{{ food.fat_diff }}g</span>
+                    {% elif food.fat_diff < 0 %}<span class="diff-cal-negative">{{ food.fat_diff }}g</span>
+                    {% else %}<span class="diff-zero">0</span>{% endif %}
+                  </td>
+                  <!-- Carbs -->
+                  <td class="text-center month-col-1 small">{% if food.carbs1 %}{{ food.carbs1 }}g{% else %}—{% endif %}</td>
+                  <td class="text-center month-col-2 small">{% if food.carbs2 %}{{ food.carbs2 }}g{% else %}—{% endif %}</td>
+                  <td class="text-center diff-col small">
+                    {% if food.carbs_diff > 0 %}<span class="diff-cal-positive">+{{ food.carbs_diff }}g</span>
+                    {% elif food.carbs_diff < 0 %}<span class="diff-cal-negative">{{ food.carbs_diff }}g</span>
+                    {% else %}<span class="diff-zero">0</span>{% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+          <div class="text-center text-muted py-5">
+            <i class="fas fa-inbox fa-3x mb-3 d-block"></i>
+            No food data found for the selected months.
+          </div>
+          {% endif %}
+        </div>
+        {% if comparison_foods %}
+        <div class="card-footer bg-light">
+          <div class="d-flex flex-wrap gap-3 small text-muted">
+            <span><span class="badge bg-primary">A</span> = {{ month1_label }}</span>
+            <span><span class="badge bg-success">B</span> = {{ month2_label }}</span>
+            <span>Δ = A minus B</span>
+            <span><span class="diff-cal-positive fw-semibold">Red diff</span> = more in A (worse for calories/fat/carbs)</span>
+            <span><span class="diff-positive fw-semibold">Green diff</span> = more in A (better for protein) / less calories</span>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<script>
+(function () {
+  // ── Filter ──────────────────────────────────────────────────
+  const tbody = document.querySelector('#compareTable tbody');
+  const allRows = tbody ? Array.from(tbody.querySelectorAll('tr')) : [];
+
+  function countByStatus(status) {
+    return allRows.filter(r => status === 'all' || r.dataset.status === status).length;
+  }
+
+  document.getElementById('cnt-all').textContent     = countByStatus('all');
+  document.getElementById('cnt-both').textContent    = countByStatus('both');
+  document.getElementById('cnt-only-a').textContent  = countByStatus('only-a');
+  document.getElementById('cnt-only-b').textContent  = countByStatus('only-b');
+
+  document.querySelectorAll('#tableFilterBtns button').forEach(btn => {
+    btn.addEventListener('click', function () {
+      document.querySelectorAll('#tableFilterBtns button').forEach(b => {
+        b.classList.remove('active', 'btn-light');
+        b.classList.add('btn-outline-light');
+      });
+      this.classList.add('active', 'btn-light');
+      this.classList.remove('btn-outline-light');
+
+      const filter = this.dataset.filter;
+      allRows.forEach(row => {
+        row.style.display = (filter === 'all' || row.dataset.status === filter) ? '' : 'none';
+      });
+    });
+  });
+
+  // ── Sort ────────────────────────────────────────────────────
+  let sortCol = -1, sortAsc = true;
+
+  document.querySelectorAll('#compareTable th.sortable').forEach(th => {
+    th.addEventListener('click', function () {
+      const col = parseInt(this.dataset.col);
+      if (sortCol === col) {
+        sortAsc = !sortAsc;
+      } else {
+        sortCol = col;
+        sortAsc = col === 0; // text col defaults asc, numeric cols default desc
+      }
+
+      // Update header classes
+      document.querySelectorAll('#compareTable th.sortable').forEach(h => {
+        h.classList.remove('sort-asc', 'sort-desc');
+      });
+      this.classList.add(sortAsc ? 'sort-asc' : 'sort-desc');
+
+      const rows = Array.from(tbody.querySelectorAll('tr'));
+      rows.sort((a, b) => {
+        const va = a.dataset.vals.split('|')[col];
+        const vb = b.dataset.vals.split('|')[col];
+        const na = parseFloat(va), nb = parseFloat(vb);
+        let cmp;
+        if (!isNaN(na) && !isNaN(nb)) {
+          cmp = na - nb;
+        } else {
+          cmp = va.localeCompare(vb);
+        }
+        return sortAsc ? cmp : -cmp;
+      });
+      rows.forEach(r => tbody.appendChild(r));
+    });
+  });
+})();
+</script>
+{% endblock %}

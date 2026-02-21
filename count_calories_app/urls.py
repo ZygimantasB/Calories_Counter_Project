@@ -45,6 +45,7 @@ urlpatterns = [
     path('api/body-measurements-data/', views.get_body_measurements_data, name='body_measurements_data'),
 
     path('analytics/', views.analytics, name='analytics'),
+    path('analytics/month-compare/', views.month_compare, name='month_compare'),
 
     # Settings
     path('settings/', views.settings_view, name='settings'),

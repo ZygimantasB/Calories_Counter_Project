@@ -4729,3 +4729,191 @@ def api_update_fitness_goal(request):
     except Exception as e:
         logger.error(f"Error updating fitness goal: {str(e)}")
         return JsonResponse({'success': False, 'error': 'Failed to update fitness goal.'}, status=400)
+
+
+def month_compare(request):
+    """Compare nutrition and top foods between two calendar months."""
+    from datetime import datetime
+    import calendar
+    from django.db.models.functions import TruncDate
+
+    now = timezone.now()
+
+    # Default: current month vs previous month
+    if now.month == 1:
+        default_prev_month = f"{now.year - 1}-12"
+    else:
+        default_prev_month = f"{now.year}-{now.month - 1:02d}"
+    default_cur_month = f"{now.year}-{now.month:02d}"
+
+    month1_str = request.GET.get('month1', default_cur_month)
+    month2_str = request.GET.get('month2', default_prev_month)
+
+    def parse_month(s):
+        try:
+            dt = datetime.strptime(s, '%Y-%m')
+            return dt.year, dt.month
+        except (ValueError, TypeError):
+            return now.year, now.month
+
+    year1, mon1 = parse_month(month1_str)
+    year2, mon2 = parse_month(month2_str)
+
+    def get_month_data(year, month):
+        last_day = calendar.monthrange(year, month)[1]
+        start = timezone.make_aware(datetime(year, month, 1, 0, 0, 0))
+        end = timezone.make_aware(datetime(year, month, last_day, 23, 59, 59))
+
+        qs = FoodItem.objects.filter(consumed_at__gte=start, consumed_at__lte=end)
+
+        days_logged = qs.annotate(day=TruncDate('consumed_at')).values('day').distinct().count()
+
+        totals = qs.aggregate(
+            total_calories=Sum('calories'),
+            total_protein=Sum('protein'),
+            total_fat=Sum('fat'),
+            total_carbs=Sum('carbohydrates'),
+            total_entries=Count('id'),
+        )
+
+        tc = totals['total_calories'] or 0
+        tp = totals['total_protein'] or 0
+        tf = totals['total_fat'] or 0
+        tcarbs = totals['total_carbs'] or 0
+
+        # Macro calorie breakdown for bar chart
+        p_cal = tp * 4
+        f_cal = tf * 9
+        c_cal = tcarbs * 4
+        macro_total_cal = p_cal + f_cal + c_cal
+        if macro_total_cal > 0:
+            macro_pct = {
+                'protein': round(p_cal / macro_total_cal * 100),
+                'fat': round(f_cal / macro_total_cal * 100),
+                'carbs': round(c_cal / macro_total_cal * 100),
+            }
+        else:
+            macro_pct = {'protein': 0, 'fat': 0, 'carbs': 0}
+
+        top_foods = list(
+            qs.values('product_name').annotate(
+                count=Count('id'),
+                total_calories=Sum('calories'),
+                avg_calories=Avg('calories'),
+                total_protein=Sum('protein'),
+                total_fat=Sum('fat'),
+                total_carbs=Sum('carbohydrates'),
+            ).order_by('-count')[:25]
+        )
+
+        # Weight stats for this month
+        weight_qs = Weight.objects.filter(recorded_at__gte=start, recorded_at__lte=end).order_by('recorded_at')
+        weight_stats = None
+        if weight_qs.exists():
+            w_agg = weight_qs.aggregate(avg=Avg('weight'), wmin=Min('weight'), wmax=Max('weight'))
+            weight_stats = {
+                'start': round(weight_qs.first().weight, 1),
+                'end': round(weight_qs.last().weight, 1),
+                'avg': round(w_agg['avg'], 1),
+                'min': round(w_agg['wmin'], 1),
+                'max': round(w_agg['wmax'], 1),
+                'change': round(weight_qs.last().weight - weight_qs.first().weight, 1),
+                'count': weight_qs.count(),
+            }
+
+        return {
+            'top_foods': top_foods,
+            'days_logged': days_logged,
+            'total_calories': tc,
+            'avg_daily_calories': round(tc / days_logged, 1) if days_logged else 0,
+            'total_protein': tp,
+            'avg_daily_protein': round(tp / days_logged, 1) if days_logged else 0,
+            'total_fat': tf,
+            'avg_daily_fat': round(tf / days_logged, 1) if days_logged else 0,
+            'total_carbs': tcarbs,
+            'avg_daily_carbs': round(tcarbs / days_logged, 1) if days_logged else 0,
+            'total_entries': totals['total_entries'] or 0,
+            'macro_pct': macro_pct,
+            'weight': weight_stats,
+        }
+
+    data1 = get_month_data(year1, mon1)
+    data2 = get_month_data(year2, mon2)
+
+    # Overview diffs (A minus B)
+    overview_diffs = {
+        'days_logged': data1['days_logged'] - data2['days_logged'],
+        'avg_daily_calories': round(data1['avg_daily_calories'] - data2['avg_daily_calories'], 1),
+        'total_calories': round(data1['total_calories'] - data2['total_calories']),
+        'avg_daily_protein': round(data1['avg_daily_protein'] - data2['avg_daily_protein'], 1),
+        'avg_daily_fat': round(data1['avg_daily_fat'] - data2['avg_daily_fat'], 1),
+        'avg_daily_carbs': round(data1['avg_daily_carbs'] - data2['avg_daily_carbs'], 1),
+    }
+    if data1['weight'] and data2['weight']:
+        overview_diffs['weight_avg'] = round(data1['weight']['avg'] - data2['weight']['avg'], 1)
+        overview_diffs['weight_change'] = round(
+            (data1['weight']['change'] or 0) - (data2['weight']['change'] or 0), 1
+        )
+
+    # Build merged top-foods comparison
+    foods1 = {f['product_name']: f for f in data1['top_foods']}
+    foods2 = {f['product_name']: f for f in data2['top_foods']}
+    all_names = set(foods1.keys()) | set(foods2.keys())
+
+    _zero = {'count': 0, 'total_calories': 0, 'avg_calories': 0,
+             'total_protein': 0, 'total_fat': 0, 'total_carbs': 0}
+
+    comparison_foods = []
+    for name in all_names:
+        f1 = foods1.get(name, _zero)
+        f2 = foods2.get(name, _zero)
+        comparison_foods.append({
+            'name': name,
+            'count1': f1['count'],
+            'count2': f2['count'],
+            'count_diff': f1['count'] - f2['count'],
+            'calories1': round(f1['total_calories'] or 0),
+            'calories2': round(f2['total_calories'] or 0),
+            'calories_diff': round((f1['total_calories'] or 0) - (f2['total_calories'] or 0)),
+            'protein1': round(f1['total_protein'] or 0, 1),
+            'protein2': round(f2['total_protein'] or 0, 1),
+            'protein_diff': round((f1['total_protein'] or 0) - (f2['total_protein'] or 0), 1),
+            'fat1': round(f1['total_fat'] or 0, 1),
+            'fat2': round(f2['total_fat'] or 0, 1),
+            'fat_diff': round((f1['total_fat'] or 0) - (f2['total_fat'] or 0), 1),
+            'carbs1': round(f1['total_carbs'] or 0, 1),
+            'carbs2': round(f2['total_carbs'] or 0, 1),
+            'carbs_diff': round((f1['total_carbs'] or 0) - (f2['total_carbs'] or 0), 1),
+        })
+
+    comparison_foods.sort(key=lambda x: x['count1'] + x['count2'], reverse=True)
+    comparison_foods = comparison_foods[:25]
+
+    # New / dropped food lists
+    only_in_a = [f for f in comparison_foods if f['count2'] == 0][:10]
+    only_in_b = [f for f in comparison_foods if f['count1'] == 0][:10]
+
+    # Build month choices for selects (last 3 years)
+    month_choices = []
+    for y in range(now.year, now.year - 3, -1):
+        for m in range(12, 0, -1):
+            if y == now.year and m > now.month:
+                continue
+            month_choices.append({
+                'value': f"{y}-{m:02d}",
+                'label': datetime(y, m, 1).strftime('%B %Y'),
+            })
+
+    return render(request, 'count_calories_app/month_compare.html', {
+        'month1_str': month1_str,
+        'month2_str': month2_str,
+        'month1_label': datetime(year1, mon1, 1).strftime('%B %Y'),
+        'month2_label': datetime(year2, mon2, 1).strftime('%B %Y'),
+        'data1': data1,
+        'data2': data2,
+        'overview_diffs': overview_diffs,
+        'comparison_foods': comparison_foods,
+        'only_in_a': only_in_a,
+        'only_in_b': only_in_b,
+        'month_choices': month_choices,
+    })

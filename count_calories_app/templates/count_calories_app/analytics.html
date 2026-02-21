@@ -130,6 +130,20 @@
     <div class="col-12">
       <h1 class="h3 mb-3">Analytics & Insights</h1>
 
+      <!-- Analytics Navigation Tabs -->
+      <ul class="nav nav-tabs mb-3">
+        <li class="nav-item">
+          <a class="nav-link active" href="{% url 'analytics' %}{% if period %}?period={{ period }}{% endif %}">
+            <i class="fas fa-chart-bar me-1"></i>Overview
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="{% url 'month_compare' %}">
+            <i class="fas fa-calendar-alt me-1"></i>Month Comparison
+          </a>
+        </li>
+      </ul>
+
       <!-- Period Selection -->
       <div class="d-flex flex-wrap gap-2 mb-4">
         <a href="?period=30" class="btn btn-sm {% if period == '30' %}btn-primary{% else %}btn-outline-primary{% endif %}">Last 30 Days</a>
