@@ -98,6 +98,14 @@
       font-weight: 600;
       letter-spacing: 0.01em;
     }
+    .workout-table .volume-summary-cell .vol-pct {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 700;
+      margin-top: 2px;
+    }
+    .workout-table .volume-summary-cell .vol-pct.up   { color: #198754; }
+    .workout-table .volume-summary-cell .vol-pct.down { color: #dc3545; }
     /* PR (personal record) cell */
     .workout-table .pr-cell {
       background-color: rgba(255, 193, 7, 0.18) !important;
@@ -129,6 +137,22 @@
       color: white;
       transform: scale(1.1);
     }
+    /* Column header date picker hint */
+    .workout-table th.editable {
+      cursor: pointer;
+    }
+    .workout-table th.editable:hover::after {
+      content: ' 📅';
+      font-size: 11px;
+      opacity: 0.6;
+    }
+    /* Date picker popup */
+    #col-date-picker {
+      position: fixed;
+      z-index: 1055;
+      min-width: 260px;
+      display: none;
+    }
     /* Responsive table styles */
     @media (max-width: 768px) {
       .workout-table {
@@ -153,6 +177,9 @@
         <div>
           <button id="save-table" class="btn btn-primary">
             <i class="fas fa-save me-1"></i>Save Workout Table
+          </button>
+          <button id="import-sheets-btn" class="btn btn-outline-success ms-2">
+            <i class="fas fa-file-import me-1"></i>Import from Sheets
           </button>
           <button id="new-table" class="btn btn-outline-secondary ms-2">
             <i class="fas fa-plus me-1"></i>New Table
@@ -320,6 +347,66 @@
 {% endblock %}
 
 {% block extra_body %}
+<!-- Import from Google Sheets Modal -->
+<div class="modal fade" id="importSheetsModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title"><i class="fas fa-file-import me-2"></i>Import from Google Sheets</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-info mb-3">
+          <strong>How to import:</strong>
+          <ol class="mb-0 mt-1">
+            <li>In Google Sheets, select all your data (including the header row and exercise column)</li>
+            <li>Press <kbd>Ctrl+C</kbd> to copy</li>
+            <li>Click inside the box below and press <kbd>Ctrl+V</kbd> to paste</li>
+            <li>Click <strong>Import</strong></li>
+          </ol>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-bold">Paste your Google Sheets data here:</label>
+          <textarea id="sheets-paste-area" class="form-control font-monospace"
+            rows="10" placeholder="Paste data here (Ctrl+V)..."></textarea>
+        </div>
+        <div id="import-preview" class="d-none">
+          <div class="alert alert-success mb-0">
+            <i class="fas fa-check-circle me-1"></i>
+            Detected: <strong><span id="import-preview-rows">0</span> exercises</strong>
+            across <strong><span id="import-preview-cols">0</span> sessions</strong>
+          </div>
+        </div>
+        <div id="import-error" class="alert alert-danger d-none mt-2"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" id="import-sheets-confirm" class="btn btn-success" disabled>
+          <i class="fas fa-file-import me-1"></i>Import
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Column Date Picker -->
+<div id="col-date-picker">
+  <div class="card shadow border-0" style="border-radius:10px; overflow:hidden;">
+    <div class="card-header bg-primary text-white py-2 px-3">
+      <small class="fw-bold"><i class="fas fa-calendar-alt me-1"></i>Select Session Date</small>
+    </div>
+    <div class="card-body p-3">
+      <input type="date" id="col-date-input" class="form-control form-control-sm mb-2">
+      <div class="d-flex gap-2">
+        <button id="col-date-apply" class="btn btn-primary btn-sm flex-grow-1">
+          <i class="fas fa-check me-1"></i>Apply
+        </button>
+        <button id="col-date-cancel" class="btn btn-outline-secondary btn-sm">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Progress Modal -->
 <div class="modal fade" id="progressModal" tabindex="-1" aria-labelledby="progressModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-xl modal-dialog-scrollable">
@@ -468,10 +555,27 @@
         labelCell.textContent = '📊 Session Volume';
         summaryRow.appendChild(labelCell);
 
+        // Find the previous non-zero total for % change calculation
+        const nonZeroTotals = totals.map((v, i) => ({ v, i })).filter(x => x.v > 0);
+
         for (let j = 0; j < colCount; j++) {
           const cell = document.createElement('td');
           cell.className = 'volume-summary-cell';
-          cell.textContent = totals[j] > 0 ? totals[j].toLocaleString() + ' kg' : '—';
+
+          if (totals[j] > 0) {
+            // Find the previous session that had data
+            const prevEntry = nonZeroTotals.filter(x => x.i < j).pop();
+            let pctHtml = '';
+            if (prevEntry) {
+              const pct = ((totals[j] - prevEntry.v) / prevEntry.v * 100).toFixed(1);
+              const up  = parseFloat(pct) >= 0;
+              pctHtml = `<span class="vol-pct ${up ? 'up' : 'down'}">${up ? '↑' : '↓'} ${Math.abs(pct)}%</span>`;
+            }
+            cell.innerHTML = totals[j].toLocaleString() + ' kg' + pctHtml;
+          } else {
+            cell.textContent = '—';
+          }
+
           summaryRow.appendChild(cell);
         }
 
@@ -750,6 +854,93 @@
 
       // ── End progress tracking ────────────────────────────────────────────
 
+      // ── Column header date picker ─────────────────────────────────────────
+
+      const colDatePicker  = document.getElementById('col-date-picker');
+      const colDateInput   = document.getElementById('col-date-input');
+      let   activeDateCell = null;
+
+      // Format a Date object → "2026 Jan 15"
+      function formatSessionDate(date) {
+        const year  = date.getFullYear();
+        const month = date.toLocaleDateString('en-GB', { month: 'short' });
+        const day   = String(date.getDate()).padStart(2, '0');
+        return `${year} ${month} ${day}`;
+      }
+
+      // Try to parse existing header text into YYYY-MM-DD for the input
+      function parseHeaderToInputVal(text) {
+        const d = new Date(text);
+        if (!isNaN(d.getTime())) {
+          return d.toISOString().split('T')[0];
+        }
+        return new Date().toISOString().split('T')[0];
+      }
+
+      function showDatePicker(cell, e) {
+        activeDateCell = cell;
+        colDateInput.value = parseHeaderToInputVal(cleanCellText(cell));
+
+        // Position below the clicked cell
+        const rect = cell.getBoundingClientRect();
+        colDatePicker.style.top  = (rect.bottom + 6) + 'px';
+        colDatePicker.style.left = Math.min(rect.left, window.innerWidth - 280) + 'px';
+        colDatePicker.style.display = 'block';
+
+        // Open native calendar immediately where supported
+        setTimeout(() => { try { colDateInput.showPicker(); } catch(_) {} }, 50);
+      }
+
+      function hideDatePicker() {
+        colDatePicker.style.display = 'none';
+        activeDateCell = null;
+      }
+
+      function applyHeaderDate() {
+        if (!activeDateCell || !colDateInput.value) { hideDatePicker(); return; }
+        const date      = new Date(colDateInput.value + 'T12:00:00');
+        const formatted = formatSessionDate(date);
+
+        // Set text content, preserve delete button
+        const deleteBtn = activeDateCell.querySelector('.delete-btn');
+        activeDateCell.textContent = formatted;
+        if (deleteBtn) activeDateCell.appendChild(deleteBtn);
+
+        hideDatePicker();
+        highlightPRs();
+        updateVolumeSummary();
+        updateTableSummary();
+      }
+
+      document.getElementById('col-date-apply').addEventListener('click', applyHeaderDate);
+      document.getElementById('col-date-cancel').addEventListener('click', hideDatePicker);
+      colDateInput.addEventListener('keydown', e => { if (e.key === 'Enter') applyHeaderDate(); });
+
+      // Close when clicking outside
+      document.addEventListener('mousedown', function(e) {
+        if (colDatePicker.style.display !== 'none' && !colDatePicker.contains(e.target)) {
+          hideDatePicker();
+        }
+      });
+
+      // Attach picker to every th.editable in the header row
+      function applyHeaderDatePicker() {
+        document.querySelectorAll('#header-row th.editable').forEach(th => {
+          // Use mousedown so we can prevent contenteditable from activating
+          th.removeEventListener('mousedown', headerMouseDownHandler);
+          th.addEventListener('mousedown', headerMouseDownHandler);
+        });
+      }
+
+      function headerMouseDownHandler(e) {
+        if (e.target.closest('.delete-btn')) return; // let delete work normally
+        e.preventDefault();    // stop contenteditable from grabbing focus
+        e.stopPropagation();   // prevent document mousedown from immediately closing the picker
+        showDatePicker(this, e);
+      }
+
+      // ── End column header date picker ─────────────────────────────────────
+
       // Add a new row (exercise)
       addRowBtn.addEventListener('click', function() {
         const newRow = document.createElement('tr');
@@ -783,6 +974,7 @@
         setupDeleteButtons();
         applyPasteHandlers();
         applyProgressButtons();
+        applyHeaderDatePicker();
         highlightPRs();
         updateVolumeSummary();
         updateTableSummary();
@@ -818,6 +1010,7 @@
         setupDeleteButtons();
         applyPasteHandlers();
         applyProgressButtons();
+        applyHeaderDatePicker();
         highlightPRs();
         updateVolumeSummary();
         updateTableSummary();
@@ -861,10 +1054,11 @@
         });
       }
 
-      // Initialize delete buttons, paste handlers, and progress buttons
+      // Initialize delete buttons, paste handlers, progress buttons, and header date picker
       setupDeleteButtons();
       applyPasteHandlers();
       applyProgressButtons();
+      applyHeaderDatePicker();
       highlightPRs();
 
       // Set columns button
@@ -1212,6 +1406,7 @@
           setupDeleteButtons();
           applyPasteHandlers();
           applyProgressButtons();
+          applyHeaderDatePicker();
           highlightPRs();
           updateVolumeSummary();
           updateTableSummary();
@@ -1376,6 +1571,7 @@
         setupDeleteButtons();
         applyPasteHandlers();
         applyProgressButtons();
+        applyHeaderDatePicker();
         highlightPRs();
         updateVolumeSummary();
         updateTableSummary();
@@ -1388,6 +1584,136 @@
           clearTable(false);
         }
       });
+
+      // ── Import from Google Sheets ─────────────────────────────────────────
+
+      const importModal       = new bootstrap.Modal(document.getElementById('importSheetsModal'));
+      const pasteArea         = document.getElementById('sheets-paste-area');
+      const importConfirmBtn  = document.getElementById('import-sheets-confirm');
+      const importPreview     = document.getElementById('import-preview');
+      const importError       = document.getElementById('import-error');
+
+      document.getElementById('import-sheets-btn').addEventListener('click', () => {
+        pasteArea.value = '';
+        importPreview.classList.add('d-none');
+        importError.classList.add('d-none');
+        importConfirmBtn.disabled = true;
+        importModal.show();
+        setTimeout(() => pasteArea.focus(), 300);
+      });
+
+      // Parse Google Sheets TSV into { workouts, exercises }
+      function parseSheetsTSV(text) {
+        const rows = text.trim().split('\n').map(r => r.split('\t').map(c => c.trim()));
+        if (rows.length < 2) return null;
+
+        // First row: first cell is the "Exercise" header (ignore it), rest are session names
+        const workouts  = rows[0].slice(1).filter(Boolean);
+        if (!workouts.length) return null;
+
+        // Remaining rows: first cell = exercise name, rest = workout data
+        const exercises = rows.slice(1)
+          .filter(r => r[0]) // skip empty rows
+          .map(r => ({
+            name:     r[0],
+            workouts: r.slice(1, workouts.length + 1).map(c => c || '')
+          }));
+
+        if (!exercises.length) return null;
+        return { workouts, exercises };
+      }
+
+      // Live preview as user pastes
+      pasteArea.addEventListener('input', () => {
+        importError.classList.add('d-none');
+        const parsed = parseSheetsTSV(pasteArea.value);
+        if (parsed) {
+          document.getElementById('import-preview-rows').textContent = parsed.exercises.length;
+          document.getElementById('import-preview-cols').textContent = parsed.workouts.length;
+          importPreview.classList.remove('d-none');
+          importConfirmBtn.disabled = false;
+        } else {
+          importPreview.classList.add('d-none');
+          importConfirmBtn.disabled = true;
+        }
+      });
+
+      // Do the import
+      importConfirmBtn.addEventListener('click', () => {
+        const parsed = parseSheetsTSV(pasteArea.value);
+        if (!parsed) {
+          importError.textContent = 'Could not parse the data. Make sure you copied the full table including headers.';
+          importError.classList.remove('d-none');
+          return;
+        }
+
+        // Reset to new table mode and populate
+        currentTableIndex = -1;
+        localStorage.removeItem('lastWorkoutTableId');
+        saveTableBtn.innerHTML = '<i class="fas fa-save me-1"></i>Save Workout Table';
+        tableNameInput.value = '';
+
+        clearTable(true);
+
+        // Add workout columns
+        parsed.workouts.forEach(workout => {
+          const headerRow    = document.getElementById('header-row');
+          const newHeaderCell = document.createElement('th');
+          newHeaderCell.className     = 'editable';
+          newHeaderCell.contentEditable = true;
+          newHeaderCell.textContent   = workout;
+          const deleteBtn = document.createElement('span');
+          deleteBtn.className  = 'delete-btn';
+          deleteBtn.innerHTML  = '<i class="fas fa-times"></i>';
+          newHeaderCell.appendChild(deleteBtn);
+          headerRow.insertBefore(newHeaderCell, headerRow.lastElementChild);
+        });
+
+        // Add exercise rows
+        parsed.exercises.forEach(exercise => {
+          const newRow      = document.createElement('tr');
+          const exerciseCell = document.createElement('td');
+          exerciseCell.className       = 'exercise-name';
+          exerciseCell.contentEditable = true;
+          exerciseCell.textContent     = exercise.name;
+          const deleteBtn = document.createElement('span');
+          deleteBtn.className = 'delete-btn';
+          deleteBtn.innerHTML = '<i class="fas fa-times"></i>';
+          exerciseCell.appendChild(deleteBtn);
+          newRow.appendChild(exerciseCell);
+
+          exercise.workouts.forEach(val => {
+            const cell = document.createElement('td');
+            cell.className       = 'editable';
+            cell.contentEditable = true;
+            cell.textContent     = val;
+            newRow.appendChild(cell);
+          });
+
+          const emptyCell = document.createElement('td');
+          emptyCell.className = 'add-column';
+          newRow.appendChild(emptyCell);
+
+          workoutTable.tBodies[0].insertBefore(newRow, document.getElementById('add-row-row'));
+        });
+
+        const headerRow = document.getElementById('header-row');
+        document.getElementById('add-row').colSpan    = headerRow.cells.length;
+        document.getElementById('columns-input').value = parsed.workouts.length;
+        document.getElementById('rows-input').value    = parsed.exercises.length;
+
+        setupDeleteButtons();
+        applyPasteHandlers();
+        applyProgressButtons();
+        applyHeaderDatePicker();
+        highlightPRs();
+        updateVolumeSummary();
+        updateTableSummary();
+
+        importModal.hide();
+      });
+
+      // ── End Import from Google Sheets ─────────────────────────────────────
 
       // Load saved tables on page load and auto-restore last used table
       loadSavedTables(true);

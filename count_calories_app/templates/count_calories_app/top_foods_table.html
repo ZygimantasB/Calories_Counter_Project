@@ -137,6 +137,18 @@
          class="btn btn-outline-light btn-sm {% if current_sort == 'calories' %}active{% endif %}">
         Calories {% if current_sort == 'calories' %}{% if current_order == 'desc' %}↓{% else %}↑{% endif %}{% endif %}
       </a>
+      <a href="?{% if selected_date %}date={{ selected_date|date:'Y-m-d' }}&{% elif start_date_str and end_date_str %}start_date={{ start_date_str }}&end_date={{ end_date_str }}&{% elif current_days %}days={{ current_days }}&{% else %}range={{ selected_range }}&{% endif %}{% if foods_param %}foods={{ foods_param }}&{% endif %}{% if search_query %}q={{ search_query }}&{% endif %}sort=protein&order={% if current_sort == 'protein' and current_order == 'desc' %}asc{% else %}desc{% endif %}"
+         class="btn btn-outline-light btn-sm {% if current_sort == 'protein' %}active{% endif %}">
+        Protein {% if current_sort == 'protein' %}{% if current_order == 'desc' %}↓{% else %}↑{% endif %}{% endif %}
+      </a>
+      <a href="?{% if selected_date %}date={{ selected_date|date:'Y-m-d' }}&{% elif start_date_str and end_date_str %}start_date={{ start_date_str }}&end_date={{ end_date_str }}&{% elif current_days %}days={{ current_days }}&{% else %}range={{ selected_range }}&{% endif %}{% if foods_param %}foods={{ foods_param }}&{% endif %}{% if search_query %}q={{ search_query }}&{% endif %}sort=fat&order={% if current_sort == 'fat' and current_order == 'desc' %}asc{% else %}desc{% endif %}"
+         class="btn btn-outline-light btn-sm {% if current_sort == 'fat' %}active{% endif %}">
+        Fat {% if current_sort == 'fat' %}{% if current_order == 'desc' %}↓{% else %}↑{% endif %}{% endif %}
+      </a>
+      <a href="?{% if selected_date %}date={{ selected_date|date:'Y-m-d' }}&{% elif start_date_str and end_date_str %}start_date={{ start_date_str }}&end_date={{ end_date_str }}&{% elif current_days %}days={{ current_days }}&{% else %}range={{ selected_range }}&{% endif %}{% if foods_param %}foods={{ foods_param }}&{% endif %}{% if search_query %}q={{ search_query }}&{% endif %}sort=carbs&order={% if current_sort == 'carbs' and current_order == 'desc' %}asc{% else %}desc{% endif %}"
+         class="btn btn-outline-light btn-sm {% if current_sort == 'carbs' %}active{% endif %}">
+        Carbs {% if current_sort == 'carbs' %}{% if current_order == 'desc' %}↓{% else %}↑{% endif %}{% endif %}
+      </a>
       <a href="?{% if selected_date %}date={{ selected_date|date:'Y-m-d' }}&{% elif start_date_str and end_date_str %}start_date={{ start_date_str }}&end_date={{ end_date_str }}&{% elif current_days %}days={{ current_days }}&{% else %}range={{ selected_range }}&{% endif %}{% if foods_param %}foods={{ foods_param }}&{% endif %}{% if search_query %}q={{ search_query }}&{% endif %}sort={{ current_sort }}&order={{ current_order }}&export=csv" class="btn btn-warning btn-sm">
         Download CSV
       </a>

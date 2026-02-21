@@ -620,6 +620,21 @@ def food_tracker(request):
             top_foods_data = top_foods_data.order_by('-total_calories', '-count')
         else:
             top_foods_data = top_foods_data.order_by('total_calories', '-count')
+    elif sort_by == 'protein':
+        if sort_order == 'desc':
+            top_foods_data = top_foods_data.order_by('-total_protein', '-count')
+        else:
+            top_foods_data = top_foods_data.order_by('total_protein', '-count')
+    elif sort_by == 'fat':
+        if sort_order == 'desc':
+            top_foods_data = top_foods_data.order_by('-total_fat', '-count')
+        else:
+            top_foods_data = top_foods_data.order_by('total_fat', '-count')
+    elif sort_by == 'carbs':
+        if sort_order == 'desc':
+            top_foods_data = top_foods_data.order_by('-total_carbs', '-count')
+        else:
+            top_foods_data = top_foods_data.order_by('total_carbs', '-count')
     elif sort_by == 'latest':
         if sort_order == 'desc':
             top_foods_data = top_foods_data.order_by('-latest_consumed')
@@ -806,6 +821,21 @@ def top_foods(request):
             top_foods_data = top_foods_data.order_by('-total_calories', '-count')
         else:
             top_foods_data = top_foods_data.order_by('total_calories', '-count')
+    elif sort_by == 'protein':
+        if sort_order == 'desc':
+            top_foods_data = top_foods_data.order_by('-total_protein', '-count')
+        else:
+            top_foods_data = top_foods_data.order_by('total_protein', '-count')
+    elif sort_by == 'fat':
+        if sort_order == 'desc':
+            top_foods_data = top_foods_data.order_by('-total_fat', '-count')
+        else:
+            top_foods_data = top_foods_data.order_by('total_fat', '-count')
+    elif sort_by == 'carbs':
+        if sort_order == 'desc':
+            top_foods_data = top_foods_data.order_by('-total_carbs', '-count')
+        else:
+            top_foods_data = top_foods_data.order_by('total_carbs', '-count')
     elif sort_by == 'latest':
         if sort_order == 'desc':
             top_foods_data = top_foods_data.order_by('-latest_consumed')
