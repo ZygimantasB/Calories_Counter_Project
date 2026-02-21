@@ -59,6 +59,13 @@
     tr[data-status="only-b"] { border-left: 3px solid #198754; }
     tr[data-status="both"]   { border-left: 3px solid #dee2e6; }
 
+    /* ── Impact bar ── */
+    .impact-bar {
+      height: 6px; border-radius: 3px; background: #dee2e6;
+      overflow: hidden; min-width: 50px;
+    }
+    .impact-bar-fill { height: 100%; border-radius: 3px; transition: width .3s; }
+
     /* ── New / Dropped pills ── */
     .food-pill {
       display: inline-block; background: var(--bs-light,#f8f9fa);
@@ -400,6 +407,30 @@
 
   </div><!-- /macro + weight row -->
 
+  <!-- ══ Calorie vs Weight Trend Chart ══ -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card shadow-sm border-0">
+        <div class="card-header bg-dark text-white d-flex align-items-center justify-content-between flex-wrap gap-2">
+          <h2 class="h5 mb-0">
+            <i class="fas fa-chart-line me-2"></i>Weekly Calories vs Weight
+          </h2>
+          <small class="text-white-50">See if high-calorie weeks drove weight changes</small>
+        </div>
+        <div class="card-body">
+          <canvas id="calWeightChart" height="100"></canvas>
+        </div>
+        <div class="card-footer bg-light d-flex flex-wrap gap-3 small text-muted">
+          <span><span style="display:inline-block;width:14px;height:3px;background:#0d6efd;vertical-align:middle;"></span> Calories A</span>
+          <span><span style="display:inline-block;width:14px;height:3px;background:#198754;vertical-align:middle;"></span> Calories B</span>
+          <span><span style="display:inline-block;width:14px;height:3px;background:#6ea8fe;border-top:2px dashed #6ea8fe;vertical-align:middle;"></span> Weight A</span>
+          <span><span style="display:inline-block;width:14px;height:3px;background:#75b798;border-top:2px dashed #75b798;vertical-align:middle;"></span> Weight B</span>
+          <span class="ms-auto">Bars = avg daily calories (left axis) · Dashed lines = avg weight kg (right axis)</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ══ New / Dropped Foods ══ -->
   {% if only_in_a or only_in_b %}
   <div class="row mb-4 g-3">
@@ -493,12 +524,13 @@
                   <th class="text-center month-col-1 sortable" data-col="13">A Carbs <span class="sort-icon"></span></th>
                   <th class="text-center month-col-2 sortable" data-col="14">B Carbs <span class="sort-icon"></span></th>
                   <th class="text-center diff-col sortable" data-col="15">Δ Carbs <span class="sort-icon"></span></th>
+                  <th class="text-center sortable" data-col="16" style="background:rgba(255,193,7,.08);" title="Share of total absolute calorie difference driven by this food">Cal Impact % <span class="sort-icon"></span></th>
                 </tr>
               </thead>
               <tbody>
                 {% for food in comparison_foods %}
                 <tr data-status="{% if food.count2 == 0 %}only-a{% elif food.count1 == 0 %}only-b{% else %}both{% endif %}"
-                    data-vals="{{ food.name }}|{{ food.count1 }}|{{ food.count2 }}|{{ food.count_diff }}|{{ food.calories1 }}|{{ food.calories2 }}|{{ food.calories_diff }}|{{ food.protein1 }}|{{ food.protein2 }}|{{ food.protein_diff }}|{{ food.fat1 }}|{{ food.fat2 }}|{{ food.fat_diff }}|{{ food.carbs1 }}|{{ food.carbs2 }}|{{ food.carbs_diff }}">
+                    data-vals="{{ food.name }}|{{ food.count1 }}|{{ food.count2 }}|{{ food.count_diff }}|{{ food.calories1 }}|{{ food.calories2 }}|{{ food.calories_diff }}|{{ food.protein1 }}|{{ food.protein2 }}|{{ food.protein_diff }}|{{ food.fat1 }}|{{ food.fat2 }}|{{ food.fat_diff }}|{{ food.carbs1 }}|{{ food.carbs2 }}|{{ food.carbs_diff }}|{{ food.cal_impact_pct }}">
                   <td>
                     <span class="fw-semibold">{{ food.name }}</span>
                     {% if food.count2 == 0 %}<span class="winner-badge bg-primary text-white">Only A</span>
@@ -543,6 +575,20 @@
                     {% if food.carbs_diff > 0 %}<span class="diff-cal-positive">+{{ food.carbs_diff }}g</span>
                     {% elif food.carbs_diff < 0 %}<span class="diff-cal-negative">{{ food.carbs_diff }}g</span>
                     {% else %}<span class="diff-zero">0</span>{% endif %}
+                  </td>
+                  <!-- Cal Impact % -->
+                  <td class="text-center small" style="background:rgba(255,193,7,.08);">
+                    {% if food.cal_impact_pct > 0 %}
+                    <div class="fw-semibold {% if food.calories_diff > 0 %}text-danger{% elif food.calories_diff < 0 %}text-success{% else %}text-muted{% endif %}">
+                      {{ food.cal_impact_pct }}%
+                    </div>
+                    <div class="impact-bar mt-1">
+                      <div class="impact-bar-fill {% if food.calories_diff > 0 %}bg-danger{% elif food.calories_diff < 0 %}bg-success{% else %}bg-secondary{% endif %}"
+                           style="width:{{ food.cal_impact_pct }}%"></div>
+                    </div>
+                    {% else %}
+                    <span class="text-muted">—</span>
+                    {% endif %}
                   </td>
                 </tr>
                 {% endfor %}
@@ -638,6 +684,126 @@
       });
       rows.forEach(r => tbody.appendChild(r));
     });
+  });
+})();
+
+// ── Calorie vs Weight Chart ────────────────────────────────────
+(function () {
+  const weekly1 = {{ weekly1_json|safe }};
+  const weekly2 = {{ weekly2_json|safe }};
+
+  // Build unified week labels (W1..W5)
+  const maxWeeks = Math.max(weekly1.length, weekly2.length);
+  const labels = Array.from({length: maxWeeks}, (_, i) => `Week ${i + 1}`);
+
+  function extract(arr, key) {
+    return arr.map(w => w[key] !== null && w[key] !== undefined ? w[key] : null);
+  }
+
+  const cal1    = extract(weekly1, 'avg_calories');
+  const cal2    = extract(weekly2, 'avg_calories');
+  const weight1 = extract(weekly1, 'avg_weight');
+  const weight2 = extract(weekly2, 'avg_weight');
+
+  const hasWeight = weight1.some(v => v !== null) || weight2.some(v => v !== null);
+
+  const ctx = document.getElementById('calWeightChart');
+  if (!ctx) return;
+
+  const datasets = [
+    {
+      label: 'Calories A ({{ month1_label }})',
+      data: cal1,
+      type: 'bar',
+      backgroundColor: 'rgba(13,110,253,0.6)',
+      borderColor: '#0d6efd',
+      borderWidth: 1,
+      yAxisID: 'yCal',
+      order: 2,
+    },
+    {
+      label: 'Calories B ({{ month2_label }})',
+      data: cal2,
+      type: 'bar',
+      backgroundColor: 'rgba(25,135,84,0.6)',
+      borderColor: '#198754',
+      borderWidth: 1,
+      yAxisID: 'yCal',
+      order: 2,
+    },
+  ];
+
+  if (hasWeight) {
+    datasets.push({
+      label: 'Weight A ({{ month1_label }})',
+      data: weight1,
+      type: 'line',
+      borderColor: '#6ea8fe',
+      backgroundColor: 'transparent',
+      borderWidth: 2,
+      borderDash: [5, 4],
+      pointRadius: 4,
+      pointBackgroundColor: '#6ea8fe',
+      tension: 0.3,
+      yAxisID: 'yWeight',
+      order: 1,
+      spanGaps: true,
+    });
+    datasets.push({
+      label: 'Weight B ({{ month2_label }})',
+      data: weight2,
+      type: 'line',
+      borderColor: '#75b798',
+      backgroundColor: 'transparent',
+      borderWidth: 2,
+      borderDash: [5, 4],
+      pointRadius: 4,
+      pointBackgroundColor: '#75b798',
+      tension: 0.3,
+      yAxisID: 'yWeight',
+      order: 1,
+      spanGaps: true,
+    });
+  }
+
+  const scales = {
+    yCal: {
+      type: 'linear',
+      position: 'left',
+      title: { display: true, text: 'Avg Daily Calories (kcal)' },
+      grid: { drawOnChartArea: true },
+    },
+    x: { grid: { drawOnChartArea: false } },
+  };
+
+  if (hasWeight) {
+    scales.yWeight = {
+      type: 'linear',
+      position: 'right',
+      title: { display: true, text: 'Avg Weight (kg)' },
+      grid: { drawOnChartArea: false },
+    };
+  }
+
+  new Chart(ctx, {
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'top' },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) {
+              if (ctx.raw === null) return null;
+              const unit = ctx.dataset.yAxisID === 'yWeight' ? ' kg' : ' kcal';
+              return `${ctx.dataset.label}: ${ctx.raw}${unit}`;
+            }
+          }
+        }
+      },
+      scales,
+    }
   });
 })();
 </script>

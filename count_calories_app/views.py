@@ -4889,9 +4889,72 @@ def month_compare(request):
     comparison_foods.sort(key=lambda x: x['count1'] + x['count2'], reverse=True)
     comparison_foods = comparison_foods[:25]
 
+    # Calorie contribution % — what share of total |calorie diff| does each food account for
+    total_abs_cal_diff = sum(abs(f['calories_diff']) for f in comparison_foods) or 1
+    for f in comparison_foods:
+        f['cal_impact_pct'] = round(abs(f['calories_diff']) / total_abs_cal_diff * 100)
+
     # New / dropped food lists
     only_in_a = [f for f in comparison_foods if f['count2'] == 0][:10]
     only_in_b = [f for f in comparison_foods if f['count1'] == 0][:10]
+
+    # ── Weekly breakdown for calorie-vs-weight chart ─────────────────────────
+    def get_weekly_breakdown(year, month):
+        """Return list of week dicts: label, avg_calories, avg_weight for the chart."""
+        last_day = calendar.monthrange(year, month)[1]
+        start_dt = timezone.make_aware(datetime(year, month, 1, 0, 0, 0))
+        end_dt   = timezone.make_aware(datetime(year, month, last_day, 23, 59, 59))
+
+        # Daily calorie totals
+        daily_cals = {
+            row['day']: row['total']
+            for row in FoodItem.objects
+                .filter(consumed_at__gte=start_dt, consumed_at__lte=end_dt)
+                .annotate(day=TruncDate('consumed_at'))
+                .values('day')
+                .annotate(total=Sum('calories'))
+        }
+
+        # Daily weight readings (average if multiple on same day)
+        daily_weights = {
+            row['day']: float(row['avg_w'])
+            for row in Weight.objects
+                .filter(recorded_at__gte=start_dt, recorded_at__lte=end_dt)
+                .annotate(day=TruncDate('recorded_at'))
+                .values('day')
+                .annotate(avg_w=Avg('weight'))
+        }
+
+        weeks = []
+        cur = start_dt.date()
+        end_d = end_dt.date()
+        week_num = 1
+        while cur <= end_d:
+            week_end = min(cur + timedelta(days=6), end_d)
+            cals, weights = [], []
+            d = cur
+            while d <= week_end:
+                if d in daily_cals:
+                    cals.append(daily_cals[d])
+                if d in daily_weights:
+                    weights.append(daily_weights[d])
+                d += timedelta(days=1)
+            weeks.append({
+                'label': f"W{week_num}",
+                'start': cur.strftime('%b %d'),
+                'avg_calories': round(sum(cals) / len(cals)) if cals else None,
+                'avg_weight':   round(sum(weights) / len(weights), 1) if weights else None,
+            })
+            cur = week_end + timedelta(days=1)
+            week_num += 1
+        return weeks
+
+    weekly1 = get_weekly_breakdown(year1, mon1)
+    weekly2 = get_weekly_breakdown(year2, mon2)
+
+    # Serialise for Chart.js (safe JSON)
+    weekly1_json = json.dumps(weekly1)
+    weekly2_json = json.dumps(weekly2)
 
     # Build month choices for selects (last 3 years)
     month_choices = []
@@ -4915,5 +4978,7 @@ def month_compare(request):
         'comparison_foods': comparison_foods,
         'only_in_a': only_in_a,
         'only_in_b': only_in_b,
+        'weekly1_json': weekly1_json,
+        'weekly2_json': weekly2_json,
         'month_choices': month_choices,
     })
