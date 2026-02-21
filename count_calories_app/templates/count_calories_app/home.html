@@ -561,6 +561,81 @@
 
     <!-- Right Column -->
     <div class="col-lg-4">
+      <!-- Weight Prediction -->
+      {% if weight_prediction %}
+      <div class="card shadow-sm mb-4" style="border-radius: 12px; border: none; border-left: 4px solid {% if weight_prediction.is_surplus %}#dc3545{% else %}#198754{% endif %} !important;">
+        <div class="card-header bg-white border-0 pt-3 pb-0">
+          <div class="d-flex align-items-center justify-content-between">
+            <h5 class="section-title mb-0">
+              <i class="fas fa-weight me-2 {% if weight_prediction.is_surplus %}text-danger{% else %}text-success{% endif %}"></i>Weight Projection
+            </h5>
+            <small class="text-muted">based on this week</small>
+          </div>
+        </div>
+        <div class="card-body pt-2 pb-3">
+
+          <!-- TDEE vs actual -->
+          <div class="d-flex justify-content-between align-items-center mb-2 p-2 rounded"
+               style="background:{% if weight_prediction.is_surplus %}rgba(220,53,69,.07){% else %}rgba(25,135,84,.07){% endif %}">
+            <div class="small text-muted">
+              Avg this week vs TDEE
+            </div>
+            <div class="fw-bold {% if weight_prediction.is_surplus %}text-danger{% else %}text-success{% endif %}">
+              {% if weight_prediction.is_surplus %}+{% endif %}{{ weight_prediction.daily_delta }} kcal/day
+            </div>
+          </div>
+          <div class="d-flex justify-content-between small text-muted mb-3 px-1">
+            <span>Avg eaten: <strong>{{ weight_prediction.avg_daily_cal }} kcal</strong></span>
+            <span>TDEE: <strong>{{ weight_prediction.tdee }} kcal</strong></span>
+          </div>
+
+          <!-- Projections -->
+          <div class="row g-2 text-center">
+            <div class="col-4">
+              <div class="rounded p-2" style="background:var(--bs-light,#f8f9fa);">
+                <div class="small text-muted">4 weeks</div>
+                <div class="fw-bold {% if weight_prediction.week_4 < weight_prediction.current_weight %}text-success{% elif weight_prediction.week_4 > weight_prediction.current_weight %}text-danger{% else %}text-muted{% endif %}">
+                  {{ weight_prediction.week_4 }} kg
+                </div>
+              </div>
+            </div>
+            <div class="col-4">
+              <div class="rounded p-2" style="background:var(--bs-light,#f8f9fa);">
+                <div class="small text-muted">8 weeks</div>
+                <div class="fw-bold {% if weight_prediction.week_8 < weight_prediction.current_weight %}text-success{% elif weight_prediction.week_8 > weight_prediction.current_weight %}text-danger{% else %}text-muted{% endif %}">
+                  {{ weight_prediction.week_8 }} kg
+                </div>
+              </div>
+            </div>
+            <div class="col-4">
+              <div class="rounded p-2" style="background:var(--bs-light,#f8f9fa);">
+                <div class="small text-muted">12 weeks</div>
+                <div class="fw-bold {% if weight_prediction.week_12 < weight_prediction.current_weight %}text-success{% elif weight_prediction.week_12 > weight_prediction.current_weight %}text-danger{% else %}text-muted{% endif %}">
+                  {{ weight_prediction.week_12 }} kg
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="text-center mt-2">
+            <small class="text-muted">
+              Now: {{ weight_prediction.current_weight }} kg
+              &nbsp;·&nbsp;
+              {% if weight_prediction.weekly_kg < 0 %}
+                losing ~{{ weight_prediction.weekly_kg|stringformat:".2f"|slice:"1:" }} kg/week
+              {% elif weight_prediction.weekly_kg > 0 %}
+                gaining ~{{ weight_prediction.weekly_kg }} kg/week
+              {% else %}
+                maintaining weight
+              {% endif %}
+              &nbsp;·&nbsp; {{ weight_prediction.days_used }}-day avg
+            </small>
+          </div>
+
+        </div>
+      </div>
+      {% endif %}
+
       <!-- Recent Foods -->
       <div class="card shadow-sm mb-4" style="border-radius: 12px; border: none;">
         <div class="card-header bg-white border-0 pt-4 pb-2">

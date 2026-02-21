@@ -218,6 +218,111 @@
         </div>
       </div>
 
+      <!-- ══ Daily Budget Bar (today only) ══ -->
+      {% if is_today_view and budget_targets %}
+      {% with cal_pct=totals.total_calories|default:0 prot=totals.total_protein|default:0 fat=totals.total_fat|default:0 carbs=totals.total_carbohydrates|default:0 %}
+      <div class="card shadow-sm rounded mb-3 border-0" id="budgetBar">
+        <div class="card-body py-3 px-4">
+
+          <!-- Headline row -->
+          <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+            <div class="d-flex align-items-center gap-2">
+              <i class="fas fa-bullseye text-primary fs-5"></i>
+              <span class="fw-bold">Today's Budget</span>
+            </div>
+            <div class="text-end">
+              {% if totals.total_calories %}
+                {% if totals.total_calories > budget_targets.calories %}
+                  <span class="fw-bold text-danger fs-5">
+                    {{ totals.total_calories|floatformat:0 }} / {{ budget_targets.calories }} kcal
+                    &nbsp;<span class="badge bg-danger">+{{ budget_over.calories }} over</span>
+                  </span>
+                {% else %}
+                  <span class="fw-bold text-success fs-5">
+                    {{ totals.total_calories|floatformat:0 }} / {{ budget_targets.calories }} kcal
+                  </span>
+                {% endif %}
+              {% else %}
+                <span class="fw-bold text-muted fs-5">0 / {{ budget_targets.calories }} kcal</span>
+              {% endif %}
+            </div>
+          </div>
+
+          <!-- 4 macro bars -->
+          <div class="row g-3">
+
+            <!-- Calories -->
+            <div class="col-12 col-sm-6 col-lg-3">
+              {% with pct=totals.fat_cal_percentage|default:0 current=totals.total_calories|default:0 target=budget_targets.calories %}
+              {% with cal_pct_val=current|floatformat:0 %}
+              <div class="d-flex justify-content-between mb-1">
+                <small class="fw-semibold"><i class="fas fa-fire text-danger me-1"></i>Calories</small>
+                <small class="text-muted">{{ current|floatformat:0 }} / {{ target }}</small>
+              </div>
+              {% comment %}compute pct manually via widthratio{% endcomment %}
+              {% widthratio current target 100 as cal_bar_pct %}
+              <div class="progress" style="height:10px; border-radius:5px;">
+                <div class="progress-bar {% if cal_bar_pct > 100 %}bg-danger{% elif cal_bar_pct > 90 %}bg-warning{% else %}bg-success{% endif %}"
+                     style="width:{% if cal_bar_pct > 100 %}100{% else %}{{ cal_bar_pct }}{% endif %}%"></div>
+              </div>
+              {% if cal_bar_pct <= 100 %}
+              <small class="text-muted">{{ target|add:"-0" }} kcal left</small>
+              {% endif %}
+              {% endwith %}
+              {% endwith %}
+            </div>
+
+            <!-- Protein -->
+            <div class="col-12 col-sm-6 col-lg-3">
+              {% with current=totals.total_protein|default:0 target=budget_targets.protein %}
+              <div class="d-flex justify-content-between mb-1">
+                <small class="fw-semibold"><i class="fas fa-drumstick-bite text-success me-1"></i>Protein</small>
+                <small class="text-muted">{{ current|floatformat:0 }}g / {{ target }}g</small>
+              </div>
+              {% widthratio current target 100 as prot_bar_pct %}
+              <div class="progress" style="height:10px; border-radius:5px;">
+                <div class="progress-bar {% if prot_bar_pct > 100 %}bg-info{% elif prot_bar_pct > 90 %}bg-success{% else %}bg-warning{% endif %}"
+                     style="width:{% if prot_bar_pct > 100 %}100{% else %}{{ prot_bar_pct }}{% endif %}%"></div>
+              </div>
+              {% endwith %}
+            </div>
+
+            <!-- Fat -->
+            <div class="col-12 col-sm-6 col-lg-3">
+              {% with current=totals.total_fat|default:0 target=budget_targets.fat %}
+              <div class="d-flex justify-content-between mb-1">
+                <small class="fw-semibold"><i class="fas fa-cheese text-warning me-1"></i>Fat</small>
+                <small class="text-muted">{{ current|floatformat:0 }}g / {{ target }}g</small>
+              </div>
+              {% widthratio current target 100 as fat_bar_pct %}
+              <div class="progress" style="height:10px; border-radius:5px;">
+                <div class="progress-bar {% if fat_bar_pct > 100 %}bg-danger{% elif fat_bar_pct > 90 %}bg-warning{% else %}bg-info{% endif %}"
+                     style="width:{% if fat_bar_pct > 100 %}100{% else %}{{ fat_bar_pct }}{% endif %}%"></div>
+              </div>
+              {% endwith %}
+            </div>
+
+            <!-- Carbs -->
+            <div class="col-12 col-sm-6 col-lg-3">
+              {% with current=totals.total_carbohydrates|default:0 target=budget_targets.carbs %}
+              <div class="d-flex justify-content-between mb-1">
+                <small class="fw-semibold"><i class="fas fa-bread-slice text-info me-1"></i>Carbs</small>
+                <small class="text-muted">{{ current|floatformat:0 }}g / {{ target }}g</small>
+              </div>
+              {% widthratio current target 100 as carbs_bar_pct %}
+              <div class="progress" style="height:10px; border-radius:5px;">
+                <div class="progress-bar {% if carbs_bar_pct > 100 %}bg-danger{% elif carbs_bar_pct > 90 %}bg-warning{% else %}bg-primary{% endif %}"
+                     style="width:{% if carbs_bar_pct > 100 %}100{% else %}{{ carbs_bar_pct }}{% endif %}%"></div>
+              </div>
+              {% endwith %}
+            </div>
+
+          </div><!-- /row -->
+        </div>
+      </div>
+      {% endwith %}
+      {% endif %}
+
       <!-- Nutrition Charts -->
       <div class="card shadow-sm rounded mb-4">
         <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">

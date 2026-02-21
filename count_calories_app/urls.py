@@ -46,6 +46,7 @@ urlpatterns = [
 
     path('analytics/', views.analytics, name='analytics'),
     path('analytics/month-compare/', views.month_compare, name='month_compare'),
+    path('analytics/trends/', views.month_trends, name='month_trends'),
 
     # Settings
     path('settings/', views.settings_view, name='settings'),

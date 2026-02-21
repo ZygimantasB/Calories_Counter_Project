@@ -1,0 +1,468 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Yearly Trends{% endblock %}
+
+{% block css_files %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'count_calories_app/count_calories_app.css' %}">
+  <style>
+    /* ── Insight cards ── */
+    .insight-strip {
+      border-left: 4px solid;
+      border-radius: 6px;
+      padding: 12px 14px;
+      height: 100%;
+    }
+    .insight-strip.calories  { border-color: #dc3545; background: rgba(220,53,69,.05); }
+    .insight-strip.protein   { border-color: #198754; background: rgba(25,135,84,.05); }
+    .insight-strip.consisten { border-color: #0d6efd; background: rgba(13,110,253,.05); }
+    .insight-strip.total     { border-color: #6f42c1; background: rgba(111,66,193,.05); }
+
+    /* ── Toggle button strip ── */
+    .chart-toggle-btn        { transition: opacity .15s; }
+    .chart-toggle-btn.muted  { opacity: .45; }
+
+    /* ── Monthly table ── */
+    .trends-table td, .trends-table th { vertical-align: middle; white-space: nowrap; }
+    .cell-best  { background: rgba(25,135,84,.15) !important; font-weight: 700; }
+    .cell-worst { background: rgba(220,53,69,.12) !important; }
+    .trophy     { font-size: .75rem; margin-left: 2px; }
+
+    /* ── Consistency mini-bar ── */
+    .cons-bar {
+      height: 6px; border-radius: 3px;
+      background: #dee2e6; overflow: hidden; min-width: 50px;
+    }
+    .cons-fill { height: 100%; border-radius: 3px; }
+
+    /* ── No-data row ── */
+    tr.no-data td { color: #adb5bd; font-style: italic; }
+  </style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <div class="row mb-3">
+    <div class="col-12">
+      <h1 class="h3 mb-3">Analytics & Insights</h1>
+
+      <!-- Navigation Tabs -->
+      <ul class="nav nav-tabs mb-3">
+        <li class="nav-item">
+          <a class="nav-link" href="{% url 'analytics' %}">
+            <i class="fas fa-chart-bar me-1"></i>Overview
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="{% url 'month_compare' %}">
+            <i class="fas fa-calendar-alt me-1"></i>Month Comparison
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link active" href="{% url 'month_trends' %}">
+            <i class="fas fa-chart-line me-1"></i>Yearly Trends
+          </a>
+        </li>
+      </ul>
+
+      <!-- Period Selector -->
+      <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body py-3">
+          <form method="get" class="row g-2 align-items-end">
+            <div class="col-auto">
+              <label class="form-label small text-muted mb-1">View</label>
+              <div class="btn-group d-block">
+                <a href="?mode=last12"
+                   class="btn btn-sm {% if mode == 'last12' %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                  Last 12 Months
+                </a>
+                {% for yr in available_years %}
+                <a href="?mode=year&year={{ yr }}"
+                   class="btn btn-sm {% if mode == 'year' and selected_year == yr %}btn-primary{% else %}btn-outline-primary{% endif %}">
+                  {{ yr }}
+                </a>
+                {% endfor %}
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ Summary Insight Cards ══ -->
+  {% if summary.months_with_data %}
+  <div class="row g-3 mb-4">
+
+    <div class="col-sm-6 col-xl-3">
+      <div class="insight-strip total">
+        <div class="small text-muted mb-1"><i class="fas fa-calendar-check me-1"></i>Days Logged</div>
+        <div class="h3 mb-0">{{ summary.total_days_logged }}</div>
+        <small class="text-muted">across {{ summary.months_with_data }} months · avg {{ summary.avg_consistency }}% consistency</small>
+      </div>
+    </div>
+
+    <div class="col-sm-6 col-xl-3">
+      <div class="insight-strip calories">
+        <div class="small text-muted mb-1"><i class="fas fa-fire me-1 text-danger"></i>Total Calories Logged</div>
+        <div class="h3 mb-0">{{ summary.total_calories|floatformat:0 }}</div>
+        {% if summary.best_cal_month %}
+        <small class="text-muted">Best month: <strong>{{ summary.best_cal_month.label }}</strong> ({{ summary.best_cal_month.avg_cal|floatformat:0 }} kcal/day)</small>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="col-sm-6 col-xl-3">
+      <div class="insight-strip protein">
+        <div class="small text-muted mb-1"><i class="fas fa-drumstick-bite me-1 text-success"></i>Total Protein Logged</div>
+        <div class="h3 mb-0">{{ summary.total_protein|floatformat:0 }}g</div>
+        {% if summary.best_prot_month %}
+        <small class="text-muted">Best month: <strong>{{ summary.best_prot_month.label }}</strong> ({{ summary.best_prot_month.avg_prot|floatformat:0 }}g/day)</small>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="col-sm-6 col-xl-3">
+      <div class="insight-strip consisten">
+        <div class="small text-muted mb-1"><i class="fas fa-trophy me-1 text-primary"></i>Most Consistent Month</div>
+        {% if summary.best_cons_month %}
+        <div class="h3 mb-0">{{ summary.best_cons_month.label }}</div>
+        <small class="text-muted">{{ summary.best_cons_month.days_logged }}/{{ summary.best_cons_month.total_days }} days · {{ summary.best_cons_month.consistency_pct }}%</small>
+        {% else %}
+        <div class="h3 mb-0">—</div>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+  {% endif %}
+
+  <!-- ══ Main Chart ══ -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card shadow-sm border-0">
+        <div class="card-header bg-dark text-white d-flex align-items-center justify-content-between flex-wrap gap-2">
+          <h2 class="h5 mb-0"><i class="fas fa-chart-line me-2"></i>Monthly Trends</h2>
+          <!-- Toggle buttons -->
+          <div class="d-flex gap-1 flex-wrap" id="chartToggles">
+            <button class="btn btn-sm btn-warning chart-toggle-btn"        data-ds="0">Calories</button>
+            <button class="btn btn-sm btn-success chart-toggle-btn muted"  data-ds="1">Protein</button>
+            <button class="btn btn-sm btn-secondary chart-toggle-btn muted" data-ds="2">Fat</button>
+            <button class="btn btn-sm btn-info chart-toggle-btn muted"     data-ds="3">Carbs</button>
+            <button class="btn btn-sm btn-light chart-toggle-btn muted"    data-ds="4">Weight</button>
+            <button class="btn btn-sm btn-primary chart-toggle-btn muted"  data-ds="5">Consistency</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <canvas id="trendsChart" height="90"></canvas>
+        </div>
+        <div class="card-footer bg-light small text-muted">
+          Bars = avg daily calories (left axis) · Lines use right axis · Click buttons above to show/hide datasets
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ Monthly Table ══ -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card shadow-sm border-0">
+        <div class="card-header bg-primary text-white">
+          <h2 class="h5 mb-0"><i class="fas fa-table me-2"></i>Month by Month Breakdown</h2>
+        </div>
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-hover trends-table mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Month</th>
+                  <th class="text-center">Days<br><small class="text-muted fw-normal">logged</small></th>
+                  <th class="text-center">Consistency</th>
+                  <th class="text-center" style="background:rgba(255,193,7,.1)">Avg Cal<br><small class="text-muted fw-normal">/ day</small></th>
+                  <th class="text-center" style="background:rgba(25,135,84,.08)">Avg Protein<br><small class="text-muted fw-normal">/ day</small></th>
+                  <th class="text-center" style="background:rgba(255,193,7,.08)">Avg Fat<br><small class="text-muted fw-normal">/ day</small></th>
+                  <th class="text-center" style="background:rgba(13,202,240,.08)">Avg Carbs<br><small class="text-muted fw-normal">/ day</small></th>
+                  <th class="text-center">Avg Weight</th>
+                  <th class="text-center">Weight Δ</th>
+                  <th>Top Food</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for m in monthly_data %}
+                <tr class="{% if not m.has_data %}no-data{% endif %}">
+                  <td class="fw-semibold">{{ m.label }}</td>
+
+                  <!-- Days logged -->
+                  <td class="text-center">
+                    {% if m.has_data %}
+                      <span class="badge bg-secondary">{{ m.days_logged }}</span>
+                      <small class="text-muted">/{{ m.total_days }}</small>
+                    {% else %}—{% endif %}
+                  </td>
+
+                  <!-- Consistency bar -->
+                  <td class="text-center">
+                    {% if m.has_data %}
+                    <div class="d-flex align-items-center gap-2 justify-content-center">
+                      <div class="cons-bar">
+                        <div class="cons-fill {% if m.consistency_pct >= 80 %}bg-success{% elif m.consistency_pct >= 50 %}bg-warning{% else %}bg-danger{% endif %}"
+                             style="width:{{ m.consistency_pct }}%"></div>
+                      </div>
+                      <small>{{ m.consistency_pct }}%</small>
+                      {% if m.consistency_pct_best %}<span class="trophy">🏆</span>{% endif %}
+                    </div>
+                    {% else %}—{% endif %}
+                  </td>
+
+                  <!-- Avg Calories -->
+                  <td class="text-center {% if m.avg_cal_best %}cell-best{% elif m.avg_cal_worst %}cell-worst{% endif %}"
+                      style="background:rgba(255,193,7,.1)">
+                    {% if m.has_data %}
+                      {{ m.avg_cal|floatformat:0 }}
+                      {% if m.avg_cal_best %}<span class="trophy" title="Lowest avg calories">🏆</span>{% endif %}
+                      {% if m.avg_cal_worst %}<span class="trophy" title="Highest avg calories">⚠️</span>{% endif %}
+                    {% else %}—{% endif %}
+                  </td>
+
+                  <!-- Avg Protein -->
+                  <td class="text-center {% if m.avg_prot_best %}cell-best{% elif m.avg_prot_worst %}cell-worst{% endif %}"
+                      style="background:rgba(25,135,84,.08)">
+                    {% if m.has_data %}
+                      {{ m.avg_prot|floatformat:0 }}g
+                      {% if m.avg_prot_best %}<span class="trophy" title="Highest avg protein">🏆</span>{% endif %}
+                      {% if m.avg_prot_worst %}<span class="trophy" title="Lowest avg protein">⚠️</span>{% endif %}
+                    {% else %}—{% endif %}
+                  </td>
+
+                  <!-- Avg Fat -->
+                  <td class="text-center" style="background:rgba(255,193,7,.08)">
+                    {% if m.has_data %}{{ m.avg_fat|floatformat:0 }}g{% else %}—{% endif %}
+                  </td>
+
+                  <!-- Avg Carbs -->
+                  <td class="text-center" style="background:rgba(13,202,240,.08)">
+                    {% if m.has_data %}{{ m.avg_carbs|floatformat:0 }}g{% else %}—{% endif %}
+                  </td>
+
+                  <!-- Avg Weight -->
+                  <td class="text-center">
+                    {% if m.weight_avg %}{{ m.weight_avg }} kg{% else %}<span class="text-muted">—</span>{% endif %}
+                  </td>
+
+                  <!-- Weight change -->
+                  <td class="text-center">
+                    {% if m.weight_change is not None %}
+                      {% if m.weight_change < 0 %}
+                        <span class="text-success fw-semibold">{{ m.weight_change }} kg</span>
+                        {% if m.weight_change_best %}<span class="trophy">🏆</span>{% endif %}
+                      {% elif m.weight_change > 0 %}
+                        <span class="text-danger fw-semibold">+{{ m.weight_change }} kg</span>
+                      {% else %}
+                        <span class="text-muted">0 kg</span>
+                      {% endif %}
+                    {% else %}
+                      <span class="text-muted">—</span>
+                    {% endif %}
+                  </td>
+
+                  <!-- Top food -->
+                  <td>
+                    {% if m.top_food %}
+                      <span class="small text-muted">{{ m.top_food|truncatechars:28 }}</span>
+                    {% else %}—{% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="card-footer bg-light small text-muted d-flex flex-wrap gap-3">
+          <span><span class="cell-best px-2 rounded">Green</span> = best value for that column</span>
+          <span><span class="cell-worst px-2 rounded">Red</span> = worst value</span>
+          <span>🏆 = best month · ⚠️ = needs attention</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<script>
+(function () {
+  const raw = {{ chart_data_json|safe }};
+
+  const labels  = raw.map(m => m.short);
+  const calData  = raw.map(m => m.avg_cal);
+  const protData = raw.map(m => m.avg_prot);
+  const fatData  = raw.map(m => m.avg_fat);
+  const carbData = raw.map(m => m.avg_carbs);
+  const wtData   = raw.map(m => m.weight_avg);
+  const consData = raw.map(m => m.consistency);
+
+  const datasets = [
+    // 0 — calories (bar, left axis)
+    {
+      label: 'Avg Daily Calories',
+      data: calData,
+      type: 'bar',
+      backgroundColor: 'rgba(255,193,7,0.65)',
+      borderColor: '#ffc107',
+      borderWidth: 1,
+      yAxisID: 'yLeft',
+      order: 3,
+    },
+    // 1 — protein (line, right)
+    {
+      label: 'Avg Daily Protein (g)',
+      data: protData,
+      type: 'line',
+      borderColor: '#198754',
+      backgroundColor: 'transparent',
+      borderWidth: 2,
+      pointRadius: 4,
+      pointBackgroundColor: '#198754',
+      tension: 0.35,
+      yAxisID: 'yRight',
+      order: 1,
+      hidden: true,
+      spanGaps: true,
+    },
+    // 2 — fat
+    {
+      label: 'Avg Daily Fat (g)',
+      data: fatData,
+      type: 'line',
+      borderColor: '#6c757d',
+      backgroundColor: 'transparent',
+      borderWidth: 2,
+      pointRadius: 4,
+      pointBackgroundColor: '#6c757d',
+      tension: 0.35,
+      yAxisID: 'yRight',
+      order: 1,
+      hidden: true,
+      spanGaps: true,
+    },
+    // 3 — carbs
+    {
+      label: 'Avg Daily Carbs (g)',
+      data: carbData,
+      type: 'line',
+      borderColor: '#0dcaf0',
+      backgroundColor: 'transparent',
+      borderWidth: 2,
+      pointRadius: 4,
+      pointBackgroundColor: '#0dcaf0',
+      tension: 0.35,
+      yAxisID: 'yRight',
+      order: 1,
+      hidden: true,
+      spanGaps: true,
+    },
+    // 4 — weight (line, right axis — separate scale)
+    {
+      label: 'Avg Weight (kg)',
+      data: wtData,
+      type: 'line',
+      borderColor: '#e35d6a',
+      backgroundColor: 'transparent',
+      borderWidth: 2.5,
+      borderDash: [6, 3],
+      pointRadius: 5,
+      pointBackgroundColor: '#e35d6a',
+      tension: 0.3,
+      yAxisID: 'yWeight',
+      order: 0,
+      hidden: true,
+      spanGaps: true,
+    },
+    // 5 — consistency (line, %)
+    {
+      label: 'Consistency (%)',
+      data: consData,
+      type: 'line',
+      borderColor: '#0d6efd',
+      backgroundColor: 'rgba(13,110,253,0.08)',
+      fill: true,
+      borderWidth: 2,
+      pointRadius: 4,
+      pointBackgroundColor: '#0d6efd',
+      tension: 0.3,
+      yAxisID: 'yPct',
+      order: 2,
+      hidden: true,
+      spanGaps: true,
+    },
+  ];
+
+  const chart = new Chart(document.getElementById('trendsChart'), {
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              if (ctx.raw === null || ctx.raw === undefined) return null;
+              const units = ['kcal', 'g', 'g', 'g', 'kg', '%'];
+              return `${ctx.dataset.label}: ${ctx.raw} ${units[ctx.datasetIndex] || ''}`;
+            }
+          }
+        }
+      },
+      scales: {
+        yLeft: {
+          type: 'linear', position: 'left',
+          title: { display: true, text: 'Avg Daily Calories' },
+          grid: { drawOnChartArea: true },
+        },
+        yRight: {
+          type: 'linear', position: 'right',
+          title: { display: true, text: 'g / day' },
+          grid: { drawOnChartArea: false },
+        },
+        yWeight: {
+          type: 'linear', position: 'right',
+          title: { display: true, text: 'Weight (kg)' },
+          grid: { drawOnChartArea: false },
+          display: false,
+        },
+        yPct: {
+          type: 'linear', position: 'right',
+          min: 0, max: 100,
+          title: { display: true, text: 'Consistency %' },
+          grid: { drawOnChartArea: false },
+          display: false,
+        },
+        x: { grid: { drawOnChartArea: false } },
+      },
+    }
+  });
+
+  // ── Toggle buttons ────────────────────────────────────────────────────────
+  const axisMap = { 0: null, 1: 'yRight', 2: 'yRight', 3: 'yRight', 4: 'yWeight', 5: 'yPct' };
+
+  document.querySelectorAll('#chartToggles .chart-toggle-btn').forEach(btn => {
+    btn.addEventListener('click', function () {
+      const idx = parseInt(this.dataset.ds);
+      const ds  = chart.data.datasets[idx];
+      ds.hidden = !ds.hidden;
+      this.classList.toggle('muted', ds.hidden);
+
+      // Show/hide the matching axis
+      const axisKey = axisMap[idx];
+      if (axisKey) {
+        const anyVisible = chart.data.datasets.some((d, i) => axisMap[i] === axisKey && !d.hidden);
+        chart.options.scales[axisKey].display = anyVisible;
+      }
+
+      chart.update();
+    });
+  });
+})();
+</script>
+{% endblock %}

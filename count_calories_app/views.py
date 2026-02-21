@@ -125,6 +125,38 @@ def home(request):
         'fat': calc_progress(today_fat, effective_targets['fat']),
     }
 
+    # ── Weight prediction from current week's eating ──────────────────────
+    tdee = settings.calculate_bmr()
+    weight_prediction = None
+    if tdee and latest_weight:
+        from django.db.models.functions import TruncDate as _TruncDate
+        week_days_logged = (
+            FoodItem.objects
+            .filter(consumed_at__gte=week_start, consumed_at__lte=today_end)
+            .annotate(_day=_TruncDate('consumed_at'))
+            .values('_day').distinct().count()
+        )
+        week_total_cal = float(week_stats['calories'] or 0)
+        avg_daily_cal = round(week_total_cal / week_days_logged) if week_days_logged else 0
+        current_weight_kg = float(latest_weight.weight)
+        daily_delta = avg_daily_cal - tdee          # positive = surplus
+        weekly_kg   = (daily_delta * 7) / 7700      # ~7700 kcal per kg
+        if week_days_logged < 3:
+            weight_prediction = None
+        else:
+            weight_prediction = {
+                'tdee':           tdee,
+                'avg_daily_cal':  avg_daily_cal,
+                'daily_delta':    round(daily_delta),
+                'is_surplus':     daily_delta > 0,
+                'weekly_kg':      round(weekly_kg, 2),
+                'week_4':         round(current_weight_kg + weekly_kg * 4,  1),
+                'week_8':         round(current_weight_kg + weekly_kg * 8,  1),
+                'week_12':        round(current_weight_kg + weekly_kg * 12, 1),
+                'current_weight': current_weight_kg,
+                'days_used':      week_days_logged,
+            }
+
     context = {
         'today_stats': {
             'calories': today_stats['calories'] or 0,
@@ -155,6 +187,7 @@ def home(request):
         'fitness_goal': settings.fitness_goal,
         'fitness_goal_choices': UserSettings.FITNESS_GOAL_CHOICES,
         'is_auto_macros': effective_targets['is_auto'],
+        'weight_prediction': weight_prediction,
     }
 
     return render(request, 'count_calories_app/home.html', context)
@@ -658,6 +691,29 @@ def food_tracker(request):
     except:
         food_items_paginated = food_items_paginator.page(1)
 
+    # Budget bar — only meaningful when viewing today
+    today_date_check = now.date()
+    is_today_view = (
+        (time_range == 'today' and not selected_date) or
+        (selected_date and selected_date == today_date_check)
+    )
+    budget_targets = None
+    budget_over = {}
+    if is_today_view:
+        ft_settings = UserSettings.get_settings()
+        budget_targets = ft_settings.get_effective_targets()
+        # Pre-compute over-budget amounts for the template (can't subtract in Django templates)
+        today_cal   = float(totals.get('total_calories') or 0)
+        today_prot  = float(totals.get('total_protein')  or 0)
+        today_fat   = float(totals.get('total_fat')      or 0)
+        today_carbs = float(totals.get('total_carbohydrates') or 0)
+        budget_over = {
+            'calories': round(today_cal   - budget_targets['calories']) if today_cal   > budget_targets['calories'] else 0,
+            'protein':  round(today_prot  - budget_targets['protein'])  if today_prot  > budget_targets['protein']  else 0,
+            'fat':      round(today_fat   - budget_targets['fat'])      if today_fat   > budget_targets['fat']      else 0,
+            'carbs':    round(today_carbs - budget_targets['carbs'])    if today_carbs > budget_targets['carbs']    else 0,
+        }
+
     context = {
         'form': form,
         'food_items': food_items_paginated,
@@ -673,6 +729,9 @@ def food_tracker(request):
         'current_sort': sort_by,  # Current sort field
         'current_order': sort_order,  # Current sort order
         'current_days': current_days,  # Current days filter for button highlighting
+        'is_today_view': is_today_view,
+        'budget_targets': budget_targets,
+        'budget_over': budget_over,
     }
     return render(request, 'count_calories_app/food_tracker.html', context)
 
@@ -4981,4 +5040,157 @@ def month_compare(request):
         'weekly1_json': weekly1_json,
         'weekly2_json': weekly2_json,
         'month_choices': month_choices,
+    })
+
+def month_trends(request):
+    """12-month trend view: calories, macros and weight across months."""
+    from datetime import datetime
+    import calendar
+    from django.db.models.functions import TruncDate
+
+    now = timezone.now()
+
+    # ── Mode: 'last12' (rolling) or a specific calendar year ──────────────
+    mode = request.GET.get('mode', 'last12')
+    try:
+        selected_year = int(request.GET.get('year', now.year))
+    except (ValueError, TypeError):
+        selected_year = now.year
+
+    # Available years (from first FoodItem to current year)
+    first_entry = FoodItem.objects.order_by('consumed_at').values_list('consumed_at', flat=True).first()
+    first_year = first_entry.year if first_entry else now.year
+    available_years = list(range(now.year, first_year - 1, -1))
+
+    # Build the list of (year, month) pairs to analyse
+    if mode == 'year':
+        months_to_analyze = [(selected_year, m) for m in range(1, 13)]
+    else:  # last12 — rolling window ending this month
+        months_to_analyze = []
+        y, m = now.year, now.month
+        for _ in range(12):
+            months_to_analyze.insert(0, (y, m))
+            m -= 1
+            if m == 0:
+                m = 12
+                y -= 1
+
+    # ── Per-month aggregation ──────────────────────────────────────────────
+    monthly_data = []
+    for (y, m) in months_to_analyze:
+        last_day = calendar.monthrange(y, m)[1]
+        start = timezone.make_aware(datetime(y, m, 1, 0, 0, 0))
+        end   = timezone.make_aware(datetime(y, m, last_day, 23, 59, 59))
+
+        qs = FoodItem.objects.filter(consumed_at__gte=start, consumed_at__lte=end)
+        days_logged = qs.annotate(day=TruncDate('consumed_at')).values('day').distinct().count()
+
+        totals = qs.aggregate(
+            total_calories=Sum('calories'),
+            total_protein=Sum('protein'),
+            total_fat=Sum('fat'),
+            total_carbs=Sum('carbohydrates'),
+        )
+        tc     = float(totals['total_calories'] or 0)
+        tp     = float(totals['total_protein']  or 0)
+        tf     = float(totals['total_fat']      or 0)
+        tcarbs = float(totals['total_carbs']    or 0)
+
+        avg_cal    = round(tc     / days_logged, 1) if days_logged else 0
+        avg_prot   = round(tp     / days_logged, 1) if days_logged else 0
+        avg_fat    = round(tf     / days_logged, 1) if days_logged else 0
+        avg_carbs  = round(tcarbs / days_logged, 1) if days_logged else 0
+
+        # Top food by count
+        top_food_qs = qs.values('product_name').annotate(cnt=Count('id')).order_by('-cnt').first()
+        top_food = top_food_qs['product_name'] if top_food_qs else None
+
+        # Weight
+        w_qs = Weight.objects.filter(recorded_at__gte=start, recorded_at__lte=end).order_by('recorded_at')
+        weight_avg    = None
+        weight_change = None
+        if w_qs.exists():
+            w_agg = w_qs.aggregate(avg=Avg('weight'))
+            weight_avg    = round(float(w_agg['avg']), 1)
+            weight_change = round(float(w_qs.last().weight) - float(w_qs.first().weight), 1)
+
+        monthly_data.append({
+            'year': y,
+            'month': m,
+            'label': datetime(y, m, 1).strftime('%b %Y'),
+            'short': datetime(y, m, 1).strftime('%b'),
+            'days_logged': days_logged,
+            'total_days': last_day,
+            'consistency_pct': round(days_logged / last_day * 100) if days_logged else 0,
+            'avg_cal':   avg_cal,
+            'avg_prot':  avg_prot,
+            'avg_fat':   avg_fat,
+            'avg_carbs': avg_carbs,
+            'total_calories': round(tc),
+            'total_protein':  round(tp, 1),
+            'weight_avg':    weight_avg,
+            'weight_change': weight_change,
+            'top_food': top_food,
+            'has_data': days_logged > 0,
+        })
+
+    # ── Best/worst highlights (only months with data) ─────────────────────
+    data_months = [m for m in monthly_data if m['has_data']]
+
+    def mark_best_worst(months, key, best_is_max=True):
+        vals = [m[key] for m in months if m[key] is not None]
+        if not vals:
+            return
+        best_val = max(vals) if best_is_max else min(vals)
+        worst_val = min(vals) if best_is_max else max(vals)
+        for m in months:
+            if m[key] == best_val:
+                m[f'{key}_best'] = True
+            if m[key] == worst_val:
+                m[f'{key}_worst'] = True
+
+    mark_best_worst(data_months, 'avg_cal',         best_is_max=False)   # low cal = best
+    mark_best_worst(data_months, 'avg_prot',         best_is_max=True)
+    mark_best_worst(data_months, 'consistency_pct',  best_is_max=True)
+    mark_best_worst(data_months, 'weight_change',    best_is_max=False)   # most loss = best
+
+    # ── Year-level summary ─────────────────────────────────────────────────
+    total_days_logged  = sum(m['days_logged']   for m in data_months)
+    total_cal_all      = sum(m['total_calories'] for m in data_months)
+    total_prot_all     = sum(m['total_protein']  for m in data_months)
+    avg_consistency    = round(sum(m['consistency_pct'] for m in data_months) / len(data_months)) if data_months else 0
+    best_prot_month    = max(data_months, key=lambda x: x['avg_prot'],         default=None)
+    best_cal_month     = min(data_months, key=lambda x: x['avg_cal'],          default=None)
+    best_cons_month    = max(data_months, key=lambda x: x['consistency_pct'],  default=None)
+
+    summary = {
+        'total_days_logged': total_days_logged,
+        'total_calories':    total_cal_all,
+        'total_protein':     total_prot_all,
+        'avg_consistency':   avg_consistency,
+        'best_prot_month':   best_prot_month,
+        'best_cal_month':    best_cal_month,
+        'best_cons_month':   best_cons_month,
+        'months_with_data':  len(data_months),
+    }
+
+    # ── JSON for Chart.js ──────────────────────────────────────────────────
+    chart_data = json.dumps([{
+        'label':       m['label'],
+        'short':       m['short'],
+        'avg_cal':     m['avg_cal']   if m['has_data'] else None,
+        'avg_prot':    m['avg_prot']  if m['has_data'] else None,
+        'avg_fat':     m['avg_fat']   if m['has_data'] else None,
+        'avg_carbs':   m['avg_carbs'] if m['has_data'] else None,
+        'weight_avg':  m['weight_avg'],
+        'consistency': m['consistency_pct'] if m['has_data'] else None,
+    } for m in monthly_data])
+
+    return render(request, 'count_calories_app/month_trends.html', {
+        'monthly_data':   monthly_data,
+        'summary':        summary,
+        'mode':           mode,
+        'selected_year':  selected_year,
+        'available_years': available_years,
+        'chart_data_json': chart_data,
     })
