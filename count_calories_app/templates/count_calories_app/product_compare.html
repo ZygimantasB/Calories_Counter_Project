@@ -7,66 +7,70 @@
   {{ block.super }}
   <link rel="stylesheet" href="{% static 'count_calories_app/count_calories_app.css' %}">
   <style>
-    .product-card {
-      border-top: 4px solid;
-      border-radius: 8px;
-      transition: transform 0.2s;
-    }
+    /* ── Cards ── */
+    .product-card { border-top: 4px solid; border-radius: 8px; transition: transform .2s; }
     .product-card:hover { transform: translateY(-2px); }
-    .product-card.left  { border-top-color: #0d6efd; }
-    .product-card.right { border-top-color: #dc3545; }
-    .product-card.empty { border-top-color: #dee2e6; }
+    .product-card.card-a { border-top-color: #0d6efd; }
+    .product-card.card-b { border-top-color: #dc3545; }
+    .product-card.card-c { border-top-color: #198754; }
 
-    .macro-bar-wrap { height: 12px; background: #e9ecef; border-radius: 6px; overflow: hidden; }
-    .macro-bar { height: 100%; border-radius: 6px; transition: width 0.6s ease; }
-    .macro-bar.protein  { background: #198754; }
-    .macro-bar.fat      { background: #ffc107; }
-    .macro-bar.carbs    { background: #0d6efd; }
+    /* ── Macro bars ── */
+    .macro-bar-wrap { height: 10px; background: #e9ecef; border-radius: 5px; overflow: hidden; }
+    .macro-bar { height: 100%; border-radius: 5px; transition: width .5s ease; }
+    .macro-bar.protein { background: #198754; }
+    .macro-bar.fat     { background: #ffc107; }
+    .macro-bar.carbs   { background: #0d6efd; }
 
-    .diff-badge {
-      font-size: 0.75rem;
-      padding: 2px 8px;
-      border-radius: 12px;
-      font-weight: 600;
-    }
-    .diff-positive { background: rgba(220,53,69,.12); color: #dc3545; }
-    .diff-negative { background: rgba(25,135,84,.12); color: #198754; }
+    /* ── Sparkline ── */
+    .sparkline svg { display: block; }
+
+    /* ── Diff badges ── */
+    .diff-badge { font-size: .75rem; padding: 2px 8px; border-radius: 12px; font-weight: 600; }
+    .diff-positive { background: rgba(220,53,69,.12);  color: #dc3545; }
+    .diff-negative { background: rgba(25,135,84,.12);  color: #198754; }
     .diff-zero     { background: rgba(108,117,125,.12); color: #6c757d; }
 
+    /* ── Winner badge ── */
     .winner-badge {
-      font-size: 0.65rem;
-      background: linear-gradient(135deg, #ffc107, #fd7e14);
-      color: white;
-      padding: 2px 8px;
-      border-radius: 12px;
-      font-weight: 700;
-      vertical-align: middle;
+      font-size: .65rem;
+      background: linear-gradient(135deg,#ffc107,#fd7e14);
+      color: white; padding: 2px 8px; border-radius: 12px; font-weight: 700;
     }
+    .winner-a { background: linear-gradient(135deg,#0d6efd,#6ea8fe) !important; }
+    .winner-b { background: linear-gradient(135deg,#dc3545,#f07585) !important; }
+    .winner-c { background: linear-gradient(135deg,#198754,#5fcf8a) !important; }
 
-    .stat-row { border-bottom: 1px solid var(--bs-border-color, #dee2e6); }
-    .stat-row:last-child { border-bottom: none; }
+    /* ── Goal % pill ── */
+    .goal-pill { font-size: .72rem; padding: 1px 6px; border-radius: 10px;
+                 background: rgba(13,110,253,.1); color: #0d6efd; }
 
+    /* ── Efficiency badge ── */
+    .eff-badge { font-size: .7rem; padding: 2px 7px; border-radius: 10px;
+                 background: rgba(25,135,84,.1); color: #198754; font-weight: 600; }
+
+    /* ── Recent chips ── */
+    .recent-chip { cursor: pointer; font-size: .78rem; padding: 4px 10px;
+                   border-radius: 20px; border: 1px solid var(--bs-border-color,#dee2e6);
+                   transition: all .15s; white-space: nowrap; }
+    .recent-chip:hover { background: var(--bs-primary-bg-subtle,#cfe2ff); border-color: #0d6efd; }
+
+    /* ── Autocomplete ── */
     .autocomplete-list {
-      position: absolute;
-      top: 100%;
-      left: 0;
-      right: 0;
-      z-index: 1000;
-      max-height: 220px;
-      overflow-y: auto;
-      border: 1px solid #dee2e6;
-      border-top: none;
-      border-radius: 0 0 6px 6px;
-      background: var(--bs-body-bg, #fff);
-      box-shadow: 0 4px 12px rgba(0,0,0,.1);
+      position: absolute; top: 100%; left: 0; right: 0; z-index: 1000;
+      max-height: 220px; overflow-y: auto;
+      border: 1px solid #dee2e6; border-top: none; border-radius: 0 0 6px 6px;
+      background: var(--bs-body-bg,#fff); box-shadow: 0 4px 12px rgba(0,0,0,.1);
     }
-    .autocomplete-list .ac-item {
-      padding: 8px 12px;
-      cursor: pointer;
-      font-size: 0.9rem;
-    }
+    .autocomplete-list .ac-item { padding: 8px 12px; cursor: pointer; font-size: .9rem; }
     .autocomplete-list .ac-item:hover,
-    .autocomplete-list .ac-item.active { background: var(--bs-primary-bg-subtle, #cfe2ff); }
+    .autocomplete-list .ac-item.active { background: var(--bs-primary-bg-subtle,#cfe2ff); }
+
+    /* ── Serving scaler ── */
+    #scalerWrap input[type=range] { accent-color: #0d6efd; }
+    .scalable { transition: opacity .2s; }
+
+    /* ── Stat row ── */
+    .stat-row td { vertical-align: middle; }
   </style>
 {% endblock %}
 
@@ -100,42 +104,53 @@
         </li>
       </ul>
 
+      <!-- Recent Comparisons (populated by JS from localStorage) -->
+      <div id="recentWrap" class="d-none mb-3">
+        <div class="small text-muted mb-1"><i class="fas fa-history me-1"></i>Recent comparisons</div>
+        <div id="recentChips" class="d-flex flex-wrap gap-2"></div>
+      </div>
+
       <!-- Search Form -->
       <div class="card shadow-sm border-0 mb-4">
         <div class="card-body">
           <form method="get" class="row g-3 align-items-end" id="compareForm">
-            <div class="col-md-5">
+            <!-- Product A -->
+            <div class="col-md-4">
               <label class="form-label fw-semibold">
                 <span class="badge bg-primary me-1">A</span> First Product
               </label>
               <div class="position-relative">
-                <input type="text" name="product1" id="product1Input"
-                       value="{{ product1_name }}"
-                       class="form-control"
-                       placeholder="e.g. Chicken Breast"
-                       autocomplete="off">
+                <input type="text" name="product1" id="p1Input" value="{{ product1_name }}"
+                       class="form-control" placeholder="e.g. Chicken Breast" autocomplete="off">
                 <div class="autocomplete-list d-none" id="ac1"></div>
               </div>
             </div>
-            <div class="col-md-1 text-center pb-1">
-              <span class="fs-4 text-muted fw-bold">vs</span>
-            </div>
-            <div class="col-md-5">
+            <!-- Product B -->
+            <div class="col-md-4">
               <label class="form-label fw-semibold">
                 <span class="badge bg-danger me-1">B</span> Second Product
               </label>
               <div class="position-relative">
-                <input type="text" name="product2" id="product2Input"
-                       value="{{ product2_name }}"
-                       class="form-control"
-                       placeholder="e.g. Tuna"
-                       autocomplete="off">
+                <input type="text" name="product2" id="p2Input" value="{{ product2_name }}"
+                       class="form-control" placeholder="e.g. Tuna" autocomplete="off">
                 <div class="autocomplete-list d-none" id="ac2"></div>
+              </div>
+            </div>
+            <!-- Product C (optional) -->
+            <div class="col-md-3">
+              <label class="form-label fw-semibold">
+                <span class="badge bg-success me-1">C</span>
+                Third Product <span class="text-muted fw-normal">(optional)</span>
+              </label>
+              <div class="position-relative">
+                <input type="text" name="product3" id="p3Input" value="{{ product3_name }}"
+                       class="form-control" placeholder="optional" autocomplete="off">
+                <div class="autocomplete-list d-none" id="ac3"></div>
               </div>
             </div>
             <div class="col-md-1">
               <button type="submit" class="btn btn-primary w-100">
-                <i class="fas fa-search me-1"></i>Compare
+                <i class="fas fa-search"></i>
               </button>
             </div>
           </form>
@@ -146,236 +161,438 @@
       <!-- Empty state -->
       <div class="text-center py-5 text-muted">
         <i class="fas fa-balance-scale fa-4x mb-3 opacity-25"></i>
-        <h5>Compare any two foods</h5>
+        <h5>Compare any two or three foods</h5>
         <p class="mb-0">Search for products you've logged and compare their nutritional values side by side.</p>
       </div>
 
       {% elif product1_name and not product1 %}
       <div class="alert alert-warning">
         <i class="fas fa-exclamation-triangle me-1"></i>
-        No logged entries found for <strong>"{{ product1_name }}"</strong>. Try a different name.
+        No entries found for <strong>"{{ product1_name }}"</strong>. Try a different name.
       </div>
 
       {% elif product2_name and not product2 %}
       <div class="alert alert-warning">
         <i class="fas fa-exclamation-triangle me-1"></i>
-        No logged entries found for <strong>"{{ product2_name }}"</strong>. Try a different name.
+        No entries found for <strong>"{{ product2_name }}"</strong>. Try a different name.
+      </div>
+
+      {% elif product3_name and not product3 %}
+      <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle me-1"></i>
+        No entries found for <strong>"{{ product3_name }}"</strong>. Try a different name or leave it empty.
       </div>
 
       {% else %}
-      <!-- Comparison Results -->
-      <div class="row g-3 mb-4">
+
+      <!-- ── Serving Size Scaler ────────────────────────────────────── -->
+      <div id="scalerWrap" class="card shadow-sm border-0 mb-4">
+        <div class="card-body py-2">
+          <div class="row align-items-center g-2">
+            <div class="col-auto">
+              <i class="fas fa-sliders-h text-primary me-1"></i>
+              <span class="fw-semibold small">Serving multiplier</span>
+            </div>
+            <div class="col">
+              <input type="range" id="scalerRange" min="0.25" max="4" step="0.25" value="1"
+                     class="form-range">
+            </div>
+            <div class="col-auto">
+              <input type="number" id="scalerNum" value="1" min="0.1" step="0.25"
+                     class="form-control form-control-sm" style="width:70px">
+              <small class="text-muted">×</small>
+            </div>
+            <div class="col-auto">
+              <button class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('scalerRange').value=1;document.getElementById('scalerNum').value=1;applyScaler(1)">Reset</button>
+            </div>
+            <div class="col-auto text-muted small">
+              Values scale proportionally from the logged average
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Product Cards ─────────────────────────────────────────── -->
+      <div class="row g-3 mb-4" id="cardsRow">
+
         <!-- Product A -->
-        <div class="col-md-5">
-          <div class="card product-card left shadow-sm border-0 h-100">
+        <div class="{% if product3 %}col-md-4{% else %}col-md-5{% endif %}">
+          <div class="card product-card card-a shadow-sm border-0 h-100">
             <div class="card-body">
-              <div class="d-flex align-items-start justify-content-between mb-3">
+              <div class="d-flex justify-content-between align-items-start mb-2">
                 <div>
                   <span class="badge bg-primary mb-1">A</span>
                   <h5 class="mb-0">{{ product1.name }}</h5>
-                  <small class="text-muted">{{ product1.entries }} log entr{{ product1.entries|pluralize:"y,ies" }} · avg per serving</small>
+                  <small class="text-muted">
+                    {{ product1.entries }} entr{{ product1.entries|pluralize:"y,ies" }} logged
+                  </small>
+                </div>
+                <span class="eff-badge">
+                  <i class="fas fa-bolt me-1"></i><span class="scalable" data-base="{{ product1.protein_per_100kcal }}">{{ product1.protein_per_100kcal }}</span>g protein/100 kcal
+                </span>
+              </div>
+
+              <!-- Last logged + sparkline -->
+              <div class="d-flex align-items-center gap-3 mb-3">
+                <div>
+                  <div class="text-muted" style="font-size:.7rem">LAST LOGGED</div>
+                  <div class="small fw-semibold">{{ product1.last_logged|date:"M d, Y" }}</div>
+                </div>
+                <div class="flex-grow-1">
+                  <div class="text-muted" style="font-size:.7rem">WEEKLY FREQUENCY (8 wks)</div>
+                  <div class="sparkline" data-counts="{{ product1.weekly_counts|join:',' }}" data-max="{{ product1.weekly_max }}"></div>
                 </div>
               </div>
 
-              <!-- Calories big number -->
-              <div class="text-center py-3 mb-3 rounded" style="background: rgba(13,110,253,.06);">
-                <div class="display-6 fw-bold text-primary">{{ product1.calories }}</div>
-                <div class="text-muted small">kcal</div>
+              <!-- Calories -->
+              <div class="text-center py-2 mb-3 rounded" style="background:rgba(13,110,253,.06)">
+                <div class="display-6 fw-bold text-primary scalable" data-base="{{ product1.calories }}">{{ product1.calories }}</div>
+                <div class="text-muted small">kcal
+                  <span class="goal-pill ms-1">{{ product1.cal_goal_pct }}% of goal</span>
+                </div>
               </div>
 
               <!-- Macros -->
               <div class="row g-2">
                 <div class="col-4 text-center">
-                  <div class="fw-bold text-success">{{ product1.protein }}g</div>
-                  <div class="macro-bar-wrap mt-1"><div class="macro-bar protein" style="width:{{ product1.protein_pct }}%"></div></div>
-                  <div class="text-muted" style="font-size:.7rem">Protein {{ product1.protein_pct }}%</div>
+                  <div class="fw-bold text-success scalable" data-base="{{ product1.protein }}">{{ product1.protein }}g</div>
+                  <div class="macro-bar-wrap my-1"><div class="macro-bar protein" style="width:{{ product1.protein_pct }}%"></div></div>
+                  <div class="text-muted" style="font-size:.68rem">Protein {{ product1.protein_pct }}%</div>
+                  <div class="goal-pill mt-1">{{ product1.protein_goal_pct }}% goal</div>
                 </div>
                 <div class="col-4 text-center">
-                  <div class="fw-bold text-warning">{{ product1.fat }}g</div>
-                  <div class="macro-bar-wrap mt-1"><div class="macro-bar fat" style="width:{{ product1.fat_pct }}%"></div></div>
-                  <div class="text-muted" style="font-size:.7rem">Fat {{ product1.fat_pct }}%</div>
+                  <div class="fw-bold text-warning scalable" data-base="{{ product1.fat }}">{{ product1.fat }}g</div>
+                  <div class="macro-bar-wrap my-1"><div class="macro-bar fat" style="width:{{ product1.fat_pct }}%"></div></div>
+                  <div class="text-muted" style="font-size:.68rem">Fat {{ product1.fat_pct }}%</div>
+                  <div class="goal-pill mt-1">{{ product1.fat_goal_pct }}% goal</div>
                 </div>
                 <div class="col-4 text-center">
-                  <div class="fw-bold text-primary">{{ product1.carbs }}g</div>
-                  <div class="macro-bar-wrap mt-1"><div class="macro-bar carbs" style="width:{{ product1.carbs_pct }}%"></div></div>
-                  <div class="text-muted" style="font-size:.7rem">Carbs {{ product1.carbs_pct }}%</div>
+                  <div class="fw-bold text-primary scalable" data-base="{{ product1.carbs }}">{{ product1.carbs }}g</div>
+                  <div class="macro-bar-wrap my-1"><div class="macro-bar carbs" style="width:{{ product1.carbs_pct }}%"></div></div>
+                  <div class="text-muted" style="font-size:.68rem">Carbs {{ product1.carbs_pct }}%</div>
+                  <div class="goal-pill mt-1">{{ product1.carbs_goal_pct }}% goal</div>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Diff column -->
+        {% if not product3 %}
+        <!-- Diff column (2-product mode only) -->
         <div class="col-md-2 d-flex flex-column justify-content-center align-items-center gap-3 text-center py-3">
           <div>
             <div class="text-muted small mb-1">Calories</div>
-            {% if diff.calories > 0 %}
-              <span class="diff-badge diff-positive">A +{{ diff.calories }}</span>
-            {% elif diff.calories < 0 %}
-              <span class="diff-badge diff-negative">B +{{ diff.calories|slice:"1:" }}</span>
-            {% else %}
-              <span class="diff-badge diff-zero">Equal</span>
-            {% endif %}
+            {% if diff.calories.pos %}<span class="diff-badge diff-positive">A +{{ diff.calories.abs }}</span>
+            {% elif diff.calories.neg %}<span class="diff-badge diff-negative">B +{{ diff.calories.abs }}</span>
+            {% else %}<span class="diff-badge diff-zero">Equal</span>{% endif %}
           </div>
           <div>
             <div class="text-muted small mb-1">Protein</div>
-            {% if diff.protein > 0 %}
-              <span class="diff-badge diff-positive">A +{{ diff.protein }}g</span>
-            {% elif diff.protein < 0 %}
-              <span class="diff-badge diff-negative">B +{{ diff.protein|slice:"1:" }}g</span>
-            {% else %}
-              <span class="diff-badge diff-zero">Equal</span>
-            {% endif %}
+            {% if diff.protein.pos %}<span class="diff-badge diff-positive">A +{{ diff.protein.abs }}g</span>
+            {% elif diff.protein.neg %}<span class="diff-badge diff-negative">B +{{ diff.protein.abs }}g</span>
+            {% else %}<span class="diff-badge diff-zero">Equal</span>{% endif %}
           </div>
           <div>
             <div class="text-muted small mb-1">Fat</div>
-            {% if diff.fat > 0 %}
-              <span class="diff-badge diff-positive">A +{{ diff.fat }}g</span>
-            {% elif diff.fat < 0 %}
-              <span class="diff-badge diff-negative">B +{{ diff.fat|slice:"1:" }}g</span>
-            {% else %}
-              <span class="diff-badge diff-zero">Equal</span>
-            {% endif %}
+            {% if diff.fat.pos %}<span class="diff-badge diff-positive">A +{{ diff.fat.abs }}g</span>
+            {% elif diff.fat.neg %}<span class="diff-badge diff-negative">B +{{ diff.fat.abs }}g</span>
+            {% else %}<span class="diff-badge diff-zero">Equal</span>{% endif %}
           </div>
           <div>
             <div class="text-muted small mb-1">Carbs</div>
-            {% if diff.carbs > 0 %}
-              <span class="diff-badge diff-positive">A +{{ diff.carbs }}g</span>
-            {% elif diff.carbs < 0 %}
-              <span class="diff-badge diff-negative">B +{{ diff.carbs|slice:"1:" }}g</span>
-            {% else %}
-              <span class="diff-badge diff-zero">Equal</span>
-            {% endif %}
+            {% if diff.carbs.pos %}<span class="diff-badge diff-positive">A +{{ diff.carbs.abs }}g</span>
+            {% elif diff.carbs.neg %}<span class="diff-badge diff-negative">B +{{ diff.carbs.abs }}g</span>
+            {% else %}<span class="diff-badge diff-zero">Equal</span>{% endif %}
           </div>
         </div>
+        {% endif %}
 
         <!-- Product B -->
-        <div class="col-md-5">
-          <div class="card product-card right shadow-sm border-0 h-100">
+        <div class="{% if product3 %}col-md-4{% else %}col-md-5{% endif %}">
+          <div class="card product-card card-b shadow-sm border-0 h-100">
             <div class="card-body">
-              <div class="d-flex align-items-start justify-content-between mb-3">
+              <div class="d-flex justify-content-between align-items-start mb-2">
                 <div>
                   <span class="badge bg-danger mb-1">B</span>
                   <h5 class="mb-0">{{ product2.name }}</h5>
-                  <small class="text-muted">{{ product2.entries }} log entr{{ product2.entries|pluralize:"y,ies" }} · avg per serving</small>
+                  <small class="text-muted">{{ product2.entries }} entr{{ product2.entries|pluralize:"y,ies" }} logged</small>
+                </div>
+                <span class="eff-badge">
+                  <i class="fas fa-bolt me-1"></i><span class="scalable" data-base="{{ product2.protein_per_100kcal }}">{{ product2.protein_per_100kcal }}</span>g protein/100 kcal
+                </span>
+              </div>
+              <div class="d-flex align-items-center gap-3 mb-3">
+                <div>
+                  <div class="text-muted" style="font-size:.7rem">LAST LOGGED</div>
+                  <div class="small fw-semibold">{{ product2.last_logged|date:"M d, Y" }}</div>
+                </div>
+                <div class="flex-grow-1">
+                  <div class="text-muted" style="font-size:.7rem">WEEKLY FREQUENCY (8 wks)</div>
+                  <div class="sparkline" data-counts="{{ product2.weekly_counts|join:',' }}" data-max="{{ product2.weekly_max }}"></div>
                 </div>
               </div>
-
-              <div class="text-center py-3 mb-3 rounded" style="background: rgba(220,53,69,.06);">
-                <div class="display-6 fw-bold text-danger">{{ product2.calories }}</div>
-                <div class="text-muted small">kcal</div>
+              <div class="text-center py-2 mb-3 rounded" style="background:rgba(220,53,69,.06)">
+                <div class="display-6 fw-bold text-danger scalable" data-base="{{ product2.calories }}">{{ product2.calories }}</div>
+                <div class="text-muted small">kcal
+                  <span class="goal-pill ms-1">{{ product2.cal_goal_pct }}% of goal</span>
+                </div>
               </div>
-
               <div class="row g-2">
                 <div class="col-4 text-center">
-                  <div class="fw-bold text-success">{{ product2.protein }}g</div>
-                  <div class="macro-bar-wrap mt-1"><div class="macro-bar protein" style="width:{{ product2.protein_pct }}%"></div></div>
-                  <div class="text-muted" style="font-size:.7rem">Protein {{ product2.protein_pct }}%</div>
+                  <div class="fw-bold text-success scalable" data-base="{{ product2.protein }}">{{ product2.protein }}g</div>
+                  <div class="macro-bar-wrap my-1"><div class="macro-bar protein" style="width:{{ product2.protein_pct }}%"></div></div>
+                  <div class="text-muted" style="font-size:.68rem">Protein {{ product2.protein_pct }}%</div>
+                  <div class="goal-pill mt-1">{{ product2.protein_goal_pct }}% goal</div>
                 </div>
                 <div class="col-4 text-center">
-                  <div class="fw-bold text-warning">{{ product2.fat }}g</div>
-                  <div class="macro-bar-wrap mt-1"><div class="macro-bar fat" style="width:{{ product2.fat_pct }}%"></div></div>
-                  <div class="text-muted" style="font-size:.7rem">Fat {{ product2.fat_pct }}%</div>
+                  <div class="fw-bold text-warning scalable" data-base="{{ product2.fat }}">{{ product2.fat }}g</div>
+                  <div class="macro-bar-wrap my-1"><div class="macro-bar fat" style="width:{{ product2.fat_pct }}%"></div></div>
+                  <div class="text-muted" style="font-size:.68rem">Fat {{ product2.fat_pct }}%</div>
+                  <div class="goal-pill mt-1">{{ product2.fat_goal_pct }}% goal</div>
                 </div>
                 <div class="col-4 text-center">
-                  <div class="fw-bold text-primary">{{ product2.carbs }}g</div>
-                  <div class="macro-bar-wrap mt-1"><div class="macro-bar carbs" style="width:{{ product2.carbs_pct }}%"></div></div>
-                  <div class="text-muted" style="font-size:.7rem">Carbs {{ product2.carbs_pct }}%</div>
+                  <div class="fw-bold text-primary scalable" data-base="{{ product2.carbs }}">{{ product2.carbs }}g</div>
+                  <div class="macro-bar-wrap my-1"><div class="macro-bar carbs" style="width:{{ product2.carbs_pct }}%"></div></div>
+                  <div class="text-muted" style="font-size:.68rem">Carbs {{ product2.carbs_pct }}%</div>
+                  <div class="goal-pill mt-1">{{ product2.carbs_goal_pct }}% goal</div>
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        {% if product3 %}
+        <!-- Product C -->
+        <div class="col-md-4">
+          <div class="card product-card card-c shadow-sm border-0 h-100">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-start mb-2">
+                <div>
+                  <span class="badge bg-success mb-1">C</span>
+                  <h5 class="mb-0">{{ product3.name }}</h5>
+                  <small class="text-muted">{{ product3.entries }} entr{{ product3.entries|pluralize:"y,ies" }} logged</small>
+                </div>
+                <span class="eff-badge">
+                  <i class="fas fa-bolt me-1"></i><span class="scalable" data-base="{{ product3.protein_per_100kcal }}">{{ product3.protein_per_100kcal }}</span>g protein/100 kcal
+                </span>
+              </div>
+              <div class="d-flex align-items-center gap-3 mb-3">
+                <div>
+                  <div class="text-muted" style="font-size:.7rem">LAST LOGGED</div>
+                  <div class="small fw-semibold">{{ product3.last_logged|date:"M d, Y" }}</div>
+                </div>
+                <div class="flex-grow-1">
+                  <div class="text-muted" style="font-size:.7rem">WEEKLY FREQUENCY (8 wks)</div>
+                  <div class="sparkline" data-counts="{{ product3.weekly_counts|join:',' }}" data-max="{{ product3.weekly_max }}"></div>
+                </div>
+              </div>
+              <div class="text-center py-2 mb-3 rounded" style="background:rgba(25,135,84,.06)">
+                <div class="display-6 fw-bold text-success scalable" data-base="{{ product3.calories }}">{{ product3.calories }}</div>
+                <div class="text-muted small">kcal
+                  <span class="goal-pill ms-1">{{ product3.cal_goal_pct }}% of goal</span>
+                </div>
+              </div>
+              <div class="row g-2">
+                <div class="col-4 text-center">
+                  <div class="fw-bold text-success scalable" data-base="{{ product3.protein }}">{{ product3.protein }}g</div>
+                  <div class="macro-bar-wrap my-1"><div class="macro-bar protein" style="width:{{ product3.protein_pct }}%"></div></div>
+                  <div class="text-muted" style="font-size:.68rem">Protein {{ product3.protein_pct }}%</div>
+                  <div class="goal-pill mt-1">{{ product3.protein_goal_pct }}% goal</div>
+                </div>
+                <div class="col-4 text-center">
+                  <div class="fw-bold text-warning scalable" data-base="{{ product3.fat }}">{{ product3.fat }}g</div>
+                  <div class="macro-bar-wrap my-1"><div class="macro-bar fat" style="width:{{ product3.fat_pct }}%"></div></div>
+                  <div class="text-muted" style="font-size:.68rem">Fat {{ product3.fat_pct }}%</div>
+                  <div class="goal-pill mt-1">{{ product3.fat_goal_pct }}% goal</div>
+                </div>
+                <div class="col-4 text-center">
+                  <div class="fw-bold text-primary scalable" data-base="{{ product3.carbs }}">{{ product3.carbs }}g</div>
+                  <div class="macro-bar-wrap my-1"><div class="macro-bar carbs" style="width:{{ product3.carbs_pct }}%"></div></div>
+                  <div class="text-muted" style="font-size:.68rem">Carbs {{ product3.carbs_pct }}%</div>
+                  <div class="goal-pill mt-1">{{ product3.carbs_goal_pct }}% goal</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+      </div>{# /cardsRow #}
+
+      <!-- ── Radar Chart ────────────────────────────────────────────── -->
+      <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-transparent fw-semibold">
+          <i class="fas fa-spider me-1"></i>Nutritional Profile Radar
+          <small class="text-muted fw-normal ms-2">Each axis = % of max across compared products</small>
+        </div>
+        <div class="card-body d-flex justify-content-center">
+          <div style="max-width:420px; width:100%">
+            <canvas id="radarChart" height="320"></canvas>
           </div>
         </div>
       </div>
 
-      <!-- Detailed table -->
+      <!-- ── Detailed Breakdown Table ──────────────────────────────── -->
       <div class="card shadow-sm border-0">
         <div class="card-header bg-transparent fw-semibold">
           <i class="fas fa-table me-1"></i>Detailed Breakdown
+          <small class="text-muted fw-normal ms-2">
+            Daily targets: {{ settings.daily_calorie_target }} kcal /
+            {{ settings.protein_target }}g protein /
+            {{ settings.fat_target }}g fat /
+            {{ settings.carbs_target }}g carbs
+          </small>
         </div>
         <div class="card-body p-0">
-          <table class="table table-hover mb-0">
-            <thead class="table-light">
-              <tr>
-                <th>Nutrient</th>
-                <th class="text-primary">A: {{ product1.name }}</th>
-                <th class="text-danger">B: {{ product2.name }}</th>
-                <th>Winner</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr class="stat-row">
-                <td><i class="fas fa-fire text-danger me-1"></i>Calories</td>
-                <td class="{% if product1.calories < product2.calories %}fw-bold text-success{% endif %}">{{ product1.calories }} kcal</td>
-                <td class="{% if product2.calories < product1.calories %}fw-bold text-success{% endif %}">{{ product2.calories }} kcal</td>
-                <td>
-                  {% if product1.calories < product2.calories %}
-                    <span class="winner-badge">A</span> lower cal
-                  {% elif product2.calories < product1.calories %}
-                    <span class="winner-badge">B</span> lower cal
-                  {% else %}
-                    <span class="text-muted small">Tie</span>
+          <div class="table-responsive">
+            <table class="table table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Nutrient</th>
+                  <th class="text-primary">A: {{ product1.name }}</th>
+                  <th class="text-danger">B: {{ product2.name }}</th>
+                  {% if product3 %}<th class="text-success">C: {{ product3.name }}</th>{% endif %}
+                  <th>% of Daily Goal</th>
+                  <th>Winner</th>
+                </tr>
+              </thead>
+              <tbody>
+                <!-- Calories -->
+                <tr class="stat-row">
+                  <td><i class="fas fa-fire text-danger me-1"></i>Calories</td>
+                  <td class="{% if not product3 and product1.calories < product2.calories %}fw-bold text-success{% endif %}">
+                    <span class="scalable" data-base="{{ product1.calories }}">{{ product1.calories }}</span> kcal
+                  </td>
+                  <td class="{% if not product3 and product2.calories < product1.calories %}fw-bold text-success{% endif %}">
+                    <span class="scalable" data-base="{{ product2.calories }}">{{ product2.calories }}</span> kcal
+                  </td>
+                  {% if product3 %}
+                  <td><span class="scalable" data-base="{{ product3.calories }}">{{ product3.calories }}</span> kcal</td>
                   {% endif %}
-                </td>
-              </tr>
-              <tr class="stat-row">
-                <td><i class="fas fa-drumstick-bite text-success me-1"></i>Protein</td>
-                <td class="{% if product1.protein > product2.protein %}fw-bold text-success{% endif %}">{{ product1.protein }}g</td>
-                <td class="{% if product2.protein > product1.protein %}fw-bold text-success{% endif %}">{{ product2.protein }}g</td>
-                <td>
-                  {% if product1.protein > product2.protein %}
-                    <span class="winner-badge">A</span> more protein
-                  {% elif product2.protein > product1.protein %}
-                    <span class="winner-badge">B</span> more protein
-                  {% else %}
-                    <span class="text-muted small">Tie</span>
-                  {% endif %}
-                </td>
-              </tr>
-              <tr class="stat-row">
-                <td><i class="fas fa-cheese text-warning me-1"></i>Fat</td>
-                <td class="{% if product1.fat < product2.fat %}fw-bold text-success{% endif %}">{{ product1.fat }}g</td>
-                <td class="{% if product2.fat < product1.fat %}fw-bold text-success{% endif %}">{{ product2.fat }}g</td>
-                <td>
-                  {% if product1.fat < product2.fat %}
-                    <span class="winner-badge">A</span> lower fat
-                  {% elif product2.fat < product1.fat %}
-                    <span class="winner-badge">B</span> lower fat
-                  {% else %}
-                    <span class="text-muted small">Tie</span>
-                  {% endif %}
-                </td>
-              </tr>
-              <tr class="stat-row">
-                <td><i class="fas fa-bread-slice text-primary me-1"></i>Carbs</td>
-                <td class="{% if product1.carbs < product2.carbs %}fw-bold text-success{% endif %}">{{ product1.carbs }}g</td>
-                <td class="{% if product2.carbs < product1.carbs %}fw-bold text-success{% endif %}">{{ product2.carbs }}g</td>
-                <td>
-                  {% if product1.carbs < product2.carbs %}
-                    <span class="winner-badge">A</span> lower carbs
-                  {% elif product2.carbs < product1.carbs %}
-                    <span class="winner-badge">B</span> lower carbs
-                  {% else %}
-                    <span class="text-muted small">Tie</span>
-                  {% endif %}
-                </td>
-              </tr>
-              <tr>
-                <td><i class="fas fa-chart-pie text-secondary me-1"></i>Protein % of cal</td>
-                <td class="{% if product1.protein_pct > product2.protein_pct %}fw-bold text-success{% endif %}">{{ product1.protein_pct }}%</td>
-                <td class="{% if product2.protein_pct > product1.protein_pct %}fw-bold text-success{% endif %}">{{ product2.protein_pct }}%</td>
-                <td>
-                  {% if product1.protein_pct > product2.protein_pct %}
-                    <span class="winner-badge">A</span> protein density
-                  {% elif product2.protein_pct > product1.protein_pct %}
-                    <span class="winner-badge">B</span> protein density
-                  {% else %}
-                    <span class="text-muted small">Tie</span>
-                  {% endif %}
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                  <td>
+                    <span class="goal-pill">A {{ product1.cal_goal_pct }}%</span>
+                    <span class="goal-pill">B {{ product2.cal_goal_pct }}%</span>
+                    {% if product3 %}<span class="goal-pill">C {{ product3.cal_goal_pct }}%</span>{% endif %}
+                  </td>
+                  <td>
+                    {% if not product3 %}
+                      {% if product1.calories < product2.calories %}<span class="winner-badge winner-a">A</span> lowest cal
+                      {% elif product2.calories < product1.calories %}<span class="winner-badge winner-b">B</span> lowest cal
+                      {% else %}<span class="text-muted small">Tie</span>{% endif %}
+                    {% else %}
+                      {% if product1.calories <= product2.calories and product1.calories <= product3.calories %}<span class="winner-badge winner-a">A</span> lowest cal
+                      {% elif product2.calories <= product1.calories and product2.calories <= product3.calories %}<span class="winner-badge winner-b">B</span> lowest cal
+                      {% else %}<span class="winner-badge winner-c">C</span> lowest cal{% endif %}
+                    {% endif %}
+                  </td>
+                </tr>
+                <!-- Protein -->
+                <tr class="stat-row">
+                  <td><i class="fas fa-drumstick-bite text-success me-1"></i>Protein</td>
+                  <td class="{% if not product3 and product1.protein > product2.protein %}fw-bold text-success{% endif %}">
+                    <span class="scalable" data-base="{{ product1.protein }}">{{ product1.protein }}</span>g
+                  </td>
+                  <td class="{% if not product3 and product2.protein > product1.protein %}fw-bold text-success{% endif %}">
+                    <span class="scalable" data-base="{{ product2.protein }}">{{ product2.protein }}</span>g
+                  </td>
+                  {% if product3 %}<td><span class="scalable" data-base="{{ product3.protein }}">{{ product3.protein }}</span>g</td>{% endif %}
+                  <td>
+                    <span class="goal-pill">A {{ product1.protein_goal_pct }}%</span>
+                    <span class="goal-pill">B {{ product2.protein_goal_pct }}%</span>
+                    {% if product3 %}<span class="goal-pill">C {{ product3.protein_goal_pct }}%</span>{% endif %}
+                  </td>
+                  <td>
+                    {% if not product3 %}
+                      {% if product1.protein > product2.protein %}<span class="winner-badge winner-a">A</span> more protein
+                      {% elif product2.protein > product1.protein %}<span class="winner-badge winner-b">B</span> more protein
+                      {% else %}<span class="text-muted small">Tie</span>{% endif %}
+                    {% else %}
+                      {% if product1.protein >= product2.protein and product1.protein >= product3.protein %}<span class="winner-badge winner-a">A</span> most protein
+                      {% elif product2.protein >= product1.protein and product2.protein >= product3.protein %}<span class="winner-badge winner-b">B</span> most protein
+                      {% else %}<span class="winner-badge winner-c">C</span> most protein{% endif %}
+                    {% endif %}
+                  </td>
+                </tr>
+                <!-- Fat -->
+                <tr class="stat-row">
+                  <td><i class="fas fa-cheese text-warning me-1"></i>Fat</td>
+                  <td class="{% if not product3 and product1.fat < product2.fat %}fw-bold text-success{% endif %}">
+                    <span class="scalable" data-base="{{ product1.fat }}">{{ product1.fat }}</span>g
+                  </td>
+                  <td class="{% if not product3 and product2.fat < product1.fat %}fw-bold text-success{% endif %}">
+                    <span class="scalable" data-base="{{ product2.fat }}">{{ product2.fat }}</span>g
+                  </td>
+                  {% if product3 %}<td><span class="scalable" data-base="{{ product3.fat }}">{{ product3.fat }}</span>g</td>{% endif %}
+                  <td>
+                    <span class="goal-pill">A {{ product1.fat_goal_pct }}%</span>
+                    <span class="goal-pill">B {{ product2.fat_goal_pct }}%</span>
+                    {% if product3 %}<span class="goal-pill">C {{ product3.fat_goal_pct }}%</span>{% endif %}
+                  </td>
+                  <td>
+                    {% if not product3 %}
+                      {% if product1.fat < product2.fat %}<span class="winner-badge winner-a">A</span> lower fat
+                      {% elif product2.fat < product1.fat %}<span class="winner-badge winner-b">B</span> lower fat
+                      {% else %}<span class="text-muted small">Tie</span>{% endif %}
+                    {% else %}
+                      {% if product1.fat <= product2.fat and product1.fat <= product3.fat %}<span class="winner-badge winner-a">A</span> least fat
+                      {% elif product2.fat <= product1.fat and product2.fat <= product3.fat %}<span class="winner-badge winner-b">B</span> least fat
+                      {% else %}<span class="winner-badge winner-c">C</span> least fat{% endif %}
+                    {% endif %}
+                  </td>
+                </tr>
+                <!-- Carbs -->
+                <tr class="stat-row">
+                  <td><i class="fas fa-bread-slice text-primary me-1"></i>Carbs</td>
+                  <td class="{% if not product3 and product1.carbs < product2.carbs %}fw-bold text-success{% endif %}">
+                    <span class="scalable" data-base="{{ product1.carbs }}">{{ product1.carbs }}</span>g
+                  </td>
+                  <td class="{% if not product3 and product2.carbs < product1.carbs %}fw-bold text-success{% endif %}">
+                    <span class="scalable" data-base="{{ product2.carbs }}">{{ product2.carbs }}</span>g
+                  </td>
+                  {% if product3 %}<td><span class="scalable" data-base="{{ product3.carbs }}">{{ product3.carbs }}</span>g</td>{% endif %}
+                  <td>
+                    <span class="goal-pill">A {{ product1.carbs_goal_pct }}%</span>
+                    <span class="goal-pill">B {{ product2.carbs_goal_pct }}%</span>
+                    {% if product3 %}<span class="goal-pill">C {{ product3.carbs_goal_pct }}%</span>{% endif %}
+                  </td>
+                  <td>
+                    {% if not product3 %}
+                      {% if product1.carbs < product2.carbs %}<span class="winner-badge winner-a">A</span> lower carbs
+                      {% elif product2.carbs < product1.carbs %}<span class="winner-badge winner-b">B</span> lower carbs
+                      {% else %}<span class="text-muted small">Tie</span>{% endif %}
+                    {% else %}
+                      {% if product1.carbs <= product2.carbs and product1.carbs <= product3.carbs %}<span class="winner-badge winner-a">A</span> least carbs
+                      {% elif product2.carbs <= product1.carbs and product2.carbs <= product3.carbs %}<span class="winner-badge winner-b">B</span> least carbs
+                      {% else %}<span class="winner-badge winner-c">C</span> least carbs{% endif %}
+                    {% endif %}
+                  </td>
+                </tr>
+                <!-- Protein Efficiency -->
+                <tr>
+                  <td><i class="fas fa-bolt text-warning me-1"></i>Protein / 100 kcal</td>
+                  <td class="{% if not product3 and product1.protein_per_100kcal > product2.protein_per_100kcal %}fw-bold text-success{% endif %}">
+                    {{ product1.protein_per_100kcal }}g
+                  </td>
+                  <td class="{% if not product3 and product2.protein_per_100kcal > product1.protein_per_100kcal %}fw-bold text-success{% endif %}">
+                    {{ product2.protein_per_100kcal }}g
+                  </td>
+                  {% if product3 %}<td>{{ product3.protein_per_100kcal }}g</td>{% endif %}
+                  <td class="text-muted small">higher = more protein dense</td>
+                  <td>
+                    {% if not product3 %}
+                      {% if product1.protein_per_100kcal > product2.protein_per_100kcal %}<span class="winner-badge winner-a">A</span> more efficient
+                      {% elif product2.protein_per_100kcal > product1.protein_per_100kcal %}<span class="winner-badge winner-b">B</span> more efficient
+                      {% else %}<span class="text-muted small">Tie</span>{% endif %}
+                    {% else %}
+                      {% if product1.protein_per_100kcal >= product2.protein_per_100kcal and product1.protein_per_100kcal >= product3.protein_per_100kcal %}<span class="winner-badge winner-a">A</span> most efficient
+                      {% elif product2.protein_per_100kcal >= product1.protein_per_100kcal and product2.protein_per_100kcal >= product3.protein_per_100kcal %}<span class="winner-badge winner-b">B</span> most efficient
+                      {% else %}<span class="winner-badge winner-c">C</span> most efficient{% endif %}
+                    {% endif %}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
       {% endif %}
@@ -391,70 +608,180 @@
 (function () {
   'use strict';
 
-  function setupAutocomplete(inputId, dropdownId) {
+  /* ── Autocomplete ───────────────────────────────────────────── */
+  function setupAC(inputId, dropId) {
     const input = document.getElementById(inputId);
-    const dropdown = document.getElementById(dropdownId);
-    if (!input || !dropdown) return;
-
-    let activeIdx = -1;
-    let items = [];
+    const drop  = document.getElementById(dropId);
+    if (!input || !drop) return;
+    let activeIdx = -1, items = [];
 
     input.addEventListener('input', function () {
       const q = this.value.trim();
-      if (q.length < 1) { dropdown.classList.add('d-none'); return; }
-
-      fetch(`{% url 'food_autocomplete' %}?q=${encodeURIComponent(q)}`)
+      if (q.length < 1) { drop.classList.add('d-none'); return; }
+      fetch('{% url "food_autocomplete" %}?q=' + encodeURIComponent(q))
         .then(r => r.json())
         .then(data => {
           items = data.suggestions || [];
-          if (!items.length) { dropdown.classList.add('d-none'); return; }
+          if (!items.length) { drop.classList.add('d-none'); return; }
           activeIdx = -1;
-          dropdown.innerHTML = items.map((name, i) =>
-            `<div class="ac-item" data-idx="${i}">${name}</div>`
-          ).join('');
-          dropdown.classList.remove('d-none');
+          drop.innerHTML = items.map((n, i) => `<div class="ac-item" data-idx="${i}">${n}</div>`).join('');
+          drop.classList.remove('d-none');
         });
     });
 
-    dropdown.addEventListener('click', function (e) {
+    drop.addEventListener('click', e => {
       const item = e.target.closest('.ac-item');
       if (!item) return;
       input.value = items[parseInt(item.dataset.idx)];
-      dropdown.classList.add('d-none');
+      drop.classList.add('d-none');
     });
 
     input.addEventListener('keydown', function (e) {
-      const visibleItems = dropdown.querySelectorAll('.ac-item');
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        activeIdx = Math.min(activeIdx + 1, visibleItems.length - 1);
-      } else if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        activeIdx = Math.max(activeIdx - 1, -1);
-      } else if (e.key === 'Enter') {
-        if (activeIdx >= 0 && visibleItems[activeIdx]) {
-          e.preventDefault();
-          input.value = items[activeIdx];
-          dropdown.classList.add('d-none');
-        }
-        return;
-      } else if (e.key === 'Escape') {
-        dropdown.classList.add('d-none');
-        return;
-      } else { return; }
-
-      visibleItems.forEach((el, i) => el.classList.toggle('active', i === activeIdx));
+      const vis = drop.querySelectorAll('.ac-item');
+      if      (e.key === 'ArrowDown')  { e.preventDefault(); activeIdx = Math.min(activeIdx + 1, vis.length - 1); }
+      else if (e.key === 'ArrowUp')    { e.preventDefault(); activeIdx = Math.max(activeIdx - 1, -1); }
+      else if (e.key === 'Enter' && activeIdx >= 0 && vis[activeIdx]) {
+        e.preventDefault(); input.value = items[activeIdx]; drop.classList.add('d-none'); return;
+      } else if (e.key === 'Escape') { drop.classList.add('d-none'); return; }
+      else return;
+      vis.forEach((el, i) => el.classList.toggle('active', i === activeIdx));
     });
 
-    document.addEventListener('click', function (e) {
-      if (!input.contains(e.target) && !dropdown.contains(e.target)) {
-        dropdown.classList.add('d-none');
+    document.addEventListener('click', e => {
+      if (!input.contains(e.target) && !drop.contains(e.target)) drop.classList.add('d-none');
+    });
+  }
+
+  setupAC('p1Input', 'ac1');
+  setupAC('p2Input', 'ac2');
+  setupAC('p3Input', 'ac3');
+
+  /* ── Sparklines ─────────────────────────────────────────────── */
+  document.querySelectorAll('.sparkline').forEach(el => {
+    const counts = el.dataset.counts.split(',').map(Number);
+    const mx     = parseInt(el.dataset.max) || 1;
+    const W = 120, H = 28, bw = Math.floor(W / counts.length) - 2;
+    let svg = `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">`;
+    counts.forEach((v, i) => {
+      const bh  = v > 0 ? Math.max(3, Math.round(v / mx * (H - 4))) : 2;
+      const x   = i * (bw + 2);
+      const y   = H - bh;
+      const col = v > 0 ? '#0d6efd' : '#dee2e6';
+      svg += `<rect x="${x}" y="${y}" width="${bw}" height="${bh}" rx="2" fill="${col}" opacity="0.8"/>`;
+    });
+    svg += '</svg>';
+    el.innerHTML = svg;
+  });
+
+  /* ── Serving size scaler ────────────────────────────────────── */
+  function applyScaler(mult) {
+    mult = parseFloat(mult) || 1;
+    document.querySelectorAll('.scalable').forEach(el => {
+      const base = parseFloat(el.dataset.base) || 0;
+      const val  = Math.round(base * mult * 10) / 10;
+      // preserve trailing 'g' if the element had it in original text
+      el.textContent = val;
+    });
+  }
+  window.applyScaler = applyScaler;
+
+  const scalerRange = document.getElementById('scalerRange');
+  const scalerNum   = document.getElementById('scalerNum');
+  if (scalerRange) {
+    scalerRange.addEventListener('input', () => {
+      scalerNum.value = scalerRange.value;
+      applyScaler(scalerRange.value);
+    });
+    scalerNum.addEventListener('input', () => {
+      const v = parseFloat(scalerNum.value);
+      if (v > 0) { scalerRange.value = Math.min(4, v); applyScaler(v); }
+    });
+  }
+
+  /* ── Radar Chart ────────────────────────────────────────────── */
+  const radarRaw = {{ radar_data_json|safe }};
+  if (radarRaw && document.getElementById('radarChart')) {
+    const COLORS = ['#0d6efd', '#dc3545', '#198754'];
+    const LABELS = ['Calories', 'Protein', 'Fat', 'Carbs', 'Protein Efficiency'];
+    const radarCanvas = document.getElementById('radarChart');
+    radarCanvas.width  = radarCanvas.parentElement.clientWidth || 400;
+    radarCanvas.height = 320;
+    new Chart(radarCanvas, {
+      type: 'radar',
+      data: {
+        labels: LABELS,
+        datasets: radarRaw.map((p, i) => ({
+          label:            p.name.length > 28 ? p.name.slice(0, 26) + '…' : p.name,
+          data:             [p.cal_pct, p.pro_pct, p.fat_pct, p.car_pct, p.eff_pct],
+          borderColor:      COLORS[i],
+          backgroundColor:  COLORS[i] + '22',
+          borderWidth:      2,
+          pointRadius:      4,
+          pointHoverRadius: 6,
+        }))
+      },
+      options: {
+        responsive: false,
+        scales: {
+          r: {
+            min: 0, max: 100,
+            ticks:       { stepSize: 25, font: { size: 10 } },
+            pointLabels: { font: { size: 11 } },
+          }
+        },
+        plugins: {
+          legend: { position: 'bottom' },
+          tooltip: {
+            callbacks: {
+              label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.r}%`
+            }
+          }
+        }
       }
     });
   }
 
-  setupAutocomplete('product1Input', 'ac1');
-  setupAutocomplete('product2Input', 'ac2');
+  /* ── Recent Comparisons (localStorage) ─────────────────────── */
+  const LS_KEY = 'pc_recent';
+  const MAX_RECENT = 5;
+
+  function loadRecent() { try { return JSON.parse(localStorage.getItem(LS_KEY)) || []; } catch { return []; } }
+  function saveRecent(list) { localStorage.setItem(LS_KEY, JSON.stringify(list)); }
+
+  function renderRecent() {
+    const list = loadRecent();
+    const wrap = document.getElementById('recentWrap');
+    const chips = document.getElementById('recentChips');
+    if (!wrap || !chips || !list.length) { if (wrap) wrap.classList.add('d-none'); return; }
+    wrap.classList.remove('d-none');
+    chips.innerHTML = list.map((r, i) => {
+      const label = r.p3 ? `${r.p1} vs ${r.p2} vs ${r.p3}` : `${r.p1} vs ${r.p2}`;
+      return `<span class="recent-chip badge" data-idx="${i}" title="Click to compare again">
+        <i class="fas fa-history me-1 opacity-50"></i>${label}
+      </span>`;
+    }).join('');
+    chips.querySelectorAll('.recent-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const r = list[parseInt(chip.dataset.idx)];
+        document.getElementById('p1Input').value = r.p1;
+        document.getElementById('p2Input').value = r.p2;
+        if (document.getElementById('p3Input')) document.getElementById('p3Input').value = r.p3 || '';
+        document.getElementById('compareForm').submit();
+      });
+    });
+  }
+
+  // Save current comparison to recent
+  const p1v = document.getElementById('p1Input')?.value.trim();
+  const p2v = document.getElementById('p2Input')?.value.trim();
+  const p3v = document.getElementById('p3Input')?.value.trim();
+  if (p1v && p2v) {
+    let recent = loadRecent().filter(r => !(r.p1 === p1v && r.p2 === p2v && (r.p3 || '') === (p3v || '')));
+    recent.unshift({ p1: p1v, p2: p2v, p3: p3v || '' });
+    saveRecent(recent.slice(0, MAX_RECENT));
+  }
+  renderRecent();
+
 })();
 </script>
 {% endblock js_files %}

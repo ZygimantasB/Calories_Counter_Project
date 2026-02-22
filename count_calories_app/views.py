@@ -5204,80 +5204,145 @@ def month_trends(request):
 
 def product_compare(request):
     """
-    Compare two food products side-by-side using averaged nutritional data
-    from all logged entries for each product.
+    Compare two or three food products side-by-side using averaged nutritional
+    data from all logged entries for each product.
     """
+    from datetime import timedelta
+    from django.utils import timezone as tz_util
+
     product1_name = request.GET.get('product1', '').strip()
     product2_name = request.GET.get('product2', '').strip()
+    product3_name = request.GET.get('product3', '').strip()
+
+    settings = UserSettings.get_settings()
 
     def get_product_stats(name):
         if not name:
             return None
-        agg = FoodItem.objects.filter(
-            product_name__iexact=name
-        ).aggregate(
+        qs = FoodItem.objects.filter(product_name__iexact=name)
+        agg = qs.aggregate(
             avg_calories=Avg('calories'),
             avg_protein=Avg('protein'),
             avg_fat=Avg('fat'),
             avg_carbs=Avg('carbohydrates'),
             total_entries=Count('id'),
+            last_logged=Max('consumed_at'),
         )
+        matched_name = name
         if agg['avg_calories'] is None:
-            # Try case-insensitive contains as fallback
-            agg = FoodItem.objects.filter(
-                product_name__icontains=name
-            ).aggregate(
+            qs = FoodItem.objects.filter(product_name__icontains=name)
+            agg = qs.aggregate(
                 avg_calories=Avg('calories'),
                 avg_protein=Avg('protein'),
                 avg_fat=Avg('fat'),
                 avg_carbs=Avg('carbohydrates'),
                 total_entries=Count('id'),
+                last_logged=Max('consumed_at'),
             )
-            # Get the actual matched name
-            first = FoodItem.objects.filter(product_name__icontains=name).values('product_name').first()
+            first = qs.values('product_name').first()
             matched_name = first['product_name'] if first else name
-        else:
-            matched_name = name
         if agg['avg_calories'] is None:
             return None
+
         calories = round(float(agg['avg_calories']), 1)
-        protein = round(float(agg['avg_protein'] or 0), 1)
-        fat = round(float(agg['avg_fat'] or 0), 1)
-        carbs = round(float(agg['avg_carbs'] or 0), 1)
-        protein_pct = round(protein * 4 / calories * 100, 1) if calories else 0
-        fat_pct = round(fat * 9 / calories * 100, 1) if calories else 0
-        carbs_pct = round(carbs * 4 / calories * 100, 1) if calories else 0
+        protein  = round(float(agg['avg_protein']  or 0), 1)
+        fat      = round(float(agg['avg_fat']      or 0), 1)
+        carbs    = round(float(agg['avg_carbs']    or 0), 1)
+
+        # Weekly frequency: counts per week for the last 8 weeks
+        now = tz_util.now()
+        weekly_counts = []
+        for w in range(7, -1, -1):
+            w_start = now - timedelta(weeks=w + 1)
+            w_end   = now - timedelta(weeks=w)
+            cnt = FoodItem.objects.filter(
+                product_name__iexact=matched_name,
+                consumed_at__gte=w_start,
+                consumed_at__lt=w_end,
+            ).count()
+            weekly_counts.append(cnt)
+
+        protein_pct         = round(protein * 4 / calories * 100, 1) if calories else 0
+        fat_pct             = round(fat     * 9 / calories * 100, 1) if calories else 0
+        carbs_pct           = round(carbs   * 4 / calories * 100, 1) if calories else 0
+        protein_per_100kcal = round(protein / calories * 100,      1) if calories else 0
+
+        # Goal alignment (% of daily targets)
+        cal_target     = settings.daily_calorie_target or 1
+        protein_target = settings.protein_target or 1
+        fat_target     = settings.fat_target     or 1
+        carbs_target   = settings.carbs_target   or 1
+        cal_goal_pct     = round(calories / cal_target     * 100, 1)
+        protein_goal_pct = round(protein  / protein_target * 100, 1)
+        fat_goal_pct     = round(fat      / fat_target     * 100, 1)
+        carbs_goal_pct   = round(carbs    / carbs_target   * 100, 1)
+
         return {
-            'name': matched_name,
-            'calories': calories,
-            'protein': protein,
-            'fat': fat,
-            'carbs': carbs,
-            'entries': agg['total_entries'],
-            'protein_pct': protein_pct,
-            'fat_pct': fat_pct,
-            'carbs_pct': carbs_pct,
+            'name':               matched_name,
+            'calories':           calories,
+            'protein':            protein,
+            'fat':                fat,
+            'carbs':              carbs,
+            'entries':            agg['total_entries'],
+            'last_logged':        agg['last_logged'],
+            'weekly_counts':      weekly_counts,
+            'weekly_max':         max(weekly_counts) or 1,
+            'protein_pct':        protein_pct,
+            'fat_pct':            fat_pct,
+            'carbs_pct':          carbs_pct,
+            'protein_per_100kcal': protein_per_100kcal,
+            'cal_goal_pct':       cal_goal_pct,
+            'protein_goal_pct':   protein_goal_pct,
+            'fat_goal_pct':       fat_goal_pct,
+            'carbs_goal_pct':     carbs_goal_pct,
         }
 
     product1 = get_product_stats(product1_name) if product1_name else None
     product2 = get_product_stats(product2_name) if product2_name else None
+    product3 = get_product_stats(product3_name) if product3_name else None
 
-    # Compute differences when both products exist
+    # Pairwise diff (only when exactly 2 products)
+    def _diff(a, b):
+        d = round(a - b, 1)
+        return {'raw': d, 'abs': abs(d), 'pos': d > 0, 'neg': d < 0}
+
     diff = None
-    if product1 and product2:
+    if product1 and product2 and not product3:
         diff = {
-            'calories': round(product1['calories'] - product2['calories'], 1),
-            'protein':  round(product1['protein']  - product2['protein'],  1),
-            'fat':      round(product1['fat']      - product2['fat'],      1),
-            'carbs':    round(product1['carbs']    - product2['carbs'],    1),
+            'calories': _diff(product1['calories'], product2['calories']),
+            'protein':  _diff(product1['protein'],  product2['protein']),
+            'fat':      _diff(product1['fat'],      product2['fat']),
+            'carbs':    _diff(product1['carbs'],    product2['carbs']),
         }
 
+    # Radar chart — normalise each axis to % of max across compared products
+    active_products = [p for p in [product1, product2, product3] if p]
+    radar_data_json = 'null'
+    if len(active_products) >= 2:
+        mx_cal = max(p['calories']           for p in active_products) or 1
+        mx_pro = max(p['protein']            for p in active_products) or 1
+        mx_fat = max(p['fat']                for p in active_products) or 1
+        mx_car = max(p['carbs']              for p in active_products) or 1
+        mx_eff = max(p['protein_per_100kcal'] for p in active_products) or 1
+        radar_data_json = json.dumps([{
+            'name':    p['name'],
+            'cal_pct': round(p['calories']            / mx_cal * 100),
+            'pro_pct': round(p['protein']             / mx_pro * 100),
+            'fat_pct': round(p['fat']                 / mx_fat * 100),
+            'car_pct': round(p['carbs']               / mx_car * 100),
+            'eff_pct': round(p['protein_per_100kcal'] / mx_eff * 100),
+        } for p in active_products])
+
     return render(request, 'count_calories_app/product_compare.html', {
-        'product1':      product1,
-        'product2':      product2,
-        'product1_name': product1_name,
-        'product2_name': product2_name,
-        'diff':          diff,
+        'product1':        product1,
+        'product2':        product2,
+        'product3':        product3,
+        'product1_name':   product1_name,
+        'product2_name':   product2_name,
+        'product3_name':   product3_name,
+        'diff':            diff,
+        'settings':        settings,
+        'radar_data_json': radar_data_json,
     })
 
 
