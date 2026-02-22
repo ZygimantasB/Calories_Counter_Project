@@ -183,6 +183,47 @@
         </div>
       </div>
       {% endif %}
+
+      <!-- ══ Copy Previous Day ══ -->
+      <div class="card shadow-sm rounded mb-3">
+        <div class="card-header bg-secondary text-white d-flex align-items-center justify-content-between">
+          <h2 class="h6 mb-0"><i class="fas fa-copy me-1"></i>Copy a Previous Day</h2>
+        </div>
+        <div class="card-body py-2">
+          <div class="d-flex gap-2 align-items-center flex-wrap">
+            <input type="date" id="copyDayPicker" class="form-control form-control-sm" style="max-width:160px;"
+                   max="{{ today_date|date:'Y-m-d' }}" value="">
+            <button class="btn btn-sm btn-secondary" id="copyDayBtn">
+              <i class="fas fa-copy me-1"></i>Copy to Today
+            </button>
+          </div>
+          <div id="copyDayMsg" class="small mt-1"></div>
+        </div>
+      </div>
+
+      <!-- ══ Meal Templates ══ -->
+      <div class="card shadow-sm rounded mb-3">
+        <div class="card-header bg-primary text-white d-flex align-items-center justify-content-between">
+          <h2 class="h6 mb-0"><i class="fas fa-bookmark me-1"></i>Meal Templates</h2>
+          <a href="{% url 'meal_templates' %}" class="btn btn-sm btn-light py-0 px-2">Manage</a>
+        </div>
+        <div class="card-body py-2">
+          {% if is_today_view %}
+          <div class="d-flex gap-2 align-items-center flex-wrap mb-2">
+            <input type="text" id="templateNameInput" class="form-control form-control-sm" placeholder="Template name…" style="max-width:170px;">
+            <button class="btn btn-sm btn-outline-primary" id="saveTemplateBtn">
+              <i class="fas fa-save me-1"></i>Save Today
+            </button>
+          </div>
+          <div id="saveTemplateMsg" class="small mb-1"></div>
+          {% endif %}
+          <!-- Quick-log templates -->
+          <div id="templatesList">
+            <span class="text-muted small">Loading…</span>
+          </div>
+        </div>
+      </div>
+
     </div>
 
 
@@ -420,6 +461,17 @@
           <small class="text-muted d-none text-center mt-2" id="macros-scroll-hint">
             <i class="fas fa-arrows-alt-h me-1"></i>Scroll horizontally to see all data
           </small>
+        </div>
+      </div>
+
+      <!-- ══ Hourly Eating Pattern ══ -->
+      <div class="card shadow-sm rounded mb-4">
+        <div class="card-header bg-dark text-white d-flex align-items-center justify-content-between">
+          <h2 class="h5 mb-0"><i class="fas fa-clock me-2"></i>Eating Pattern by Hour</h2>
+          <small class="text-white-50">calories per hour of the day</small>
+        </div>
+        <div class="card-body">
+          <canvas id="hourlyChart" height="80"></canvas>
         </div>
       </div>
 
@@ -1348,5 +1400,115 @@
     }
 
     });
+  </script>
+
+  <script>
+  // ── Hourly eating chart ───────────────────────────────────────────────────
+  window.addEventListener('load', function() {
+    const hourlyData = {{ hourly_calories_json|safe }};
+    const labels = Array.from({length: 24}, (_, i) => {
+      const h = i % 12 || 12;
+      return `${h}${i < 12 ? 'am' : 'pm'}`;
+    });
+    const colors = hourlyData.map(v => {
+      if (v === 0) return 'rgba(200,200,200,0.3)';
+      if (v < 300) return 'rgba(25,135,84,0.7)';
+      if (v < 600) return 'rgba(255,193,7,0.8)';
+      return 'rgba(220,53,69,0.8)';
+    });
+    new Chart(document.getElementById('hourlyChart'), {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Calories',
+          data: hourlyData,
+          backgroundColor: colors,
+          borderRadius: 4,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => `${ctx.raw} kcal` } }
+        },
+        scales: {
+          x: { grid: { display: false } },
+          y: { title: { display: true, text: 'kcal' }, beginAtZero: true }
+        }
+      }
+    });
+  });  // end window load
+
+  // ── Copy day ─────────────────────────────────────────────────────────────
+  const csrfToken = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+
+  document.getElementById('copyDayBtn')?.addEventListener('click', async function() {
+    const date = document.getElementById('copyDayPicker').value;
+    const msg  = document.getElementById('copyDayMsg');
+    if (!date) { msg.textContent = 'Pick a date first.'; msg.className = 'small mt-1 text-warning'; return; }
+    this.disabled = true;
+    const fd = new FormData();
+    fd.append('source_date', date);
+    const r = await fetch('{% url "copy_day_meals" %}', { method:'POST', headers:{'X-CSRFToken': csrfToken}, body: fd });
+    const data = await r.json();
+    msg.textContent = data.message || data.error;
+    msg.className = 'small mt-1 ' + (data.success ? 'text-success' : 'text-danger');
+    this.disabled = false;
+    if (data.success) setTimeout(() => location.reload(), 1200);
+  });
+
+  // ── Templates sidebar ────────────────────────────────────────────────────
+  async function loadTemplates() {
+    const el = document.getElementById('templatesList');
+    if (!el) return;
+    const r = await fetch('/meal-templates/');
+    const html = await r.text();
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const tmplCards = doc.querySelectorAll('.template-card');
+    if (!tmplCards.length) {
+      el.innerHTML = '<span class="text-muted small">No templates saved yet.</span>';
+      return;
+    }
+    el.innerHTML = '';
+    tmplCards.forEach(card => {
+      const id   = card.querySelector('.log-btn')?.dataset.id;
+      const name = card.querySelector('.card-header span')?.textContent?.trim();
+      const calEl = card.querySelector('.fa-fire')?.closest('span');
+      const cal  = calEl ? calEl.textContent.trim() : '';
+      if (!id) return;
+      const btn = document.createElement('button');
+      btn.className = 'btn btn-outline-primary btn-sm w-100 text-start mb-1';
+      btn.innerHTML = `<i class="fas fa-play me-1"></i><strong>${name}</strong> <small class="text-muted ms-1">${cal}</small>`;
+      btn.addEventListener('click', async function() {
+        this.disabled = true;
+        const res = await fetch(`/meal-templates/${id}/log/`, { method:'POST', headers:{'X-CSRFToken': csrfToken} });
+        const d = await res.json();
+        if (d.success) { alert(d.message); location.reload(); }
+        else { alert(d.error); this.disabled = false; }
+      });
+      el.appendChild(btn);
+    });
+  }
+  loadTemplates();
+
+  // ── Save today as template ───────────────────────────────────────────────
+  document.getElementById('saveTemplateBtn')?.addEventListener('click', async function() {
+    const name = document.getElementById('templateNameInput').value.trim();
+    const msg  = document.getElementById('saveTemplateMsg');
+    if (!name) { msg.textContent = 'Enter a template name.'; msg.className = 'small text-warning'; return; }
+    this.disabled = true;
+    const fd = new FormData();
+    fd.append('name', name);
+    fd.append('source_date', '{{ today_date|date:"Y-m-d" }}');
+    const r = await fetch('{% url "save_meal_template" %}', { method:'POST', headers:{'X-CSRFToken': csrfToken}, body: fd });
+    const data = await r.json();
+    msg.textContent = data.message || data.error;
+    msg.className = 'small ' + (data.success ? 'text-success' : 'text-danger');
+    this.disabled = false;
+    if (data.success) { document.getElementById('templateNameInput').value = ''; loadTemplates(); }
+  });
   </script>
 {% endblock %}

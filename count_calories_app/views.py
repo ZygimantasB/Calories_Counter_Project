@@ -7,7 +7,7 @@ from django.contrib import messages
 from django.core.paginator import Paginator
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import ensure_csrf_cookie
-from .models import FoodItem, Weight, Exercise, WorkoutSession, WorkoutExercise, RunningSession, WorkoutTable, BodyMeasurement, UserSettings
+from .models import FoodItem, Weight, Exercise, WorkoutSession, WorkoutExercise, RunningSession, WorkoutTable, BodyMeasurement, UserSettings, MealTemplate, MealTemplateItem
 from .forms import FoodItemForm, WeightForm, ExerciseForm, WorkoutSessionForm, WorkoutExerciseForm, RunningSessionForm, BodyMeasurementForm
 from .services import GeminiService
 import logging
@@ -732,6 +732,8 @@ def food_tracker(request):
         'is_today_view': is_today_view,
         'budget_targets': budget_targets,
         'budget_over': budget_over,
+        'hourly_calories_json': _hourly_calories_json(food_items),
+        'today_date': now.date(),
     }
     return render(request, 'count_calories_app/food_tracker.html', context)
 
@@ -2943,6 +2945,10 @@ def analytics(request):
                           ('Afternoon (15-17)', afternoon), ('Evening (18-21)', evening), ('Night (22-4)', night)]
                 peak_period = max(periods, key=lambda x: x[1])
                 meal_timing['peak_period'] = peak_period[0]
+                # 24-hour breakdown for chart
+                meal_timing['hourly_json'] = json.dumps(
+                    [round(hour_data.get(h, {}).get('calories', 0), 1) for h in range(24)]
+                )
 
     # === TOP FOODS ANALYSIS ===
     top_foods = {}
@@ -5194,3 +5200,230 @@ def month_trends(request):
         'available_years': available_years,
         'chart_data_json': chart_data,
     })
+
+
+def product_compare(request):
+    """
+    Compare two food products side-by-side using averaged nutritional data
+    from all logged entries for each product.
+    """
+    product1_name = request.GET.get('product1', '').strip()
+    product2_name = request.GET.get('product2', '').strip()
+
+    def get_product_stats(name):
+        if not name:
+            return None
+        agg = FoodItem.objects.filter(
+            product_name__iexact=name
+        ).aggregate(
+            avg_calories=Avg('calories'),
+            avg_protein=Avg('protein'),
+            avg_fat=Avg('fat'),
+            avg_carbs=Avg('carbohydrates'),
+            total_entries=Count('id'),
+        )
+        if agg['avg_calories'] is None:
+            # Try case-insensitive contains as fallback
+            agg = FoodItem.objects.filter(
+                product_name__icontains=name
+            ).aggregate(
+                avg_calories=Avg('calories'),
+                avg_protein=Avg('protein'),
+                avg_fat=Avg('fat'),
+                avg_carbs=Avg('carbohydrates'),
+                total_entries=Count('id'),
+            )
+            # Get the actual matched name
+            first = FoodItem.objects.filter(product_name__icontains=name).values('product_name').first()
+            matched_name = first['product_name'] if first else name
+        else:
+            matched_name = name
+        if agg['avg_calories'] is None:
+            return None
+        calories = round(float(agg['avg_calories']), 1)
+        protein = round(float(agg['avg_protein'] or 0), 1)
+        fat = round(float(agg['avg_fat'] or 0), 1)
+        carbs = round(float(agg['avg_carbs'] or 0), 1)
+        protein_pct = round(protein * 4 / calories * 100, 1) if calories else 0
+        fat_pct = round(fat * 9 / calories * 100, 1) if calories else 0
+        carbs_pct = round(carbs * 4 / calories * 100, 1) if calories else 0
+        return {
+            'name': matched_name,
+            'calories': calories,
+            'protein': protein,
+            'fat': fat,
+            'carbs': carbs,
+            'entries': agg['total_entries'],
+            'protein_pct': protein_pct,
+            'fat_pct': fat_pct,
+            'carbs_pct': carbs_pct,
+        }
+
+    product1 = get_product_stats(product1_name) if product1_name else None
+    product2 = get_product_stats(product2_name) if product2_name else None
+
+    # Compute differences when both products exist
+    diff = None
+    if product1 and product2:
+        diff = {
+            'calories': round(product1['calories'] - product2['calories'], 1),
+            'protein':  round(product1['protein']  - product2['protein'],  1),
+            'fat':      round(product1['fat']      - product2['fat'],      1),
+            'carbs':    round(product1['carbs']    - product2['carbs'],    1),
+        }
+
+    return render(request, 'count_calories_app/product_compare.html', {
+        'product1':      product1,
+        'product2':      product2,
+        'product1_name': product1_name,
+        'product2_name': product2_name,
+        'diff':          diff,
+    })
+
+
+# ── Shared helper ─────────────────────────────────────────────────
+def _hourly_calories_json(food_qs):
+    """Return JSON array [0..23] of total calories per hour for a food queryset."""
+    from django.db.models.functions import ExtractHour
+    rows = (
+        food_qs
+        .annotate(hr=ExtractHour('consumed_at'))
+        .values('hr')
+        .annotate(cal=Sum('calories'))
+    )
+    buckets = [0.0] * 24
+    for row in rows:
+        if row['hr'] is not None:
+            buckets[row['hr']] = round(float(row['cal'] or 0), 1)
+    return json.dumps(buckets)
+
+
+# ══════════════════════════════════════════════════════════════════
+# #1  COPY PREVIOUS DAY'S MEALS
+# ══════════════════════════════════════════════════════════════════
+
+@require_http_methods(["POST"])
+def copy_day_meals(request):
+    """Copy all food items from a source date to today (current time)."""
+    from datetime import datetime, date as date_type
+    source_date_str = request.POST.get('source_date', '').strip()
+    if not source_date_str:
+        return JsonResponse({'success': False, 'error': 'source_date required'}, status=400)
+    try:
+        source_date = datetime.strptime(source_date_str, '%Y-%m-%d').date()
+    except ValueError:
+        return JsonResponse({'success': False, 'error': 'Invalid date format'}, status=400)
+
+    now = timezone.now()
+    if source_date == now.date():
+        return JsonResponse({'success': False, 'error': "Source date can't be today"}, status=400)
+
+    start = timezone.make_aware(datetime.combine(source_date, datetime.min.time()))
+    end   = timezone.make_aware(datetime.combine(source_date, datetime.max.time()))
+    source_items = FoodItem.objects.filter(consumed_at__gte=start, consumed_at__lte=end)
+
+    if not source_items.exists():
+        return JsonResponse({'success': False, 'error': f'No food items found for {source_date.strftime("%B %d")}'}, status=404)
+
+    to_create = [
+        FoodItem(
+            product_name=item.product_name,
+            calories=item.calories,
+            protein=item.protein,
+            fat=item.fat,
+            carbohydrates=item.carbohydrates,
+            consumed_at=now,
+        )
+        for item in source_items
+    ]
+    FoodItem.objects.bulk_create(to_create)
+    return JsonResponse({
+        'success': True,
+        'copied': len(to_create),
+        'message': f'Copied {len(to_create)} items from {source_date.strftime("%B %d, %Y")}',
+    })
+
+
+# ══════════════════════════════════════════════════════════════════
+# #2  MEAL TEMPLATES
+# ══════════════════════════════════════════════════════════════════
+
+def meal_templates(request):
+    """List all meal templates."""
+    templates = MealTemplate.objects.prefetch_related('items').order_by('-created_at')
+    return render(request, 'count_calories_app/meal_templates.html', {
+        'templates': templates,
+    })
+
+
+@require_http_methods(["POST"])
+def save_meal_template(request):
+    """Save food items from a given date as a named meal template."""
+    from datetime import datetime
+    name            = request.POST.get('name', '').strip()
+    source_date_str = request.POST.get('source_date', '').strip()
+
+    if not name:
+        return JsonResponse({'success': False, 'error': 'Template name required'}, status=400)
+    try:
+        source_date = datetime.strptime(source_date_str, '%Y-%m-%d').date()
+    except ValueError:
+        return JsonResponse({'success': False, 'error': 'Invalid date'}, status=400)
+
+    start = timezone.make_aware(datetime.combine(source_date, datetime.min.time()))
+    end   = timezone.make_aware(datetime.combine(source_date, datetime.max.time()))
+    items = FoodItem.objects.filter(consumed_at__gte=start, consumed_at__lte=end)
+
+    if not items.exists():
+        return JsonResponse({'success': False, 'error': f'No food items for {source_date.strftime("%B %d")}'}, status=404)
+
+    template = MealTemplate.objects.create(name=name)
+    MealTemplateItem.objects.bulk_create([
+        MealTemplateItem(
+            template=template,
+            product_name=item.product_name,
+            calories=item.calories,
+            protein=item.protein,
+            fat=item.fat,
+            carbohydrates=item.carbohydrates,
+        )
+        for item in items
+    ])
+    return JsonResponse({
+        'success': True,
+        'template_id': template.id,
+        'message': f'Template "{name}" saved with {items.count()} items',
+    })
+
+
+@require_http_methods(["POST"])
+def log_meal_template(request, template_id):
+    """Log all items from a meal template as food entries for now."""
+    template = get_object_or_404(MealTemplate, id=template_id)
+    now = timezone.now()
+    items = list(template.items.all())
+    FoodItem.objects.bulk_create([
+        FoodItem(
+            product_name=item.product_name,
+            calories=item.calories,
+            protein=item.protein,
+            fat=item.fat,
+            carbohydrates=item.carbohydrates,
+            consumed_at=now,
+        )
+        for item in items
+    ])
+    return JsonResponse({
+        'success': True,
+        'logged': len(items),
+        'message': f'Logged {len(items)} items from "{template.name}"',
+    })
+
+
+@require_http_methods(["POST"])
+def delete_meal_template(request, template_id):
+    """Delete a meal template."""
+    template = get_object_or_404(MealTemplate, id=template_id)
+    name = template.name
+    template.delete()
+    return JsonResponse({'success': True, 'message': f'Template "{name}" deleted'})

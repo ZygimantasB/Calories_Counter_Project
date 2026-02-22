@@ -147,6 +147,11 @@
             <i class="fas fa-chart-line me-1"></i>Yearly Trends
           </a>
         </li>
+        <li class="nav-item">
+          <a class="nav-link" href="{% url 'product_compare' %}">
+            <i class="fas fa-balance-scale me-1"></i>Product Compare
+          </a>
+        </li>
       </ul>
 
       <!-- Period Selection -->
@@ -985,41 +990,19 @@
           <h2 class="h5 mb-0">Meal Timing</h2>
         </div>
         <div class="card-body">
-          <div class="timing-bar mb-3">
-            {% if meal_timing.morning.percent > 0 %}
-            <div class="timing-segment bg-warning" style="width: {{ meal_timing.morning.percent }}%" title="Morning: {{ meal_timing.morning.calories|floatformat:0 }} kcal">
-              {% if meal_timing.morning.percent >= 10 %}{{ meal_timing.morning.percent|floatformat:0 }}%{% endif %}
-            </div>
-            {% endif %}
-            {% if meal_timing.midday.percent > 0 %}
-            <div class="timing-segment bg-success" style="width: {{ meal_timing.midday.percent }}%" title="Midday: {{ meal_timing.midday.calories|floatformat:0 }} kcal">
-              {% if meal_timing.midday.percent >= 10 %}{{ meal_timing.midday.percent|floatformat:0 }}%{% endif %}
-            </div>
-            {% endif %}
-            {% if meal_timing.afternoon.percent > 0 %}
-            <div class="timing-segment bg-info" style="width: {{ meal_timing.afternoon.percent }}%" title="Afternoon: {{ meal_timing.afternoon.calories|floatformat:0 }} kcal">
-              {% if meal_timing.afternoon.percent >= 10 %}{{ meal_timing.afternoon.percent|floatformat:0 }}%{% endif %}
-            </div>
-            {% endif %}
-            {% if meal_timing.evening.percent > 0 %}
-            <div class="timing-segment bg-primary" style="width: {{ meal_timing.evening.percent }}%" title="Evening: {{ meal_timing.evening.calories|floatformat:0 }} kcal">
-              {% if meal_timing.evening.percent >= 10 %}{{ meal_timing.evening.percent|floatformat:0 }}%{% endif %}
-            </div>
-            {% endif %}
-            {% if meal_timing.night.percent > 0 %}
-            <div class="timing-segment bg-dark" style="width: {{ meal_timing.night.percent }}%" title="Night: {{ meal_timing.night.calories|floatformat:0 }} kcal">
-              {% if meal_timing.night.percent >= 10 %}{{ meal_timing.night.percent|floatformat:0 }}%{% endif %}
-            </div>
-            {% endif %}
+          <!-- 24-hour Chart.js bar -->
+          {% if meal_timing.hourly_json %}
+          <canvas id="mealTimingChart" height="120" class="mb-3"></canvas>
+          {% endif %}
+          <!-- 5-bucket badges -->
+          <div class="row small mb-2">
+            <div class="col text-center"><span class="badge bg-warning text-dark">Morning</span><br>{{ meal_timing.morning.percent|floatformat:0 }}%<br><small class="text-muted">{{ meal_timing.morning.calories|floatformat:0 }} kcal</small></div>
+            <div class="col text-center"><span class="badge bg-success">Midday</span><br>{{ meal_timing.midday.percent|floatformat:0 }}%<br><small class="text-muted">{{ meal_timing.midday.calories|floatformat:0 }} kcal</small></div>
+            <div class="col text-center"><span class="badge bg-info">Afternoon</span><br>{{ meal_timing.afternoon.percent|floatformat:0 }}%<br><small class="text-muted">{{ meal_timing.afternoon.calories|floatformat:0 }} kcal</small></div>
+            <div class="col text-center"><span class="badge bg-primary">Evening</span><br>{{ meal_timing.evening.percent|floatformat:0 }}%<br><small class="text-muted">{{ meal_timing.evening.calories|floatformat:0 }} kcal</small></div>
+            <div class="col text-center"><span class="badge bg-dark">Night</span><br>{{ meal_timing.night.percent|floatformat:0 }}%<br><small class="text-muted">{{ meal_timing.night.calories|floatformat:0 }} kcal</small></div>
           </div>
-          <div class="row small">
-            <div class="col text-center"><span class="badge bg-warning text-dark">Morning</span><br>{{ meal_timing.morning.percent|floatformat:0 }}%</div>
-            <div class="col text-center"><span class="badge bg-success">Midday</span><br>{{ meal_timing.midday.percent|floatformat:0 }}%</div>
-            <div class="col text-center"><span class="badge bg-info">Afternoon</span><br>{{ meal_timing.afternoon.percent|floatformat:0 }}%</div>
-            <div class="col text-center"><span class="badge bg-primary">Evening</span><br>{{ meal_timing.evening.percent|floatformat:0 }}%</div>
-            <div class="col text-center"><span class="badge bg-dark">Night</span><br>{{ meal_timing.night.percent|floatformat:0 }}%</div>
-          </div>
-          <div class="text-center mt-3">
+          <div class="text-center mt-2">
             <small class="text-muted">Peak eating time: <strong>{{ meal_timing.peak_period }}</strong></small>
           </div>
         </div>
@@ -1331,4 +1314,41 @@
     </div>
   </div>
 </div>
+
 {% endblock %}
+
+{% if meal_timing.hourly_json %}
+{% block extra_body %}
+<script>
+window.addEventListener('load', function() {
+  const hourly = {{ meal_timing.hourly_json|safe }};
+  const labels = Array.from({length: 24}, (_, i) => {
+    const h = i % 12 || 12;
+    return `${h}${i < 12 ? 'am' : 'pm'}`;
+  });
+  const bgColors = hourly.map((_, i) => {
+    if (i >= 5  && i <= 10) return 'rgba(255,193,7,0.75)';
+    if (i >= 11 && i <= 14) return 'rgba(25,135,84,0.75)';
+    if (i >= 15 && i <= 17) return 'rgba(13,202,240,0.75)';
+    if (i >= 18 && i <= 21) return 'rgba(13,110,253,0.75)';
+    return 'rgba(33,37,41,0.65)';
+  });
+  const canvas = document.getElementById('mealTimingChart');
+  if (canvas) {
+    new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{ label: 'Avg Calories', data: hourly, backgroundColor: bgColors, borderRadius: 3 }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { display: false }, tooltip: { callbacks: { label: ctx => `${ctx.raw} kcal` } } },
+        scales: { x: { grid: { display: false } }, y: { beginAtZero: true, title: { display: true, text: 'kcal' } } }
+      }
+    });
+  }
+});
+</script>
+{% endblock %}
+{% endif %}

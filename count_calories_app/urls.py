@@ -44,9 +44,15 @@ urlpatterns = [
     path('body-measurements/export/csv/', views.export_body_measurements_csv, name='export_body_measurements_csv'),
     path('api/body-measurements-data/', views.get_body_measurements_data, name='body_measurements_data'),
 
+    path('food-tracker/copy-day/', views.copy_day_meals, name='copy_day_meals'),
+    path('meal-templates/', views.meal_templates, name='meal_templates'),
+    path('meal-templates/save/', views.save_meal_template, name='save_meal_template'),
+    path('meal-templates/<int:template_id>/log/', views.log_meal_template, name='log_meal_template'),
+    path('meal-templates/<int:template_id>/delete/', views.delete_meal_template, name='delete_meal_template'),
     path('analytics/', views.analytics, name='analytics'),
     path('analytics/month-compare/', views.month_compare, name='month_compare'),
     path('analytics/trends/', views.month_trends, name='month_trends'),
+    path('analytics/product-compare/', views.product_compare, name='product_compare'),
 
     # Settings
     path('settings/', views.settings_view, name='settings'),

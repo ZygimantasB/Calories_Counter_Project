@@ -376,3 +376,34 @@ class UserSettings(models.Model):
         """Get or create the singleton settings instance."""
         settings, _ = cls.objects.get_or_create(pk=1)
         return settings
+
+
+class MealTemplate(models.Model):
+    """A saved collection of food items that can be logged in one click."""
+    name = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
+
+    def total_calories(self):
+        return round(sum(float(item.calories) for item in self.items.all()), 1)
+
+    def total_protein(self):
+        return round(sum(float(item.protein) for item in self.items.all()), 1)
+
+    def item_count(self):
+        return self.items.count()
+
+
+class MealTemplateItem(models.Model):
+    """A single food entry belonging to a MealTemplate."""
+    template = models.ForeignKey(MealTemplate, on_delete=models.CASCADE, related_name='items')
+    product_name = models.CharField(max_length=200)
+    calories = models.DecimalField(max_digits=7, decimal_places=2, default=0)
+    protein = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    fat = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    carbohydrates = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+
+    def __str__(self):
+        return f"{self.product_name} ({self.template.name})"

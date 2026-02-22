@@ -1,0 +1,460 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Product Compare{% endblock %}
+
+{% block css_files %}
+  {{ block.super }}
+  <link rel="stylesheet" href="{% static 'count_calories_app/count_calories_app.css' %}">
+  <style>
+    .product-card {
+      border-top: 4px solid;
+      border-radius: 8px;
+      transition: transform 0.2s;
+    }
+    .product-card:hover { transform: translateY(-2px); }
+    .product-card.left  { border-top-color: #0d6efd; }
+    .product-card.right { border-top-color: #dc3545; }
+    .product-card.empty { border-top-color: #dee2e6; }
+
+    .macro-bar-wrap { height: 12px; background: #e9ecef; border-radius: 6px; overflow: hidden; }
+    .macro-bar { height: 100%; border-radius: 6px; transition: width 0.6s ease; }
+    .macro-bar.protein  { background: #198754; }
+    .macro-bar.fat      { background: #ffc107; }
+    .macro-bar.carbs    { background: #0d6efd; }
+
+    .diff-badge {
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-weight: 600;
+    }
+    .diff-positive { background: rgba(220,53,69,.12); color: #dc3545; }
+    .diff-negative { background: rgba(25,135,84,.12); color: #198754; }
+    .diff-zero     { background: rgba(108,117,125,.12); color: #6c757d; }
+
+    .winner-badge {
+      font-size: 0.65rem;
+      background: linear-gradient(135deg, #ffc107, #fd7e14);
+      color: white;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-weight: 700;
+      vertical-align: middle;
+    }
+
+    .stat-row { border-bottom: 1px solid var(--bs-border-color, #dee2e6); }
+    .stat-row:last-child { border-bottom: none; }
+
+    .autocomplete-list {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      z-index: 1000;
+      max-height: 220px;
+      overflow-y: auto;
+      border: 1px solid #dee2e6;
+      border-top: none;
+      border-radius: 0 0 6px 6px;
+      background: var(--bs-body-bg, #fff);
+      box-shadow: 0 4px 12px rgba(0,0,0,.1);
+    }
+    .autocomplete-list .ac-item {
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    .autocomplete-list .ac-item:hover,
+    .autocomplete-list .ac-item.active { background: var(--bs-primary-bg-subtle, #cfe2ff); }
+  </style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <div class="row mb-3">
+    <div class="col-12">
+      <h1 class="h3 mb-3">Analytics & Insights</h1>
+
+      <!-- Navigation Tabs -->
+      <ul class="nav nav-tabs mb-3">
+        <li class="nav-item">
+          <a class="nav-link" href="{% url 'analytics' %}">
+            <i class="fas fa-chart-bar me-1"></i>Overview
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="{% url 'month_compare' %}">
+            <i class="fas fa-calendar-alt me-1"></i>Month Comparison
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="{% url 'month_trends' %}">
+            <i class="fas fa-chart-line me-1"></i>Yearly Trends
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link active" href="{% url 'product_compare' %}">
+            <i class="fas fa-balance-scale me-1"></i>Product Compare
+          </a>
+        </li>
+      </ul>
+
+      <!-- Search Form -->
+      <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+          <form method="get" class="row g-3 align-items-end" id="compareForm">
+            <div class="col-md-5">
+              <label class="form-label fw-semibold">
+                <span class="badge bg-primary me-1">A</span> First Product
+              </label>
+              <div class="position-relative">
+                <input type="text" name="product1" id="product1Input"
+                       value="{{ product1_name }}"
+                       class="form-control"
+                       placeholder="e.g. Chicken Breast"
+                       autocomplete="off">
+                <div class="autocomplete-list d-none" id="ac1"></div>
+              </div>
+            </div>
+            <div class="col-md-1 text-center pb-1">
+              <span class="fs-4 text-muted fw-bold">vs</span>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label fw-semibold">
+                <span class="badge bg-danger me-1">B</span> Second Product
+              </label>
+              <div class="position-relative">
+                <input type="text" name="product2" id="product2Input"
+                       value="{{ product2_name }}"
+                       class="form-control"
+                       placeholder="e.g. Tuna"
+                       autocomplete="off">
+                <div class="autocomplete-list d-none" id="ac2"></div>
+              </div>
+            </div>
+            <div class="col-md-1">
+              <button type="submit" class="btn btn-primary w-100">
+                <i class="fas fa-search me-1"></i>Compare
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      {% if not product1_name and not product2_name %}
+      <!-- Empty state -->
+      <div class="text-center py-5 text-muted">
+        <i class="fas fa-balance-scale fa-4x mb-3 opacity-25"></i>
+        <h5>Compare any two foods</h5>
+        <p class="mb-0">Search for products you've logged and compare their nutritional values side by side.</p>
+      </div>
+
+      {% elif product1_name and not product1 %}
+      <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle me-1"></i>
+        No logged entries found for <strong>"{{ product1_name }}"</strong>. Try a different name.
+      </div>
+
+      {% elif product2_name and not product2 %}
+      <div class="alert alert-warning">
+        <i class="fas fa-exclamation-triangle me-1"></i>
+        No logged entries found for <strong>"{{ product2_name }}"</strong>. Try a different name.
+      </div>
+
+      {% else %}
+      <!-- Comparison Results -->
+      <div class="row g-3 mb-4">
+        <!-- Product A -->
+        <div class="col-md-5">
+          <div class="card product-card left shadow-sm border-0 h-100">
+            <div class="card-body">
+              <div class="d-flex align-items-start justify-content-between mb-3">
+                <div>
+                  <span class="badge bg-primary mb-1">A</span>
+                  <h5 class="mb-0">{{ product1.name }}</h5>
+                  <small class="text-muted">{{ product1.entries }} log entr{{ product1.entries|pluralize:"y,ies" }} · avg per serving</small>
+                </div>
+              </div>
+
+              <!-- Calories big number -->
+              <div class="text-center py-3 mb-3 rounded" style="background: rgba(13,110,253,.06);">
+                <div class="display-6 fw-bold text-primary">{{ product1.calories }}</div>
+                <div class="text-muted small">kcal</div>
+              </div>
+
+              <!-- Macros -->
+              <div class="row g-2">
+                <div class="col-4 text-center">
+                  <div class="fw-bold text-success">{{ product1.protein }}g</div>
+                  <div class="macro-bar-wrap mt-1"><div class="macro-bar protein" style="width:{{ product1.protein_pct }}%"></div></div>
+                  <div class="text-muted" style="font-size:.7rem">Protein {{ product1.protein_pct }}%</div>
+                </div>
+                <div class="col-4 text-center">
+                  <div class="fw-bold text-warning">{{ product1.fat }}g</div>
+                  <div class="macro-bar-wrap mt-1"><div class="macro-bar fat" style="width:{{ product1.fat_pct }}%"></div></div>
+                  <div class="text-muted" style="font-size:.7rem">Fat {{ product1.fat_pct }}%</div>
+                </div>
+                <div class="col-4 text-center">
+                  <div class="fw-bold text-primary">{{ product1.carbs }}g</div>
+                  <div class="macro-bar-wrap mt-1"><div class="macro-bar carbs" style="width:{{ product1.carbs_pct }}%"></div></div>
+                  <div class="text-muted" style="font-size:.7rem">Carbs {{ product1.carbs_pct }}%</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Diff column -->
+        <div class="col-md-2 d-flex flex-column justify-content-center align-items-center gap-3 text-center py-3">
+          <div>
+            <div class="text-muted small mb-1">Calories</div>
+            {% if diff.calories > 0 %}
+              <span class="diff-badge diff-positive">A +{{ diff.calories }}</span>
+            {% elif diff.calories < 0 %}
+              <span class="diff-badge diff-negative">B +{{ diff.calories|slice:"1:" }}</span>
+            {% else %}
+              <span class="diff-badge diff-zero">Equal</span>
+            {% endif %}
+          </div>
+          <div>
+            <div class="text-muted small mb-1">Protein</div>
+            {% if diff.protein > 0 %}
+              <span class="diff-badge diff-positive">A +{{ diff.protein }}g</span>
+            {% elif diff.protein < 0 %}
+              <span class="diff-badge diff-negative">B +{{ diff.protein|slice:"1:" }}g</span>
+            {% else %}
+              <span class="diff-badge diff-zero">Equal</span>
+            {% endif %}
+          </div>
+          <div>
+            <div class="text-muted small mb-1">Fat</div>
+            {% if diff.fat > 0 %}
+              <span class="diff-badge diff-positive">A +{{ diff.fat }}g</span>
+            {% elif diff.fat < 0 %}
+              <span class="diff-badge diff-negative">B +{{ diff.fat|slice:"1:" }}g</span>
+            {% else %}
+              <span class="diff-badge diff-zero">Equal</span>
+            {% endif %}
+          </div>
+          <div>
+            <div class="text-muted small mb-1">Carbs</div>
+            {% if diff.carbs > 0 %}
+              <span class="diff-badge diff-positive">A +{{ diff.carbs }}g</span>
+            {% elif diff.carbs < 0 %}
+              <span class="diff-badge diff-negative">B +{{ diff.carbs|slice:"1:" }}g</span>
+            {% else %}
+              <span class="diff-badge diff-zero">Equal</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Product B -->
+        <div class="col-md-5">
+          <div class="card product-card right shadow-sm border-0 h-100">
+            <div class="card-body">
+              <div class="d-flex align-items-start justify-content-between mb-3">
+                <div>
+                  <span class="badge bg-danger mb-1">B</span>
+                  <h5 class="mb-0">{{ product2.name }}</h5>
+                  <small class="text-muted">{{ product2.entries }} log entr{{ product2.entries|pluralize:"y,ies" }} · avg per serving</small>
+                </div>
+              </div>
+
+              <div class="text-center py-3 mb-3 rounded" style="background: rgba(220,53,69,.06);">
+                <div class="display-6 fw-bold text-danger">{{ product2.calories }}</div>
+                <div class="text-muted small">kcal</div>
+              </div>
+
+              <div class="row g-2">
+                <div class="col-4 text-center">
+                  <div class="fw-bold text-success">{{ product2.protein }}g</div>
+                  <div class="macro-bar-wrap mt-1"><div class="macro-bar protein" style="width:{{ product2.protein_pct }}%"></div></div>
+                  <div class="text-muted" style="font-size:.7rem">Protein {{ product2.protein_pct }}%</div>
+                </div>
+                <div class="col-4 text-center">
+                  <div class="fw-bold text-warning">{{ product2.fat }}g</div>
+                  <div class="macro-bar-wrap mt-1"><div class="macro-bar fat" style="width:{{ product2.fat_pct }}%"></div></div>
+                  <div class="text-muted" style="font-size:.7rem">Fat {{ product2.fat_pct }}%</div>
+                </div>
+                <div class="col-4 text-center">
+                  <div class="fw-bold text-primary">{{ product2.carbs }}g</div>
+                  <div class="macro-bar-wrap mt-1"><div class="macro-bar carbs" style="width:{{ product2.carbs_pct }}%"></div></div>
+                  <div class="text-muted" style="font-size:.7rem">Carbs {{ product2.carbs_pct }}%</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Detailed table -->
+      <div class="card shadow-sm border-0">
+        <div class="card-header bg-transparent fw-semibold">
+          <i class="fas fa-table me-1"></i>Detailed Breakdown
+        </div>
+        <div class="card-body p-0">
+          <table class="table table-hover mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Nutrient</th>
+                <th class="text-primary">A: {{ product1.name }}</th>
+                <th class="text-danger">B: {{ product2.name }}</th>
+                <th>Winner</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="stat-row">
+                <td><i class="fas fa-fire text-danger me-1"></i>Calories</td>
+                <td class="{% if product1.calories < product2.calories %}fw-bold text-success{% endif %}">{{ product1.calories }} kcal</td>
+                <td class="{% if product2.calories < product1.calories %}fw-bold text-success{% endif %}">{{ product2.calories }} kcal</td>
+                <td>
+                  {% if product1.calories < product2.calories %}
+                    <span class="winner-badge">A</span> lower cal
+                  {% elif product2.calories < product1.calories %}
+                    <span class="winner-badge">B</span> lower cal
+                  {% else %}
+                    <span class="text-muted small">Tie</span>
+                  {% endif %}
+                </td>
+              </tr>
+              <tr class="stat-row">
+                <td><i class="fas fa-drumstick-bite text-success me-1"></i>Protein</td>
+                <td class="{% if product1.protein > product2.protein %}fw-bold text-success{% endif %}">{{ product1.protein }}g</td>
+                <td class="{% if product2.protein > product1.protein %}fw-bold text-success{% endif %}">{{ product2.protein }}g</td>
+                <td>
+                  {% if product1.protein > product2.protein %}
+                    <span class="winner-badge">A</span> more protein
+                  {% elif product2.protein > product1.protein %}
+                    <span class="winner-badge">B</span> more protein
+                  {% else %}
+                    <span class="text-muted small">Tie</span>
+                  {% endif %}
+                </td>
+              </tr>
+              <tr class="stat-row">
+                <td><i class="fas fa-cheese text-warning me-1"></i>Fat</td>
+                <td class="{% if product1.fat < product2.fat %}fw-bold text-success{% endif %}">{{ product1.fat }}g</td>
+                <td class="{% if product2.fat < product1.fat %}fw-bold text-success{% endif %}">{{ product2.fat }}g</td>
+                <td>
+                  {% if product1.fat < product2.fat %}
+                    <span class="winner-badge">A</span> lower fat
+                  {% elif product2.fat < product1.fat %}
+                    <span class="winner-badge">B</span> lower fat
+                  {% else %}
+                    <span class="text-muted small">Tie</span>
+                  {% endif %}
+                </td>
+              </tr>
+              <tr class="stat-row">
+                <td><i class="fas fa-bread-slice text-primary me-1"></i>Carbs</td>
+                <td class="{% if product1.carbs < product2.carbs %}fw-bold text-success{% endif %}">{{ product1.carbs }}g</td>
+                <td class="{% if product2.carbs < product1.carbs %}fw-bold text-success{% endif %}">{{ product2.carbs }}g</td>
+                <td>
+                  {% if product1.carbs < product2.carbs %}
+                    <span class="winner-badge">A</span> lower carbs
+                  {% elif product2.carbs < product1.carbs %}
+                    <span class="winner-badge">B</span> lower carbs
+                  {% else %}
+                    <span class="text-muted small">Tie</span>
+                  {% endif %}
+                </td>
+              </tr>
+              <tr>
+                <td><i class="fas fa-chart-pie text-secondary me-1"></i>Protein % of cal</td>
+                <td class="{% if product1.protein_pct > product2.protein_pct %}fw-bold text-success{% endif %}">{{ product1.protein_pct }}%</td>
+                <td class="{% if product2.protein_pct > product1.protein_pct %}fw-bold text-success{% endif %}">{{ product2.protein_pct }}%</td>
+                <td>
+                  {% if product1.protein_pct > product2.protein_pct %}
+                    <span class="winner-badge">A</span> protein density
+                  {% elif product2.protein_pct > product1.protein_pct %}
+                    <span class="winner-badge">B</span> protein density
+                  {% else %}
+                    <span class="text-muted small">Tie</span>
+                  {% endif %}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block js_files %}
+  {{ block.super }}
+<script>
+(function () {
+  'use strict';
+
+  function setupAutocomplete(inputId, dropdownId) {
+    const input = document.getElementById(inputId);
+    const dropdown = document.getElementById(dropdownId);
+    if (!input || !dropdown) return;
+
+    let activeIdx = -1;
+    let items = [];
+
+    input.addEventListener('input', function () {
+      const q = this.value.trim();
+      if (q.length < 1) { dropdown.classList.add('d-none'); return; }
+
+      fetch(`{% url 'food_autocomplete' %}?q=${encodeURIComponent(q)}`)
+        .then(r => r.json())
+        .then(data => {
+          items = data.suggestions || [];
+          if (!items.length) { dropdown.classList.add('d-none'); return; }
+          activeIdx = -1;
+          dropdown.innerHTML = items.map((name, i) =>
+            `<div class="ac-item" data-idx="${i}">${name}</div>`
+          ).join('');
+          dropdown.classList.remove('d-none');
+        });
+    });
+
+    dropdown.addEventListener('click', function (e) {
+      const item = e.target.closest('.ac-item');
+      if (!item) return;
+      input.value = items[parseInt(item.dataset.idx)];
+      dropdown.classList.add('d-none');
+    });
+
+    input.addEventListener('keydown', function (e) {
+      const visibleItems = dropdown.querySelectorAll('.ac-item');
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        activeIdx = Math.min(activeIdx + 1, visibleItems.length - 1);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        activeIdx = Math.max(activeIdx - 1, -1);
+      } else if (e.key === 'Enter') {
+        if (activeIdx >= 0 && visibleItems[activeIdx]) {
+          e.preventDefault();
+          input.value = items[activeIdx];
+          dropdown.classList.add('d-none');
+        }
+        return;
+      } else if (e.key === 'Escape') {
+        dropdown.classList.add('d-none');
+        return;
+      } else { return; }
+
+      visibleItems.forEach((el, i) => el.classList.toggle('active', i === activeIdx));
+    });
+
+    document.addEventListener('click', function (e) {
+      if (!input.contains(e.target) && !dropdown.contains(e.target)) {
+        dropdown.classList.add('d-none');
+      }
+    });
+  }
+
+  setupAutocomplete('product1Input', 'ac1');
+  setupAutocomplete('product2Input', 'ac2');
+})();
+</script>
+{% endblock js_files %}
