@@ -4,18 +4,18 @@
 
 ### Your Comprehensive Fitness & Nutrition Dashboard
 
-[![Python](https://img.shields.io/badge/Python-3.8%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/downloads/release/python-380/)
-[![Django](https://img.shields.io/badge/Django-5.1-092E20?style=for-the-badge&logo=django&logoColor=white)](https://www.djangoproject.com/)
-[![Bootstrap](https://img.shields.io/badge/Bootstrap-5.0-7952B3?style=for-the-badge&logo=bootstrap&logoColor=white)](https://getbootstrap.com/)
-[![Chart.js](https://img.shields.io/badge/Chart.js-4.0-FF6384?style=for-the-badge&logo=chartdotjs&logoColor=white)](https://www.chartjs.org/)
+[![Python](https://img.shields.io/badge/Python-3.12-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+[![Django](https://img.shields.io/badge/Django-5.2-092E20?style=for-the-badge&logo=django&logoColor=white)](https://www.djangoproject.com/)
+[![React](https://img.shields.io/badge/React-17-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://reactjs.org/)
+[![Bootstrap](https://img.shields.io/badge/Bootstrap-5-7952B3?style=for-the-badge&logo=bootstrap&logoColor=white)](https://getbootstrap.com/)
+[![Chart.js](https://img.shields.io/badge/Chart.js-4-FF6384?style=for-the-badge&logo=chartdotjs&logoColor=white)](https://www.chartjs.org/)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
-[![PRs Welcome](https://img.shields.io/badge/PRs-Welcome-brightgreen?style=for-the-badge)](CONTRIBUTING.md)
 
 ---
 
 **HealthTracker Pro** is a powerful, all-in-one web application designed to help you monitor and optimize every aspect of your health journey. Track nutrition, workouts, running sessions, weight, and body measurements with beautiful visualizations and an intuitive user interface.
 
-[Features](#-features) · [Analytics](#-analytics-dashboard) · [Quick Start](#-quick-start) · [Documentation](#-documentation) · [Contributing](#-contributing)
+[Features](#-features) · [Analytics](#-analytics-dashboard) · [Quick Start](#-quick-start) · [React SPA](#-react-spa) · [Documentation](#-documentation)
 
 </div>
 
@@ -26,16 +26,14 @@
 - [Features](#-features)
 - [Analytics Dashboard](#-analytics-dashboard)
 - [Tech Stack](#-tech-stack)
+- [Architecture](#-architecture)
 - [Prerequisites](#-prerequisites)
 - [Quick Start](#-quick-start)
+- [React SPA](#-react-spa)
 - [Configuration](#-configuration)
 - [Usage Guide](#-usage-guide)
 - [Documentation](#-documentation)
-- [Roadmap](#-roadmap)
-- [Screenshots](#-screenshots)
-- [Contributing](#-contributing)
 - [License](#-license)
-- [Contact](#-contact)
 
 ---
 
@@ -47,46 +45,70 @@
 
 ### 🍎 Nutrition Tracking
 - **Food Diary** — Log meals with comprehensive nutritional data
-- **AI Food Assistant** — Get instant nutritional information powered by Google's Gemini AI
+- **AI Food Assistant** — Instant macro lookup powered by Google Gemini AI
 - **Macronutrient Analysis** — Track calories, protein, carbohydrates, and fat
-- **Quick-Add Items** — Save and reuse frequently eaten foods
-- **Visual Analytics** — Daily, weekly, and monthly trend visualization
-- **Date Filtering** — View nutrition data for any time period
-- **Dark/Light Theme** — Comfortable viewing in any environment
+- **Quick-Add Items** — Save and reuse frequently eaten foods (ordered by frequency)
+- **Hide from Quick List** — Keep your quick-add list clean
+- **Copy Previous Day** — Duplicate all meals from any past date to today
+- **Visual Progress Bars** — Daily calorie and macro targets at a glance
+- **Date Filtering** — Browse any date's food log
 
 </td>
 <td width="50%">
 
-### 💪 Workout Management
-- **Exercise Library** — Comprehensive database with exercise descriptions
-- **Session Recording** — Log sets, reps, weights, and rest times
-- **Custom Workout Tables** — Create and save personalized routines
-- **Progress Tracking** — Monitor strength gains and workout frequency
-- **Workout History** — Review past sessions with detailed breakdowns
-- **Performance Charts** — Visualize your fitness improvements
+### 📋 Meal Templates
+- **Save Templates** — Group any set of food items into a reusable template
+- **One-Click Logging** — Add an entire template to today's log instantly
+- **Template Management** — Edit and delete saved templates
 
 </td>
 </tr>
 <tr>
 <td width="50%">
 
-### 🏃‍♂️ Running Tracker
-- **Run Logging** — Record distance, duration, and personal notes
-- **Pace Analytics** — Automatic pace calculations and trends
-- **Distance Tracking** — Weekly and monthly distance summaries
-- **Performance Charts** — Visualize speed and endurance improvements
-- **Route Notes** — Add details about terrain and conditions
+### 💪 Workout Management
+- **Exercise Library** — Custom exercise database with descriptions
+- **Session Recording** — Log sets, reps, and weights per exercise
+- **Personal Records** — Automatic PR detection with badge highlighting
+- **Session Volume Summary** — Total volume per workout session
+- **Progress Tracking Card** — Table-level progress overview
+- **Workout Tables** — Custom grid-based workout planners
+- **Google Sheets Import** — Import workout tables directly from Sheets
+- **Column Date Picker** — Set dates per column in workout tables
+- **Performance Charts** — Workout frequency and exercise progress over time
 
 </td>
 <td width="50%">
 
+### 🏃‍♂️ Running Tracker
+- **Run Logging** — Record distance, duration, and notes
+- **Pace Analytics** — Auto-calculated pace (min/km) and trends
+- **Distance Tracking** — Weekly and monthly summaries
+- **Performance Charts** — Speed and endurance visualizations
+
+</td>
+</tr>
+<tr>
+<td width="50%">
+
 ### ⚖️ Weight & Body Stats
-- **Weight Journal** — Track daily weight with trend analysis
-- **Interactive Charts** — Visualize weight changes over time
-- **Goal Tracking** — Set targets and monitor progress
-- **Body Measurements** — Track multiple body parts
-- **Symmetry Comparison** — Left vs. right measurements
-- **Composition Trends** — Monitor body composition changes
+- **Weight Journal** — Daily weight log with trend analysis
+- **Calories vs Weight Correlation** — Chart showing how intake affects weight
+- **Stability Score** — Weight volatility analysis
+- **Body Measurements** — Track neck, chest, waist, hips, biceps, thighs, and more
+- **Measurement Charts** — Per-measurement trend charts
+- **CSV Export** — Export all body measurement data
+
+</td>
+<td width="50%">
+
+### ⚙️ Settings & Goals
+- **Profile Setup** — Age, height, weight, gender, activity level
+- **Fitness Goals** — Maintain / Bulk / Cut / Ripped
+- **Auto Macro Targets** — Calculated via Mifflin-St Jeor TDEE formula
+- **Manual Override** — Set custom macro targets
+- **Theme** — Light / Dark / System default
+- **Data Export** — Full JSON export of all your data
 
 </td>
 </tr>
@@ -96,125 +118,52 @@
 
 ## 📊 Analytics Dashboard
 
-The **Analytics Dashboard** is a powerful feature that provides deep insights into your health data through comprehensive statistical analysis and intelligent recommendations.
+The analytics section has four views accessible from the same navigation tabs.
 
-### Overview Statistics
-- **Average Daily Calories** — Your typical daily caloric intake
-- **Average Daily Macros** — Protein, carbohydrates, and fat averages
-- **Total Days Logged** — Track your consistency
-- **Calorie Consistency Score** — Measure how stable your eating patterns are
+### Overview (`/analytics/`)
+- Average daily calories and macros
+- Calorie and macro trend charts (30 / 90 / 180 / 365 days / all time)
+- Daily consistency score and logging streak
+- Best & worst day highlights
+- Weight stability analysis
+- **24-hour meal timing** heatmap
+- Top foods table (sortable by calories, protein, fat, carbs)
+- Achievement badges and nutrition grade (A–F)
+- Calorie distribution breakdown
+- Intelligent insights (weight correlation, protein impact, consistency patterns)
 
-### 📈 Weekly & Monthly Reports
+### Month Comparison (`/analytics/month-compare/`)
+- Pick any two calendar months and compare side by side
+- Calories, macros, consistency, and weight breakdowns
+- Calorie impact percentage insights
+- **Weekly calorie vs weight trend** chart
+- Auto-generated observation cards
 
-<table>
-<tr>
-<td width="50%">
+### Yearly Trends (`/analytics/trends/`)
+- Month-by-month overview for any year
+- Toggle charts: calories / macros / consistency / weight
+- Best and worst month highlighting (colour-coded table)
+- 8-week consistency mini-bars per month
+- **Weight prediction** based on current calorie trend
+- Summary stats: total logged days, average calories, best month
 
-**Weekly Reports**
-- Total and average calories per week
-- Macro breakdown (protein, carbs, fat)
-- Days logged per week
-- Week-over-week comparisons
-- Up to 12 weeks of historical data
+### Product Compare (`/analytics/product-compare/`) *(new)*
 
-</td>
-<td width="50%">
+Compare two or three food products from your personal log history.
 
-**Monthly Reports**
-- Monthly calorie totals and averages
-- Macro distribution analysis
-- Monthly consistency tracking
-- Year-over-year comparisons
-- Up to 12 months of historical data
-
-</td>
-</tr>
-</table>
-
-### 🎯 Best & Worst Days Analysis
-- **Lowest Calorie Day** — Identify your most restrictive days
-- **Highest Calorie Day** — Track your highest intake days
-- **Highest Protein Day** — Find your best protein intake days
-- **Contextual Information** — See exactly what you ate on notable days
-
-### 🔬 Macronutrient Analysis
-- **Calorie-Based Percentages** — Accurate macro distribution based on caloric contribution (Protein: 4 cal/g, Carbs: 4 cal/g, Fat: 9 cal/g)
-- **Visual Macro Bar** — Color-coded breakdown of your macro split
-- **Protein Per Kg** — Calculate protein intake relative to body weight
-- **Balance Assessment** — Recommendations based on nutritional guidelines:
-  - Protein: 15-35% of calories
-  - Carbohydrates: 40-65% of calories
-  - Fat: 20-40% of calories
-
-### ⚖️ Weight Analysis
-| Metric | Description |
-|--------|-------------|
-| **Starting Weight** | Your weight at the beginning of the selected period |
-| **Current Weight** | Most recent weight measurement |
-| **Total Change** | Net weight gain or loss |
-| **Min/Max Weight** | Lowest and highest recorded weights |
-| **Average Weight** | Mean weight over the period |
-| **Weight Volatility** | Standard deviation indicating weight stability |
-| **Weekly Pace** | Rate of weight change per week |
-
-### 🏆 Achievements & Badges
-Earn badges for hitting milestones:
-- **Consistency Champion** — Log food for 7+ consecutive days
-- **Protein Pro** — Maintain 25%+ protein intake
-- **Balanced Eater** — Keep all macros within recommended ranges
-- **Weight Warrior** — Achieve weight loss goals
-- **Logging Streak** — Track consecutive days of logging
-
-### 📅 Period Comparison
-Compare your current period against the previous period:
-- Calorie changes (increase/decrease percentage)
-- Macro shifts over time
-- Weight trend comparisons
-- Identify patterns and progress
-
-### 🍽️ Meal Timing Analysis
-- **Meals Per Day** — Average number of meals logged daily
-- **Eating Window** — Hours between first and last meal
-- **Timing Patterns** — Identify your eating schedule
-
-### 🥇 Top Foods Analysis
-- Most frequently consumed foods
-- Highest calorie contributors
-- Favorite protein sources
-- Consumption frequency tracking
-
-### 💡 Intelligent Insights
-The analytics engine generates personalized insights based on your data:
-
-| Insight Type | What It Analyzes |
-|--------------|------------------|
-| **Weight Correlation** | Relationship between calorie intake and weight changes |
-| **Protein Impact** | How protein levels affect your progress |
-| **Consistency Patterns** | Impact of logging consistency on results |
-| **Trend Analysis** | Long-term patterns in your data |
-
-### 🎯 Calorie Budget Tracking
-- Set daily calorie goals
-- Track days under/over budget
-- Budget adherence percentage
-- Average surplus/deficit calculations
-
-### 📊 Calorie Distribution
-- **Standard Deviation** — Measure eating consistency
-- **Distribution Categories:**
-  - Very Low (< 1500 cal)
-  - Low (1500-1800 cal)
-  - Normal (1800-2200 cal)
-  - High (2200-2500 cal)
-  - Very High (> 2500 cal)
-
-### 🔢 Nutrition Score
-A comprehensive score (0-100) based on:
-- Calorie consistency
-- Protein adequacy
-- Macro balance
-- Logging frequency
-- Overall nutrition quality
+| Feature | Description |
+|---|---|
+| **Autocomplete search** | Suggestions from your logged food history as you type |
+| **2 or 3 products** | Optional third product (C) for 3-way comparison |
+| **Radar chart** | 5-axis Chart.js radar — Calories, Protein, Fat, Carbs, Protein Efficiency |
+| **Serving size scaler** | Slider (0.25×–4×) scales all values in real time |
+| **Goal alignment** | Every macro shown as % of your daily target |
+| **Protein efficiency** | Grams of protein per 100 kcal |
+| **Diff column** | Shows A/B winner for each nutrient (2-product mode) |
+| **Winner badges** | Highlighted in breakdown table for each category |
+| **Sparkline** | 8-week usage frequency bar chart per product |
+| **Last logged date** | When each product was most recently eaten |
+| **Recent comparisons** | Last 5 pairs saved in localStorage as clickable chips |
 
 ---
 
@@ -225,24 +174,28 @@ A comprehensive score (0-100) based on:
 <td width="50%">
 
 ### Backend
-| Technology | Purpose |
-|------------|---------|
-| **Django 5.1** | Web framework |
-| **SQLite** | Database |
-| **Google Gemini AI** | Nutritional analysis |
-| **python-decouple** | Environment configuration |
-| **Statistics Module** | Data analysis |
+| Technology | Version | Purpose |
+|---|---|---|
+| **Python** | 3.12 | Runtime |
+| **Django** | 5.2 | Web framework |
+| **SQLite** | — | Database |
+| **Google Gemini AI** | 0.8 | Nutrition lookup |
+| **python-decouple** | 3.8 | `.env` config |
+| **asgiref** | 3.9 | ASGI support |
 
 </td>
 <td width="50%">
 
 ### Frontend
 | Technology | Purpose |
-|------------|---------|
-| **Bootstrap 5** | Responsive UI framework |
-| **Chart.js** | Interactive data visualization |
-| **Font Awesome** | Icon library |
-| **Custom CSS** | Dark/light theme support |
+|---|---|
+| **Bootstrap 5** | Responsive UI |
+| **Chart.js 4** | Django-template charts |
+| **Font Awesome** | Icons |
+| **React 17** | SPA frontend |
+| **Vite** | React build tool |
+| **Tailwind CSS v4** | React component styling |
+| **Recharts** | React charts |
 
 </td>
 </tr>
@@ -250,151 +203,206 @@ A comprehensive score (0-100) based on:
 
 ---
 
+## 🏗 Architecture
+
+```
+/              → Django template views  (Bootstrap 5 + Chart.js)
+/app/*         → React SPA             (Vite + Tailwind v4 + Recharts)
+/api/react/*   → JSON API for React
+/api/*         → JSON API for Django-template charts
+```
+
+Both frontends share the same Django backend.
+The React app builds to `static/react/` and is served via a catch-all view for `/app/*`.
+
+### Key Files
+
+| File | Description |
+|---|---|
+| `count_calories_app/views.py` | All view logic (~5 500 lines) |
+| `count_calories_app/models.py` | 11 database models |
+| `count_calories_app/services.py` | `GeminiService` — AI nutrition lookup |
+| `count_calories_app/urls.py` | URL routing |
+| `frontend/src/` | React source (Vite + Tailwind v4) |
+| `frontend/vite.config.js` | Build config: output → `static/react/` |
+| `frontend/src/api/client.js` | Axios instance with CSRF interceptor |
+
+### Data Models
+
+| Model | Description |
+|---|---|
+| `FoodItem` | A single logged food entry (name, calories, protein, fat, carbs, timestamp) |
+| `Weight` | Daily weight log |
+| `RunningSession` | A run (distance, duration, date) |
+| `Exercise` | Exercise definition |
+| `WorkoutSession` | A workout session |
+| `WorkoutExercise` | Sets / reps / weight within a session |
+| `WorkoutTable` | Custom grid-based workout planner |
+| `BodyMeasurement` | Body measurement snapshot |
+| `UserSettings` | Singleton (pk=1) — profile, goal, macro targets, theme |
+| `MealTemplate` | A saved group of food items |
+| `MealTemplateItem` | Individual item within a template |
+
+### Macro Calculation Formula
+
+Uses Mifflin-St Jeor TDEE with goal offsets:
+
+| Goal | Calorie offset | Use case |
+|---|---|---|
+| Maintain | +0 | Stay at current weight |
+| Bulk | +300 | Lean muscle gain |
+| Cut | −500 | Fat loss |
+| Ripped | −750 | Aggressive cut |
+
+Protein and fat are per-kg bodyweight. Carbs fill the remaining calories.
+
+---
+
 ## 📋 Prerequisites
 
-Before you begin, ensure you have the following installed:
-
-- **Python 3.8+** — [Download Python](https://www.python.org/downloads/)
-- **pip** — Python package manager (included with Python)
-- **Git** — [Download Git](https://git-scm.com/downloads)
-- **Virtual Environment** — Recommended for dependency isolation
+- **Python 3.12+** — [Download](https://www.python.org/downloads/)
+- **Node.js 18+** — [Download](https://nodejs.org/) *(React frontend only)*
+- **Git** — [Download](https://git-scm.com/downloads)
 
 ---
 
 ## ⚡ Quick Start
 
-### 1. Clone the Repository
+### 1. Clone
 
 ```bash
 git clone https://github.com/ZygimantasB/Calories_Counter_Project.git
 cd Calories_Counter_Project
 ```
 
-### 2. Create Virtual Environment
+### 2. Virtual environment
 
-**Windows:**
 ```bash
-python -m venv venv
-venv\Scripts\activate
+python3 -m venv .venv
+source .venv/bin/activate          # macOS / Linux
+# .venv\Scripts\activate           # Windows
 ```
 
-**macOS/Linux:**
-```bash
-python3 -m venv venv
-source venv/bin/activate
-```
-
-### 3. Install Dependencies
+### 3. Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. Configure Environment
+### 4. Configure environment
 
 ```bash
-# Copy the example environment file
-# Windows
-copy .env.exemple .env
-
-# macOS/Linux
-cp .env.exemple .env
+cp .env.exemple .env   # or copy on Windows
 ```
 
-Edit `.env` and add your configuration (see [Configuration](#-configuration) section).
-
-### 5. Initialize Database
-
-```bash
-python manage.py migrate
-```
-
-### 6. Run the Server
-
-```bash
-python manage.py runserver
-```
-
-### 7. Access the Application
-
-Open your browser and navigate to: **http://127.0.0.1:8000/**
-
----
-
-## ⚙️ Configuration
-
-### Environment Variables
-
-Create a `.env` file in the project root with the following variables:
+Edit `.env`:
 
 ```env
-# Required
-DJANGO_SECRET_KEY=your_secret_key_here
-
-# Optional (required for AI Food Assistant)
-GEMINI_API_KEY=your_gemini_api_key_here
+DJANGO_SECRET_KEY=your-secret-key-here
+GEMINI_API_KEY=your-gemini-api-key-here   # optional — needed for AI food lookup
 ```
 
-### Generating a Django Secret Key
+Generate a secret key:
 
 ```bash
 python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
 ```
 
-Or use [Djecrety](https://djecrety.ir/) to generate one online.
+Get a free Gemini API key at [aistudio.google.com](https://aistudio.google.com/app/apikey).
 
-### Obtaining a Gemini API Key
+### 5. Database
 
-1. Visit [Google AI Studio](https://aistudio.google.com/app/apikey)
-2. Sign in with your Google account
-3. Click **"Create API Key"**
-4. Copy the key to your `.env` file
+```bash
+python manage.py migrate
+```
 
-> **Note:** The AI Food Assistant feature requires a valid Gemini API key. Other features work without it.
+### 6. Run
 
-### Security Notice
+```bash
+python manage.py runserver
+```
 
-⚠️ **Never commit your `.env` file to version control.** It's already included in `.gitignore` for your protection.
+Open **http://127.0.0.1:8000/**
+
+---
+
+## ⚛️ React SPA
+
+The React app lives in `frontend/` and is served at `/app/`.
+
+```bash
+cd frontend
+npm install
+
+# Development server (HMR on :5173, proxies API to Django :8000)
+npm run dev
+
+# Production build — required after any source change
+npm run build
+
+# Tests
+npm test
+```
+
+> **Important:** `/app/` always serves the last *built* output in `static/react/`.
+> Changes to `frontend/src/` have no effect until `npm run build` is run.
+
+### React Pages
+
+| Route | Page |
+|---|---|
+| `/app/` | Dashboard |
+| `/app/food-tracker` | Food Tracker |
+| `/app/weight` | Weight Tracker |
+| `/app/running` | Running Tracker |
+| `/app/workout` | Workout Tracker |
+| `/app/body-measurements` | Body Measurements |
+| `/app/top-foods` | Top Foods |
+| `/app/analytics` | Analytics |
+| `/app/settings` | Settings |
+
+---
+
+## ⚙️ Configuration
+
+### CSRF
+
+- **Django templates** — `getCookie('csrftoken')` in inline JS; `@ensure_csrf_cookie` on views that need it
+- **React** — Axios interceptor in `frontend/src/api/client.js` auto-attaches `X-CSRFToken` on all mutations
+
+### UserSettings Singleton
+
+`UserSettings.get_settings()` returns the single settings row (pk=1). Latest weight is pulled from the `Weight` model, falling back to the `current_weight` field on the settings object.
 
 ---
 
 ## 📖 Usage Guide
 
-### Dashboard
-Your central hub showing:
-- Today's nutrition summary
-- Recent weight entries
-- Quick access to all features
-- Activity overview
-
 ### Food Tracking
-1. Navigate to **Food Tracker**
-2. Select a date or use today's date
-3. Add food items manually or use the **AI Assistant**
-4. View nutrition breakdown and daily totals
-5. Use filters to analyze specific time periods
+1. Go to **Food Tracker**
+2. Select a date (defaults to today)
+3. Add items manually or click **AI Lookup** to auto-fill macros via Gemini
+4. Use **Quick Add** to re-log previously eaten foods
+5. Use **Copy Previous Day** to duplicate an entire day's meals
 
-### Analytics
-1. Go to **Analytics** from the navigation menu
-2. Select your desired time period (30, 90, 180, 365 days, or all time)
-3. Explore different sections:
-   - Overview statistics
-   - Weekly/Monthly reports
-   - Weight analysis
-   - Macro breakdown
-   - Achievements and insights
+### Meal Templates
+1. Go to **Meal Templates**
+2. Name a template and add food items to it
+3. Click **Log Template** from any date to add all items at once
+
+### Analytics → Product Compare
+1. Go to **Analytics → Product Compare**
+2. Type a food name in field A — autocomplete shows items from your log
+3. Type a food name in field B (and optionally C for 3-way)
+4. Click **Search** to see the full comparison
+5. Drag the **Serving Multiplier** slider to scale all values (e.g. 2× = double portion)
+6. Previously compared pairs appear as chips above the form for quick re-use
 
 ### Workout Tracking
-1. Access **Workout Tracker**
-2. Create or select a workout routine
-3. Log exercises with sets, reps, and weights
-4. Review progress over time
-
-### Weight & Body Stats
-1. Navigate to **Weight Tracker** or **Body Stats**
-2. Add new measurements
-3. View trends and charts
-4. Track progress toward goals
+1. Go to **Workout Tracker**
+2. Create a session and add exercises
+3. Log sets, reps, and weight — PRs are highlighted automatically
+4. Use **Workout Tables** for structured program planning
 
 ---
 
@@ -404,127 +412,64 @@ Your central hub showing:
 
 ```
 Calories_Counter_Project/
-├── count_calories_app/          # Main application
-│   ├── models.py                # Database models
-│   ├── views.py                 # View logic & analytics
-│   ├── urls.py                  # URL routing
-│   ├── forms.py                 # Form definitions
-│   ├── templates/               # HTML templates
-│   └── tests/                   # Unit tests
-├── templates/                   # Global templates
-│   └── includes/                # Reusable components
-├── static/                      # Static assets
-├── manage.py                    # Django management
-├── requirements.txt             # Dependencies
-└── .env                         # Environment config
+├── count_calories_app/
+│   ├── models.py            # 11 database models
+│   ├── views.py             # All view logic & API endpoints (~5 500 lines)
+│   ├── services.py          # GeminiService — AI nutrition lookup
+│   ├── urls.py              # URL routing
+│   ├── templates/           # Django HTML templates
+│   └── tests/               # 369 unit tests (10 modules)
+├── frontend/
+│   ├── src/                 # React source (JSX, Tailwind v4)
+│   ├── vite.config.js       # Builds to ../static/react/
+│   └── package.json
+├── templates/
+│   └── base.html            # Global base template
+├── static/
+│   └── react/               # Built React app (git-ignored)
+├── Calories_Counter_Project/
+│   └── urls.py              # Root URL config with React catch-all
+├── requirements.txt
+└── .env                     # Secret keys (not committed)
 ```
 
 ### Running Tests
 
 ```bash
-# Run all tests
-python manage.py test
+# All 369 Django tests
+python manage.py test count_calories_app
 
-# Run specific test module
-python manage.py test count_calories_app.tests.test_analytics
+# Single module
+python manage.py test count_calories_app.tests.test_views
 
-# Run with verbosity
-python manage.py test --verbosity=2
+# With verbosity
+python manage.py test count_calories_app --verbosity=2
+
+# React tests
+cd frontend && npm test
 ```
 
----
+### URL Reference
 
-## 🔮 Roadmap
-
-### Upcoming Features
-
-| Feature | Status | Description |
-|---------|--------|-------------|
-| **Mobile App** | Planned | Native iOS and Android applications |
-| **Wearable Integration** | Planned | Sync with Fitbit, Apple Watch, Garmin |
-| **Meal Planning** | Planned | AI-powered meal suggestions |
-| **Social Features** | Planned | Share achievements, challenges |
-| **Voice Input** | Planned | Hands-free food logging |
-| **Barcode Scanner** | Planned | Scan products for instant nutrition data |
-| **Recipe Builder** | Planned | Create and save custom recipes |
-| **Export Reports** | Planned | PDF/CSV export of analytics |
-| **Multi-user Support** | Planned | User authentication and profiles |
-| **API Access** | Planned | RESTful API for third-party integrations |
-
----
-
-## 🖼️ Screenshots
-
-<table>
-<tr>
-<td align="center">
-<strong>Dashboard</strong><br>
-<img src="https://via.placeholder.com/400x250?text=Dashboard" alt="Dashboard" width="400">
-</td>
-<td align="center">
-<strong>Food Tracker</strong><br>
-<img src="https://via.placeholder.com/400x250?text=Food+Tracker" alt="Food Tracker" width="400">
-</td>
-</tr>
-<tr>
-<td align="center">
-<strong>Analytics</strong><br>
-<img src="https://via.placeholder.com/400x250?text=Analytics" alt="Analytics" width="400">
-</td>
-<td align="center">
-<strong>Weight Tracker</strong><br>
-<img src="https://via.placeholder.com/400x250?text=Weight+Tracker" alt="Weight Tracker" width="400">
-</td>
-</tr>
-</table>
-
-> Replace placeholder images with actual screenshots of your application.
-
----
-
-## 🤝 Contributing
-
-We welcome contributions from the community! Here's how you can help:
-
-### How to Contribute
-
-1. **Fork** the repository
-2. **Create** a feature branch
-   ```bash
-   git checkout -b feature/amazing-feature
-   ```
-3. **Commit** your changes
-   ```bash
-   git commit -m "feat: add amazing feature"
-   ```
-4. **Push** to your branch
-   ```bash
-   git push origin feature/amazing-feature
-   ```
-5. **Open** a Pull Request
-
-### Contribution Guidelines
-
-- Follow the existing code style
-- Write meaningful commit messages
-- Include tests for new features
-- Update documentation as needed
-- Be respectful and constructive in discussions
-
-### Commit Message Format
-
-```
-type: description
-
-Types:
-- feat: New feature
-- fix: Bug fix
-- docs: Documentation changes
-- style: Code style changes
-- refactor: Code refactoring
-- test: Adding tests
-- chore: Maintenance tasks
-```
+| URL | Description |
+|---|---|
+| `/` | Home / dashboard |
+| `/food_tracker/` | Food log |
+| `/meal-templates/` | Meal templates |
+| `/weight/` | Weight tracker |
+| `/running/` | Running tracker |
+| `/workout/` | Workout tracker |
+| `/workout-table/` | Custom workout tables |
+| `/exercise/` | Exercise library |
+| `/body-measurements/` | Body measurements |
+| `/analytics/` | Analytics overview |
+| `/analytics/month-compare/` | Month comparison |
+| `/analytics/trends/` | Yearly trends |
+| `/analytics/product-compare/` | Product compare |
+| `/settings/` | User settings & data export |
+| `/app/` | React SPA entry point |
+| `/api/react/*` | JSON API for React |
+| `/api/*` | JSON API for Chart.js |
 
 ---
 
@@ -532,51 +477,18 @@ Types:
 
 This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
 
-```
-MIT License
-
-Copyright (c) 2024 HealthTracker Pro
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software...
-```
-
----
-
-## 📬 Contact
-
-<table>
-<tr>
-<td>
-
-**Repository**<br>
-[github.com/ZygimantasB/Calories_Counter_Project](https://github.com/ZygimantasB/Calories_Counter_Project)
-
-</td>
-<td>
-
-**Issues & Support**<br>
-[GitHub Issues](https://github.com/ZygimantasB/Calories_Counter_Project/issues)
-
-</td>
-</tr>
-</table>
-
 ---
 
 <div align="center">
 
 ### Transform Your Health Journey with Data-Driven Insights
 
-**[Get Started](#-quick-start)** · **[View Features](#-features)** · **[Explore Analytics](#-analytics-dashboard)**
+**[Get Started](#-quick-start)** · **[Features](#-features)** · **[Analytics](#-analytics-dashboard)**
 
 ---
 
-Made with ❤️ for health enthusiasts everywhere
+Made with ❤️ for health enthusiasts
 
-<sub>Last updated: 2025-11-30</sub>
+<sub>Last updated: 2026-02-22</sub>
 
 </div>
