@@ -4825,11 +4825,15 @@ def month_compare(request):
     year2, mon2 = parse_month(month2_str)
 
     def get_month_data(year, month):
-        last_day = calendar.monthrange(year, month)[1]
         start = timezone.make_aware(datetime(year, month, 1, 0, 0, 0))
-        end = timezone.make_aware(datetime(year, month, last_day, 23, 59, 59))
+        # Use half-open range [start, next_month_start) to avoid missing entries at
+        # midnight and to correctly handle months with any number of days.
+        if month == 12:
+            end = timezone.make_aware(datetime(year + 1, 1, 1, 0, 0, 0))
+        else:
+            end = timezone.make_aware(datetime(year, month + 1, 1, 0, 0, 0))
 
-        qs = FoodItem.objects.filter(consumed_at__gte=start, consumed_at__lte=end)
+        qs = FoodItem.objects.filter(consumed_at__gte=start, consumed_at__lt=end)
 
         days_logged = qs.annotate(day=TruncDate('consumed_at')).values('day').distinct().count()
 
@@ -4852,10 +4856,12 @@ def month_compare(request):
         c_cal = tcarbs * 4
         macro_total_cal = p_cal + f_cal + c_cal
         if macro_total_cal > 0:
+            p_pct = round(p_cal / macro_total_cal * 100)
+            f_pct = round(f_cal / macro_total_cal * 100)
             macro_pct = {
-                'protein': round(p_cal / macro_total_cal * 100),
-                'fat': round(f_cal / macro_total_cal * 100),
-                'carbs': round(c_cal / macro_total_cal * 100),
+                'protein': p_pct,
+                'fat': f_pct,
+                'carbs': 100 - p_pct - f_pct,  # derived so the three always sum to 100
             }
         else:
             macro_pct = {'protein': 0, 'fat': 0, 'carbs': 0}
@@ -4864,15 +4870,14 @@ def month_compare(request):
             qs.values('product_name').annotate(
                 count=Count('id'),
                 total_calories=Sum('calories'),
-                avg_calories=Avg('calories'),
                 total_protein=Sum('protein'),
                 total_fat=Sum('fat'),
                 total_carbs=Sum('carbohydrates'),
-            ).order_by('-count')[:25]
+            ).order_by('-count')
         )
 
         # Weight stats for this month
-        weight_qs = Weight.objects.filter(recorded_at__gte=start, recorded_at__lte=end).order_by('recorded_at')
+        weight_qs = Weight.objects.filter(recorded_at__gte=start, recorded_at__lt=end).order_by('recorded_at')
         weight_stats = None
         if weight_qs.exists():
             w_agg = weight_qs.aggregate(avg=Avg('weight'), wmin=Min('weight'), wmax=Max('weight'))
@@ -4925,7 +4930,7 @@ def month_compare(request):
     foods2 = {f['product_name']: f for f in data2['top_foods']}
     all_names = set(foods1.keys()) | set(foods2.keys())
 
-    _zero = {'count': 0, 'total_calories': 0, 'avg_calories': 0,
+    _zero = {'count': 0, 'total_calories': 0,
              'total_protein': 0, 'total_fat': 0, 'total_carbs': 0}
 
     comparison_foods = []
@@ -4952,6 +4957,12 @@ def month_compare(request):
         })
 
     comparison_foods.sort(key=lambda x: x['count1'] + x['count2'], reverse=True)
+
+    # Compute exclusive food lists from ALL foods before truncating the table to top 25
+    only_in_a = [f for f in comparison_foods if f['count2'] == 0]
+    only_in_b = [f for f in comparison_foods if f['count1'] == 0]
+
+    # Truncate table to top 25 by combined frequency
     comparison_foods = comparison_foods[:25]
 
     # Calorie contribution % — what share of total |calorie diff| does each food account for
@@ -4959,22 +4970,21 @@ def month_compare(request):
     for f in comparison_foods:
         f['cal_impact_pct'] = round(abs(f['calories_diff']) / total_abs_cal_diff * 100)
 
-    # New / dropped food lists
-    only_in_a = [f for f in comparison_foods if f['count2'] == 0][:10]
-    only_in_b = [f for f in comparison_foods if f['count1'] == 0][:10]
-
     # ── Weekly breakdown for calorie-vs-weight chart ─────────────────────────
     def get_weekly_breakdown(year, month):
         """Return list of week dicts: label, avg_calories, avg_weight for the chart."""
         last_day = calendar.monthrange(year, month)[1]
         start_dt = timezone.make_aware(datetime(year, month, 1, 0, 0, 0))
-        end_dt   = timezone.make_aware(datetime(year, month, last_day, 23, 59, 59))
+        if month == 12:
+            end_dt = timezone.make_aware(datetime(year + 1, 1, 1, 0, 0, 0))
+        else:
+            end_dt = timezone.make_aware(datetime(year, month + 1, 1, 0, 0, 0))
 
         # Daily calorie totals
         daily_cals = {
             row['day']: row['total']
             for row in FoodItem.objects
-                .filter(consumed_at__gte=start_dt, consumed_at__lte=end_dt)
+                .filter(consumed_at__gte=start_dt, consumed_at__lt=end_dt)
                 .annotate(day=TruncDate('consumed_at'))
                 .values('day')
                 .annotate(total=Sum('calories'))
@@ -4984,7 +4994,7 @@ def month_compare(request):
         daily_weights = {
             row['day']: float(row['avg_w'])
             for row in Weight.objects
-                .filter(recorded_at__gte=start_dt, recorded_at__lte=end_dt)
+                .filter(recorded_at__gte=start_dt, recorded_at__lt=end_dt)
                 .annotate(day=TruncDate('recorded_at'))
                 .values('day')
                 .annotate(avg_w=Avg('weight'))
@@ -4992,7 +5002,7 @@ def month_compare(request):
 
         weeks = []
         cur = start_dt.date()
-        end_d = end_dt.date()
+        end_d = datetime(year, month, last_day).date()
         week_num = 1
         while cur <= end_d:
             week_end = min(cur + timedelta(days=6), end_d)
