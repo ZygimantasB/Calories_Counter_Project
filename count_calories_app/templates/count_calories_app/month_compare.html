@@ -555,32 +555,32 @@
                     {% else %}<span class="diff-zero">0</span>{% endif %}
                   </td>
                   <!-- Calories -->
-                  <td class="text-center month-col-1 small">{% if food.calories1 %}{{ food.calories1 }}{% else %}—{% endif %}</td>
-                  <td class="text-center month-col-2 small">{% if food.calories2 %}{{ food.calories2 }}{% else %}—{% endif %}</td>
+                  <td class="text-center month-col-1 small">{% if food.count1 %}{{ food.calories1 }}{% else %}—{% endif %}</td>
+                  <td class="text-center month-col-2 small">{% if food.count2 %}{{ food.calories2 }}{% else %}—{% endif %}</td>
                   <td class="text-center diff-col small">
                     {% if food.calories_diff > 0 %}<span class="diff-cal-positive">+{{ food.calories_diff }}</span>
                     {% elif food.calories_diff < 0 %}<span class="diff-cal-negative">{{ food.calories_diff }}</span>
                     {% else %}<span class="diff-zero">0</span>{% endif %}
                   </td>
                   <!-- Protein -->
-                  <td class="text-center month-col-1 small">{% if food.protein1 %}{{ food.protein1 }}g{% else %}—{% endif %}</td>
-                  <td class="text-center month-col-2 small">{% if food.protein2 %}{{ food.protein2 }}g{% else %}—{% endif %}</td>
+                  <td class="text-center month-col-1 small">{% if food.count1 %}{{ food.protein1 }}g{% else %}—{% endif %}</td>
+                  <td class="text-center month-col-2 small">{% if food.count2 %}{{ food.protein2 }}g{% else %}—{% endif %}</td>
                   <td class="text-center diff-col small">
                     {% if food.protein_diff > 0 %}<span class="diff-positive">+{{ food.protein_diff }}g</span>
                     {% elif food.protein_diff < 0 %}<span class="diff-negative">{{ food.protein_diff }}g</span>
                     {% else %}<span class="diff-zero">0</span>{% endif %}
                   </td>
                   <!-- Fat -->
-                  <td class="text-center month-col-1 small">{% if food.fat1 %}{{ food.fat1 }}g{% else %}—{% endif %}</td>
-                  <td class="text-center month-col-2 small">{% if food.fat2 %}{{ food.fat2 }}g{% else %}—{% endif %}</td>
+                  <td class="text-center month-col-1 small">{% if food.count1 %}{{ food.fat1 }}g{% else %}—{% endif %}</td>
+                  <td class="text-center month-col-2 small">{% if food.count2 %}{{ food.fat2 }}g{% else %}—{% endif %}</td>
                   <td class="text-center diff-col small">
                     {% if food.fat_diff > 0 %}<span class="diff-cal-positive">+{{ food.fat_diff }}g</span>
                     {% elif food.fat_diff < 0 %}<span class="diff-cal-negative">{{ food.fat_diff }}g</span>
                     {% else %}<span class="diff-zero">0</span>{% endif %}
                   </td>
                   <!-- Carbs -->
-                  <td class="text-center month-col-1 small">{% if food.carbs1 %}{{ food.carbs1 }}g{% else %}—{% endif %}</td>
-                  <td class="text-center month-col-2 small">{% if food.carbs2 %}{{ food.carbs2 }}g{% else %}—{% endif %}</td>
+                  <td class="text-center month-col-1 small">{% if food.count1 %}{{ food.carbs1 }}g{% else %}—{% endif %}</td>
+                  <td class="text-center month-col-2 small">{% if food.count2 %}{{ food.carbs2 }}g{% else %}—{% endif %}</td>
                   <td class="text-center diff-col small">
                     {% if food.carbs_diff > 0 %}<span class="diff-cal-positive">+{{ food.carbs_diff }}g</span>
                     {% elif food.carbs_diff < 0 %}<span class="diff-cal-negative">{{ food.carbs_diff }}g</span>

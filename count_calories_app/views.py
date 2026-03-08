@@ -4922,7 +4922,7 @@ def month_compare(request):
     if data1['weight'] and data2['weight']:
         overview_diffs['weight_avg'] = round(data1['weight']['avg'] - data2['weight']['avg'], 1)
         overview_diffs['weight_change'] = round(
-            (data1['weight']['change'] or 0) - (data2['weight']['change'] or 0), 1
+            data1['weight']['change'] - data2['weight']['change'], 1
         )
 
     # Build merged top-foods comparison
@@ -4930,13 +4930,14 @@ def month_compare(request):
     foods2 = {f['product_name']: f for f in data2['top_foods']}
     all_names = set(foods1.keys()) | set(foods2.keys())
 
-    _zero = {'count': 0, 'total_calories': 0,
-             'total_protein': 0, 'total_fat': 0, 'total_carbs': 0}
+    def _zero():
+        return {'count': 0, 'total_calories': 0,
+                'total_protein': 0, 'total_fat': 0, 'total_carbs': 0}
 
     comparison_foods = []
     for name in all_names:
-        f1 = foods1.get(name, _zero)
-        f2 = foods2.get(name, _zero)
+        f1 = foods1.get(name) or _zero()
+        f2 = foods2.get(name) or _zero()
         comparison_foods.append({
             'name': name,
             'count1': f1['count'],
@@ -4962,13 +4963,13 @@ def month_compare(request):
     only_in_a = [f for f in comparison_foods if f['count2'] == 0]
     only_in_b = [f for f in comparison_foods if f['count1'] == 0]
 
-    # Truncate table to top 25 by combined frequency
-    comparison_foods = comparison_foods[:25]
-
-    # Calorie contribution % — what share of total |calorie diff| does each food account for
+    # Calorie contribution % — share of total |calorie diff| across ALL foods (computed before truncation)
     total_abs_cal_diff = sum(abs(f['calories_diff']) for f in comparison_foods) or 1
     for f in comparison_foods:
         f['cal_impact_pct'] = round(abs(f['calories_diff']) / total_abs_cal_diff * 100)
+
+    # Truncate table to top 25 by combined frequency (cal_impact_pct already set on all items)
+    comparison_foods = comparison_foods[:25]
 
     # ── Weekly breakdown for calorie-vs-weight chart ─────────────────────────
     def get_weekly_breakdown(year, month):
