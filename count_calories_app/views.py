@@ -2960,7 +2960,7 @@ def analytics(request):
             count=DjangoCount('id'),
             total_calories=Sum('calories'),
             total_protein=Sum('protein')
-        ).order_by('-count')[:10]
+        ).order_by('-count')
 
         top_foods['most_frequent'] = list(frequent_foods)
 
@@ -4377,7 +4377,7 @@ def api_analytics(request):
     if food_items.exists():
         frequent_foods = food_items.values('product_name').annotate(
             count=Count('id'), total_calories=Sum('calories')
-        ).order_by('-count')[:10]
+        ).order_by('-count')
         top_foods = [{'name': f['product_name'], 'count': f['count'], 'total_calories': float(f['total_calories'] or 0)} for f in frequent_foods]
 
     # === BEST/WORST DAYS ===
@@ -4493,7 +4493,7 @@ def api_top_foods(request):
         top_foods = top_foods.order_by('-count')
 
     items = []
-    for food in top_foods[:50]:
+    for food in top_foods:
         items.append({
             'name': food['product_name'],
             'count': food['count'],
