@@ -7,6 +7,7 @@ import {
   Flame,
   TrendingUp,
   ChevronRight,
+  ChevronDown,
   Play,
   CheckCircle,
   Timer,
@@ -15,6 +16,7 @@ import {
   X,
   Pencil,
   Trash2,
+  Save,
 } from 'lucide-react';
 import {
   BarChart,
@@ -35,6 +37,14 @@ const emptyForm = {
   notes: '',
 };
 
+const emptyExerciseForm = {
+  exercise_id: '',
+  sets: 3,
+  reps: 10,
+  weight: '',
+  notes: '',
+};
+
 export default function WorkoutTracker() {
   const [workouts, setWorkouts] = useState([]);
   const [exercises, setExercises] = useState([]);
@@ -42,25 +52,34 @@ export default function WorkoutTracker() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Add modal
+  // Expanded workout IDs
+  const [expandedWorkouts, setExpandedWorkouts] = useState(new Set());
+
+  // Add workout modal
   const [showAddModal, setShowAddModal] = useState(false);
   const [addForm, setAddForm] = useState(emptyForm);
   const [addLoading, setAddLoading] = useState(false);
 
-  // Edit modal
+  // Edit workout modal
   const [showEditModal, setShowEditModal] = useState(false);
   const [editForm, setEditForm] = useState(null);
   const [editLoading, setEditLoading] = useState(false);
 
-  // Delete confirm (workout)
+  // Delete workout confirm
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
 
-  // Exercise library management
-  const [showLibraryModal, setShowLibraryModal] = useState(false);
-  const [exForm, setExForm] = useState({ name: '', muscle_group: '', description: '' });
-  const [exAddLoading, setExAddLoading] = useState(false);
-  const [exAddError, setExAddError] = useState(null);
-  const [deletingExerciseId, setDeletingExerciseId] = useState(null);
+  // Add exercise form (per-workout inline)
+  const [showAddExerciseFor, setShowAddExerciseFor] = useState(null); // workout id
+  const [addExerciseForm, setAddExerciseForm] = useState(emptyExerciseForm);
+  const [addExerciseLoading, setAddExerciseLoading] = useState(false);
+
+  // Edit exercise inline
+  const [editExerciseId, setEditExerciseId] = useState(null); // workout_exercise id
+  const [editExerciseForm, setEditExerciseForm] = useState(null);
+  const [editExerciseLoading, setEditExerciseLoading] = useState(false);
+
+  // Delete exercise confirm
+  const [showDeleteExerciseConfirm, setShowDeleteExerciseConfirm] = useState(null); // { workoutId, exerciseId }
 
   const fetchWorkoutData = useCallback(async () => {
     try {
@@ -143,44 +162,89 @@ export default function WorkoutTracker() {
     }
   };
 
-  const handleAddExercise = async (e) => {
-    e.preventDefault();
-    setExAddError(null);
+  const toggleExpanded = (workoutId) => {
+    setExpandedWorkouts((prev) => {
+      const next = new Set(prev);
+      if (next.has(workoutId)) {
+        next.delete(workoutId);
+        if (showAddExerciseFor === workoutId) {
+          setShowAddExerciseFor(null);
+        }
+      } else {
+        next.add(workoutId);
+      }
+      return next;
+    });
+  };
+
+  const openAddExerciseForm = (workoutId) => {
+    setShowAddExerciseFor(workoutId);
+    setAddExerciseForm(emptyExerciseForm);
+  };
+
+  const handleAddExercise = async (workoutId) => {
     try {
-      setExAddLoading(true);
-      await workoutApi.addExerciseToLibrary({
-        name: exForm.name,
-        muscle_group: exForm.muscle_group,
-        description: exForm.description,
+      setAddExerciseLoading(true);
+      await workoutApi.addExercise(workoutId, {
+        exercise_id: addExerciseForm.exercise_id || undefined,
+        sets: Number(addExerciseForm.sets) || 1,
+        reps: Number(addExerciseForm.reps) || 1,
+        weight: addExerciseForm.weight !== '' ? Number(addExerciseForm.weight) : undefined,
+        notes: addExerciseForm.notes,
       });
-      setExForm({ name: '', muscle_group: '', description: '' });
+      setShowAddExerciseFor(null);
+      setAddExerciseForm(emptyExerciseForm);
       fetchWorkoutData();
     } catch (err) {
-      setExAddError(err?.response?.data?.message || 'Failed to add exercise');
+      console.error('Error adding exercise:', err);
     } finally {
-      setExAddLoading(false);
+      setAddExerciseLoading(false);
     }
   };
 
-  const handleDeleteExercise = async (exerciseId) => {
+  const openEditExercise = (workoutExercise) => {
+    setEditExerciseId(workoutExercise.id);
+    setEditExerciseForm({
+      sets: workoutExercise.sets,
+      reps: workoutExercise.reps,
+      weight: workoutExercise.weight !== null && workoutExercise.weight !== undefined
+        ? workoutExercise.weight
+        : '',
+      notes: workoutExercise.notes || '',
+    });
+  };
+
+  const handleUpdateExercise = async (workoutId, exerciseId) => {
+    if (!editExerciseForm) return;
     try {
-      setDeletingExerciseId(exerciseId);
-      await workoutApi.deleteExerciseFromLibrary(exerciseId);
+      setEditExerciseLoading(true);
+      await workoutApi.updateExercise(workoutId, exerciseId, {
+        sets: Number(editExerciseForm.sets) || 1,
+        reps: Number(editExerciseForm.reps) || 1,
+        weight: editExerciseForm.weight !== '' ? Number(editExerciseForm.weight) : null,
+        notes: editExerciseForm.notes,
+      });
+      setEditExerciseId(null);
+      setEditExerciseForm(null);
+      fetchWorkoutData();
+    } catch (err) {
+      console.error('Error updating exercise:', err);
+    } finally {
+      setEditExerciseLoading(false);
+    }
+  };
+
+  const handleDeleteExercise = async () => {
+    if (!showDeleteExerciseConfirm) return;
+    const { workoutId, exerciseId } = showDeleteExerciseConfirm;
+    try {
+      await workoutApi.deleteExercise(workoutId, exerciseId);
+      setShowDeleteExerciseConfirm(null);
       fetchWorkoutData();
     } catch (err) {
       console.error('Error deleting exercise:', err);
-    } finally {
-      setDeletingExerciseId(null);
     }
   };
-
-  // Group exercises by muscle group
-  const exercisesByGroup = exercises.reduce((acc, ex) => {
-    const group = ex.muscle_group || 'Other';
-    if (!acc[group]) acc[group] = [];
-    acc[group].push(ex);
-    return acc;
-  }, {});
 
   const totalWorkouts = stats?.total_workouts || workouts.length;
   const avgDuration = stats?.avg_duration || (
@@ -271,156 +335,309 @@ export default function WorkoutTracker() {
           </div>
 
           {/* Exercise Library */}
-          <Card
-            title="Exercise Library"
-            subtitle={`${exercises.length} exercise${exercises.length !== 1 ? 's' : ''} available`}
-          >
-            <div className="space-y-4">
-              {/* Add Exercise Form */}
-              <form onSubmit={handleAddExercise} className="p-4 bg-gray-700/40 rounded-xl border border-gray-600 space-y-3">
-                <h3 className="text-sm font-semibold text-gray-300">Add Exercise</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div>
-                    <input
-                      type="text"
-                      value={exForm.name}
-                      onChange={(e) => setExForm({ ...exForm, name: e.target.value })}
-                      placeholder="Exercise name *"
-                      required
-                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 text-sm"
-                    />
+          {exercises.length > 0 && (
+            <Card title="Exercise Library" subtitle="Available exercises">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                {exercises.slice(0, 8).map((exercise) => (
+                  <div
+                    key={exercise.id}
+                    className="p-4 rounded-xl border border-gray-700 hover:border-primary-500 hover:bg-gray-700/50 transition-all"
+                  >
+                    <h3 className="font-medium text-gray-100">{exercise.name}</h3>
+                    <p className="text-sm text-gray-500 mt-1">{exercise.muscle_group}</p>
                   </div>
-                  <div>
-                    <input
-                      type="text"
-                      value={exForm.muscle_group}
-                      onChange={(e) => setExForm({ ...exForm, muscle_group: e.target.value })}
-                      placeholder="Muscle group (e.g. Chest)"
-                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <input
-                      type="text"
-                      value={exForm.description}
-                      onChange={(e) => setExForm({ ...exForm, description: e.target.value })}
-                      placeholder="Description (optional)"
-                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 text-sm"
-                    />
-                  </div>
-                </div>
-                {exAddError && (
-                  <p className="text-sm text-red-400">{exAddError}</p>
-                )}
-                <div className="flex justify-end">
-                  <Button type="submit" icon={Plus} disabled={exAddLoading} size="sm">
-                    {exAddLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Add Exercise'}
-                  </Button>
-                </div>
-              </form>
-
-              {/* Exercise List grouped by muscle group */}
-              {exercises.length > 0 ? (
-                <div className="space-y-4">
-                  {Object.entries(exercisesByGroup).sort(([a], [b]) => a.localeCompare(b)).map(([group, groupExercises]) => (
-                    <div key={group}>
-                      <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{group}</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                        {groupExercises.map((exercise) => (
-                          <div
-                            key={exercise.id}
-                            className="flex items-center justify-between p-3 rounded-xl border border-gray-700 hover:border-gray-600 hover:bg-gray-700/30 transition-all group"
-                          >
-                            <div className="min-w-0 flex-1">
-                              <h3 className="font-medium text-gray-100 text-sm truncate">{exercise.name}</h3>
-                              {exercise.description && (
-                                <p className="text-xs text-gray-500 mt-0.5 truncate">{exercise.description}</p>
-                              )}
-                            </div>
-                            <button
-                              onClick={() => handleDeleteExercise(exercise.id)}
-                              disabled={deletingExerciseId === exercise.id}
-                              className="ml-2 p-1.5 rounded-lg text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0"
-                              title="Delete exercise"
-                            >
-                              {deletingExerciseId === exercise.id
-                                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                : <Trash2 className="w-3.5 h-3.5" />
-                              }
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-center text-gray-500 py-4 text-sm">No exercises in the library yet. Add one above.</p>
-              )}
-            </div>
-          </Card>
+                ))}
+              </div>
+            </Card>
+          )}
 
           {/* Workout History */}
           <Card title="Recent Workouts" subtitle="Your training history" padding={false}>
             {workouts.length > 0 ? (
               <div className="divide-y divide-gray-700">
-                {workouts.map((workout) => (
-                  <div
-                    key={workout.id}
-                    className="p-4 flex items-center justify-between hover:bg-gray-700/30 transition-colors group"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center">
-                        <CheckCircle className="w-6 h-6 text-purple-400" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold text-gray-100">{workout.name}</h3>
-                          <Badge variant="success" size="sm">
-                            Completed
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-gray-500">
-                          {workout.date ? format(parseISO(workout.date), 'EEEE, MMMM d') : 'Unknown date'}
-                        </p>
-                        {workout.notes && (
-                          <p className="text-xs text-gray-600 mt-0.5 truncate max-w-xs">{workout.notes}</p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="hidden md:flex items-center gap-6 text-sm text-gray-400">
-                        <div className="flex items-center gap-1">
-                          <Timer className="w-4 h-4" />
-                          {workout.duration || 0} min
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Dumbbell className="w-4 h-4" />
-                          {workout.exercise_count || workout.exercises_count || 0} exercises
-                        </div>
-                        {workout.total_volume > 0 && (
-                          <div>
-                            {(workout.total_volume / 1000).toFixed(1)}k kg
+                {workouts.map((workout) => {
+                  const isExpanded = expandedWorkouts.has(workout.id);
+                  const workoutExercises = workout.exercises || [];
+
+                  return (
+                    <div key={workout.id}>
+                      {/* Workout row */}
+                      <div
+                        className="p-4 flex items-center justify-between hover:bg-gray-700/30 transition-colors group cursor-pointer"
+                        onClick={() => toggleExpanded(workout.id)}
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center flex-shrink-0">
+                            <CheckCircle className="w-6 h-6 text-purple-400" />
                           </div>
-                        )}
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-semibold text-gray-100">{workout.name}</h3>
+                              <Badge variant="success" size="sm">
+                                Completed
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-gray-500">
+                              {workout.date ? format(parseISO(workout.date), 'EEEE, MMMM d') : 'Unknown date'}
+                            </p>
+                            {workout.notes && (
+                              <p className="text-xs text-gray-600 mt-0.5 truncate max-w-xs">{workout.notes}</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="hidden md:flex items-center gap-6 text-sm text-gray-400">
+                            <div className="flex items-center gap-1">
+                              <Timer className="w-4 h-4" />
+                              {workout.duration || 0} min
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Dumbbell className="w-4 h-4" />
+                              {workout.exercise_count || workout.exercises_count || workoutExercises.length} exercises
+                            </div>
+                            {workout.total_volume > 0 && (
+                              <div>
+                                {(workout.total_volume / 1000).toFixed(1)}k kg
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); openEditModal(workout); }}
+                            className="p-1.5 rounded-lg text-gray-500 hover:text-blue-400 hover:bg-blue-500/10 transition-colors opacity-0 group-hover:opacity-100"
+                            title="Edit workout"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(workout.id); }}
+                            className="p-1.5 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100"
+                            title="Delete workout"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                          <div className="text-gray-500">
+                            {isExpanded
+                              ? <ChevronDown className="w-5 h-5" />
+                              : <ChevronRight className="w-5 h-5" />
+                            }
+                          </div>
+                        </div>
                       </div>
-                      <button
-                        onClick={() => openEditModal(workout)}
-                        className="p-1.5 rounded-lg text-gray-500 hover:text-blue-400 hover:bg-blue-500/10 transition-colors opacity-0 group-hover:opacity-100"
-                        title="Edit workout"
-                      >
-                        <Pencil className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => setShowDeleteConfirm(workout.id)}
-                        className="p-1.5 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100"
-                        title="Delete workout"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+
+                      {/* Expanded exercise list */}
+                      {isExpanded && (
+                        <div className="bg-gray-800/50 border-t border-gray-700/50 px-4 pb-4">
+                          <div className="pt-3 space-y-2">
+                            {workoutExercises.length === 0 ? (
+                              <p className="text-sm text-gray-500 text-center py-2">
+                                No exercises logged. Add one below.
+                              </p>
+                            ) : (
+                              workoutExercises.map((ex) => (
+                                <div key={ex.id} className="rounded-lg border border-gray-700 bg-gray-800/60">
+                                  {editExerciseId === ex.id ? (
+                                    /* Inline edit form */
+                                    <div className="p-3 space-y-2">
+                                      <div className="text-sm font-medium text-gray-300 mb-1">
+                                        {ex.exercise}
+                                      </div>
+                                      <div className="grid grid-cols-3 gap-2">
+                                        <div>
+                                          <label className="block text-xs text-gray-400 mb-1">Sets</label>
+                                          <input
+                                            type="number"
+                                            min="1"
+                                            value={editExerciseForm.sets}
+                                            onChange={(e) => setEditExerciseForm({ ...editExerciseForm, sets: e.target.value })}
+                                            className="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 text-sm focus:outline-none focus:border-primary-500"
+                                          />
+                                        </div>
+                                        <div>
+                                          <label className="block text-xs text-gray-400 mb-1">Reps</label>
+                                          <input
+                                            type="number"
+                                            min="1"
+                                            value={editExerciseForm.reps}
+                                            onChange={(e) => setEditExerciseForm({ ...editExerciseForm, reps: e.target.value })}
+                                            className="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 text-sm focus:outline-none focus:border-primary-500"
+                                          />
+                                        </div>
+                                        <div>
+                                          <label className="block text-xs text-gray-400 mb-1">Weight (kg)</label>
+                                          <input
+                                            type="number"
+                                            min="0"
+                                            step="0.5"
+                                            value={editExerciseForm.weight}
+                                            onChange={(e) => setEditExerciseForm({ ...editExerciseForm, weight: e.target.value })}
+                                            placeholder="Optional"
+                                            className="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 text-sm placeholder-gray-500 focus:outline-none focus:border-primary-500"
+                                          />
+                                        </div>
+                                      </div>
+                                      <div>
+                                        <label className="block text-xs text-gray-400 mb-1">Notes</label>
+                                        <input
+                                          type="text"
+                                          value={editExerciseForm.notes}
+                                          onChange={(e) => setEditExerciseForm({ ...editExerciseForm, notes: e.target.value })}
+                                          placeholder="Optional notes"
+                                          className="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 text-sm placeholder-gray-500 focus:outline-none focus:border-primary-500"
+                                        />
+                                      </div>
+                                      <div className="flex gap-2 pt-1">
+                                        <button
+                                          onClick={() => handleUpdateExercise(workout.id, ex.id)}
+                                          disabled={editExerciseLoading}
+                                          className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                                        >
+                                          {editExerciseLoading
+                                            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                            : <Save className="w-3.5 h-3.5" />
+                                          }
+                                          Save
+                                        </button>
+                                        <button
+                                          onClick={() => { setEditExerciseId(null); setEditExerciseForm(null); }}
+                                          className="px-3 py-1.5 text-gray-400 hover:text-gray-200 rounded-lg text-sm transition-colors"
+                                        >
+                                          Cancel
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    /* Exercise display row */
+                                    <div className="p-3 flex items-center justify-between">
+                                      <div>
+                                        <span className="text-sm font-medium text-gray-200">{ex.exercise}</span>
+                                        <span className="text-sm text-gray-400 ml-2">
+                                          {ex.sets} sets x {ex.reps} reps
+                                          {ex.weight ? ` @ ${ex.weight} kg` : ''}
+                                        </span>
+                                        {ex.notes && (
+                                          <p className="text-xs text-gray-500 mt-0.5">{ex.notes}</p>
+                                        )}
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        <button
+                                          onClick={() => openEditExercise(ex)}
+                                          className="p-1.5 rounded-lg text-gray-500 hover:text-blue-400 hover:bg-blue-500/10 transition-colors"
+                                          title="Edit exercise"
+                                        >
+                                          <Pencil className="w-3.5 h-3.5" />
+                                        </button>
+                                        <button
+                                          onClick={() => setShowDeleteExerciseConfirm({ workoutId: workout.id, exerciseId: ex.id })}
+                                          className="p-1.5 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                                          title="Delete exercise"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              ))
+                            )}
+
+                            {/* Add exercise form or button */}
+                            {showAddExerciseFor === workout.id ? (
+                              <div className="rounded-lg border border-primary-500/40 bg-gray-800/80 p-3 space-y-2">
+                                <div className="text-sm font-medium text-gray-300">Add Exercise</div>
+                                <div>
+                                  <label className="block text-xs text-gray-400 mb-1">Exercise</label>
+                                  <select
+                                    value={addExerciseForm.exercise_id}
+                                    onChange={(e) => setAddExerciseForm({ ...addExerciseForm, exercise_id: e.target.value })}
+                                    className="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 text-sm focus:outline-none focus:border-primary-500"
+                                  >
+                                    <option value="">-- Select exercise --</option>
+                                    {exercises.map((ex) => (
+                                      <option key={ex.id} value={ex.id}>
+                                        {ex.name}{ex.muscle_group ? ` (${ex.muscle_group})` : ''}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                                <div className="grid grid-cols-3 gap-2">
+                                  <div>
+                                    <label className="block text-xs text-gray-400 mb-1">Sets</label>
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      value={addExerciseForm.sets}
+                                      onChange={(e) => setAddExerciseForm({ ...addExerciseForm, sets: e.target.value })}
+                                      className="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 text-sm focus:outline-none focus:border-primary-500"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs text-gray-400 mb-1">Reps</label>
+                                    <input
+                                      type="number"
+                                      min="1"
+                                      value={addExerciseForm.reps}
+                                      onChange={(e) => setAddExerciseForm({ ...addExerciseForm, reps: e.target.value })}
+                                      className="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 text-sm focus:outline-none focus:border-primary-500"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs text-gray-400 mb-1">Weight (kg)</label>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="0.5"
+                                      value={addExerciseForm.weight}
+                                      onChange={(e) => setAddExerciseForm({ ...addExerciseForm, weight: e.target.value })}
+                                      placeholder="Optional"
+                                      className="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 text-sm placeholder-gray-500 focus:outline-none focus:border-primary-500"
+                                    />
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="block text-xs text-gray-400 mb-1">Notes</label>
+                                  <input
+                                    type="text"
+                                    value={addExerciseForm.notes}
+                                    onChange={(e) => setAddExerciseForm({ ...addExerciseForm, notes: e.target.value })}
+                                    placeholder="Optional notes"
+                                    className="w-full px-2 py-1.5 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 text-sm placeholder-gray-500 focus:outline-none focus:border-primary-500"
+                                  />
+                                </div>
+                                <div className="flex gap-2 pt-1">
+                                  <button
+                                    onClick={() => handleAddExercise(workout.id)}
+                                    disabled={addExerciseLoading || !addExerciseForm.exercise_id}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                                  >
+                                    {addExerciseLoading
+                                      ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                      : <Plus className="w-3.5 h-3.5" />
+                                    }
+                                    Add
+                                  </button>
+                                  <button
+                                    onClick={() => setShowAddExerciseFor(null)}
+                                    className="px-3 py-1.5 text-gray-400 hover:text-gray-200 rounded-lg text-sm transition-colors"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => openAddExerciseForm(workout.id)}
+                                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm text-primary-400 hover:text-primary-300 hover:bg-primary-500/10 border border-dashed border-primary-500/40 hover:border-primary-400/60 transition-all w-full justify-center"
+                              >
+                                <Plus className="w-4 h-4" />
+                                Add Exercise
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="p-8 text-center text-gray-500">
@@ -581,7 +798,7 @@ export default function WorkoutTracker() {
         </div>
       )}
 
-      {/* Delete Confirmation Modal */}
+      {/* Delete Workout Confirmation Modal */}
       {showDeleteConfirm && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-gray-800 rounded-2xl w-full max-w-sm shadow-2xl border border-gray-700 p-6">
@@ -603,6 +820,38 @@ export default function WorkoutTracker() {
                 </Button>
                 <button
                   onClick={() => handleDeleteWorkout(showDeleteConfirm)}
+                  className="flex-1 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl font-medium transition-colors"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Exercise Confirmation Modal */}
+      {showDeleteExerciseConfirm && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-2xl w-full max-w-sm shadow-2xl border border-gray-700 p-6">
+            <div className="text-center">
+              <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center mx-auto mb-4">
+                <Trash2 className="w-6 h-6 text-red-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-100 mb-2">Delete Exercise</h3>
+              <p className="text-gray-400 text-sm mb-6">
+                Remove this exercise from the workout?
+              </p>
+              <div className="flex gap-3">
+                <Button
+                  variant="ghost"
+                  onClick={() => setShowDeleteExerciseConfirm(null)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <button
+                  onClick={handleDeleteExercise}
                   className="flex-1 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl font-medium transition-colors"
                 >
                   Delete

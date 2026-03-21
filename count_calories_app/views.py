@@ -3952,7 +3952,7 @@ def api_workouts(request):
 
     items = []
     for w in workouts:
-        exercises = WorkoutExercise.objects.filter(workout_session=w)
+        exercises = WorkoutExercise.objects.filter(workout=w)
         exercise_list = []
         total_volume = 0
 
