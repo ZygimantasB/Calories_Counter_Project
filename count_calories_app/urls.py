@@ -91,6 +91,7 @@ urlpatterns = [
     path('api/react/body-measurements/<int:measurement_id>/delete/', views.api_delete_body_measurement, name='api_delete_body_measurement'),
     path('api/react/analytics/', views.api_analytics, name='api_analytics'),
     path('api/react/analytics/month-compare/', views.api_month_compare, name='api_month_compare'),
+    path('api/react/analytics/yearly-trends/', views.api_yearly_trends, name='api_yearly_trends'),
     path('api/react/top-foods/', views.api_top_foods, name='api_top_foods'),
     path('api/react/settings/', views.api_settings, name='api_settings'),
     path('api/react/settings/update/', views.api_update_settings, name='api_update_settings'),
@@ -100,4 +101,7 @@ urlpatterns = [
     path('api/react/meal-templates/<int:template_id>/log/', views.api_apply_meal_template, name='api_apply_meal_template'),
     path('api/react/meal-templates/<int:template_id>/delete/', views.api_delete_meal_template, name='api_delete_meal_template'),
     path('api/react/food-items/hourly/', views.api_hourly_eating_pattern, name='api_hourly_pattern'),
+    path('api/react/workout-tables/', views.api_workout_tables, name='api_workout_tables'),
+    path('api/react/workout-tables/add/', views.api_save_workout_table, name='api_save_workout_table'),
+    path('api/react/workout-tables/<int:table_id>/delete/', views.api_delete_workout_table, name='api_delete_workout_table'),
 ]

@@ -81,6 +81,19 @@ export default function WorkoutTracker() {
   // Delete exercise confirm
   const [showDeleteExerciseConfirm, setShowDeleteExerciseConfirm] = useState(null); // { workoutId, exerciseId }
 
+  // Workout Table state
+  const [savedTables, setSavedTables] = useState([]);
+  const [tableLoading, setTableLoading] = useState(false);
+  const [tableSaveLoading, setTableSaveLoading] = useState(false);
+  const [tableError, setTableError] = useState(null);
+  const [activeTableId, setActiveTableId] = useState(null);
+  const [tableName, setTableName] = useState('My Workout Table');
+  const [tableColumns, setTableColumns] = useState(['Mon', 'Wed', 'Fri']);
+  const [tableRows, setTableRows] = useState([
+    { exercise: 'Bench Press', values: ['', '', ''] },
+    { exercise: 'Squats', values: ['', '', ''] },
+  ]);
+
   const fetchWorkoutData = useCallback(async () => {
     try {
       setLoading(true);
@@ -99,9 +112,129 @@ export default function WorkoutTracker() {
     }
   }, []);
 
+  const fetchWorkoutTables = useCallback(async () => {
+    try {
+      setTableLoading(true);
+      setTableError(null);
+      const res = await workoutApi.getWorkoutTables();
+      setSavedTables(res.tables || []);
+    } catch (err) {
+      console.error('Error fetching workout tables:', err);
+      setTableError('Failed to load saved tables');
+    } finally {
+      setTableLoading(false);
+    }
+  }, []);
+
+  const handleSaveTable = async () => {
+    try {
+      setTableSaveLoading(true);
+      setTableError(null);
+      const payload = {
+        name: tableName,
+        data: { columns: tableColumns, rows: tableRows },
+        ...(activeTableId ? { id: activeTableId } : {}),
+      };
+      const res = await workoutApi.saveWorkoutTable(payload);
+      setActiveTableId(res.id);
+      fetchWorkoutTables();
+    } catch (err) {
+      console.error('Error saving workout table:', err);
+      setTableError('Failed to save table');
+    } finally {
+      setTableSaveLoading(false);
+    }
+  };
+
+  const handleLoadTable = (table) => {
+    setActiveTableId(table.id);
+    setTableName(table.name);
+    const data = table.data || {};
+    const cols = data.columns || [];
+    const rows = (data.rows || []).map((r) => ({
+      exercise: r.exercise || '',
+      values: cols.map((_, i) => (r.values && r.values[i] !== undefined ? r.values[i] : '')),
+    }));
+    setTableColumns(cols.length > 0 ? cols : ['Mon', 'Wed', 'Fri']);
+    setTableRows(rows.length > 0 ? rows : [{ exercise: '', values: cols.map(() => '') }]);
+  };
+
+  const handleDeleteTable = async (tableId) => {
+    try {
+      await workoutApi.deleteWorkoutTable(tableId);
+      if (activeTableId === tableId) {
+        setActiveTableId(null);
+        setTableName('My Workout Table');
+        setTableColumns(['Mon', 'Wed', 'Fri']);
+        setTableRows([
+          { exercise: 'Bench Press', values: ['', '', ''] },
+          { exercise: 'Squats', values: ['', '', ''] },
+        ]);
+      }
+      fetchWorkoutTables();
+    } catch (err) {
+      console.error('Error deleting workout table:', err);
+    }
+  };
+
+  const handleNewTable = () => {
+    setActiveTableId(null);
+    setTableName('My Workout Table');
+    setTableColumns(['Mon', 'Wed', 'Fri']);
+    setTableRows([
+      { exercise: 'Bench Press', values: ['', '', ''] },
+      { exercise: 'Squats', values: ['', '', ''] },
+    ]);
+  };
+
+  const updateCell = (rowIdx, colIdx, value) => {
+    setTableRows((prev) =>
+      prev.map((row, ri) =>
+        ri === rowIdx
+          ? { ...row, values: row.values.map((v, ci) => (ci === colIdx ? value : v)) }
+          : row
+      )
+    );
+  };
+
+  const updateExerciseName = (rowIdx, value) => {
+    setTableRows((prev) =>
+      prev.map((row, ri) => (ri === rowIdx ? { ...row, exercise: value } : row))
+    );
+  };
+
+  const updateColumnName = (colIdx, value) => {
+    setTableColumns((prev) => prev.map((c, ci) => (ci === colIdx ? value : c)));
+  };
+
+  const addRow = () => {
+    setTableRows((prev) => [...prev, { exercise: '', values: tableColumns.map(() => '') }]);
+  };
+
+  const addColumn = () => {
+    const newCol = `Day ${tableColumns.length + 1}`;
+    setTableColumns((prev) => [...prev, newCol]);
+    setTableRows((prev) => prev.map((row) => ({ ...row, values: [...row.values, ''] })));
+  };
+
+  const removeRow = (rowIdx) => {
+    setTableRows((prev) => prev.filter((_, ri) => ri !== rowIdx));
+  };
+
+  const removeColumn = (colIdx) => {
+    setTableColumns((prev) => prev.filter((_, ci) => ci !== colIdx));
+    setTableRows((prev) =>
+      prev.map((row) => ({ ...row, values: row.values.filter((_, ci) => ci !== colIdx) }))
+    );
+  };
+
   useEffect(() => {
     fetchWorkoutData();
   }, [fetchWorkoutData]);
+
+  useEffect(() => {
+    fetchWorkoutTables();
+  }, [fetchWorkoutTables]);
 
   const handleAddWorkout = async (e) => {
     e.preventDefault();
@@ -350,6 +483,175 @@ export default function WorkoutTracker() {
               </div>
             </Card>
           )}
+
+          {/* Workout Table */}
+          <Card title="Workout Table" subtitle="Spreadsheet-style grid to track exercises across workouts">
+            {tableError && (
+              <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+                {tableError}
+              </div>
+            )}
+
+            {/* Table name + controls */}
+            <div className="flex flex-col sm:flex-row gap-3 mb-4">
+              <input
+                type="text"
+                value={tableName}
+                onChange={(e) => setTableName(e.target.value)}
+                placeholder="Table name..."
+                className="flex-1 px-3 py-2 bg-gray-700 border border-gray-600 rounded-xl text-gray-100 text-sm placeholder-gray-500 focus:outline-none focus:border-primary-500"
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={handleSaveTable}
+                  disabled={tableSaveLoading}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-xl text-sm font-medium transition-colors disabled:opacity-50"
+                >
+                  {tableSaveLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  Save Table
+                </button>
+                <button
+                  onClick={handleNewTable}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-xl text-sm font-medium transition-colors"
+                >
+                  <Plus className="w-4 h-4" />
+                  New
+                </button>
+              </div>
+            </div>
+
+            {/* Spreadsheet grid */}
+            <div className="overflow-x-auto rounded-xl border border-gray-700 mb-4">
+              <table className="w-full text-sm border-collapse">
+                <thead>
+                  <tr className="bg-gray-700/60">
+                    <th className="px-3 py-2 text-left text-gray-400 font-medium border-b border-r border-gray-600 min-w-[140px]">
+                      Exercise
+                    </th>
+                    {tableColumns.map((col, ci) => (
+                      <th key={ci} className="px-2 py-1.5 border-b border-r border-gray-600 min-w-[100px]">
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="text"
+                            value={col}
+                            onChange={(e) => updateColumnName(ci, e.target.value)}
+                            className="w-full bg-transparent text-gray-300 text-xs font-medium text-center focus:outline-none focus:bg-gray-600 rounded px-1"
+                          />
+                          <button
+                            onClick={() => removeColumn(ci)}
+                            className="text-gray-600 hover:text-red-400 transition-colors flex-shrink-0"
+                            title="Remove column"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </th>
+                    ))}
+                    <th className="px-2 py-2 border-b border-gray-600 w-8"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tableRows.map((row, ri) => (
+                    <tr key={ri} className="hover:bg-gray-700/20 transition-colors">
+                      <td className="px-2 py-1.5 border-b border-r border-gray-700">
+                        <input
+                          type="text"
+                          value={row.exercise}
+                          onChange={(e) => updateExerciseName(ri, e.target.value)}
+                          placeholder="Exercise name"
+                          className="w-full bg-transparent text-gray-200 text-sm focus:outline-none focus:bg-gray-700 rounded px-1 py-0.5 placeholder-gray-600"
+                        />
+                      </td>
+                      {tableColumns.map((_, ci) => (
+                        <td key={ci} className="px-2 py-1.5 border-b border-r border-gray-700">
+                          <input
+                            type="text"
+                            value={row.values[ci] || ''}
+                            onChange={(e) => updateCell(ri, ci, e.target.value)}
+                            placeholder="e.g. 80x10"
+                            className="w-full bg-transparent text-gray-300 text-sm text-center focus:outline-none focus:bg-gray-700 rounded px-1 py-0.5 placeholder-gray-600"
+                          />
+                        </td>
+                      ))}
+                      <td className="px-2 py-1.5 border-b border-gray-700 text-center">
+                        <button
+                          onClick={() => removeRow(ri)}
+                          className="text-gray-600 hover:text-red-400 transition-colors"
+                          title="Remove row"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Add row/column buttons */}
+            <div className="flex gap-2 mb-6">
+              <button
+                onClick={addRow}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-primary-400 hover:text-primary-300 hover:bg-primary-500/10 border border-dashed border-primary-500/40 hover:border-primary-400/60 transition-all"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add Row
+              </button>
+              <button
+                onClick={addColumn}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 border border-dashed border-blue-500/40 hover:border-blue-400/60 transition-all"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                Add Column
+              </button>
+            </div>
+
+            {/* Saved tables */}
+            {tableLoading ? (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="w-5 h-5 text-primary-500 animate-spin" />
+              </div>
+            ) : savedTables.length > 0 ? (
+              <div>
+                <h4 className="text-sm font-medium text-gray-400 mb-3">Saved Tables</h4>
+                <div className="space-y-2">
+                  {savedTables.map((table) => (
+                    <div
+                      key={table.id}
+                      className={`flex items-center justify-between p-3 rounded-xl border transition-colors ${
+                        activeTableId === table.id
+                          ? 'border-primary-500/60 bg-primary-500/10'
+                          : 'border-gray-700 hover:border-gray-600'
+                      }`}
+                    >
+                      <div>
+                        <span className="text-sm font-medium text-gray-200">{table.name}</span>
+                        <span className="text-xs text-gray-500 ml-2">
+                          {table.data?.rows?.length || 0} exercises, {table.data?.columns?.length || 0} days
+                        </span>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleLoadTable(table)}
+                          className="px-3 py-1.5 text-xs bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-colors"
+                        >
+                          Load
+                        </button>
+                        <button
+                          onClick={() => handleDeleteTable(table.id)}
+                          className="px-3 py-1.5 text-xs bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg transition-colors"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500 text-center py-4">No saved tables yet. Create one above.</p>
+            )}
+          </Card>
 
           {/* Workout History */}
           <Card title="Recent Workouts" subtitle="Your training history" padding={false}>

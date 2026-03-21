@@ -1721,6 +1721,44 @@ def delete_workout_table(request, table_id):
 
     return JsonResponse({'success': False, 'message': 'Invalid request method'}, status=405)
 
+
+@require_http_methods(["GET"])
+def api_workout_tables(request):
+    """List saved workout tables (React API)"""
+    tables = WorkoutTable.objects.all().order_by('-created_at')
+    return JsonResponse({'tables': [
+        {'id': t.id, 'name': t.name, 'created_at': t.created_at.isoformat(), 'data': t.table_data}
+        for t in tables
+    ]})
+
+
+@require_http_methods(["POST"])
+def api_save_workout_table(request):
+    """Save a workout table (React API)"""
+    data = json.loads(request.body)
+    name = data.get('name', 'Workout Table')
+    table_data = data.get('data', {})
+    table_id = data.get('id')
+
+    if table_id:
+        table = get_object_or_404(WorkoutTable, id=table_id)
+        table.name = name
+        table.table_data = table_data
+        table.save()
+    else:
+        table = WorkoutTable.objects.create(name=name, table_data=table_data)
+
+    return JsonResponse({'success': True, 'id': table.id})
+
+
+@require_http_methods(["DELETE"])
+def api_delete_workout_table(request, table_id):
+    """Delete a workout table (React API)"""
+    table = get_object_or_404(WorkoutTable, id=table_id)
+    table.delete()
+    return JsonResponse({'success': True})
+
+
 def workout_detail(request, workout_id):
     """
     View for a specific workout session.
@@ -5995,3 +6033,79 @@ def api_month_compare(request):
     data_b = get_month_data(month_b)
 
     return JsonResponse({'month_a': data_a, 'month_b': data_b})
+
+
+@require_http_methods(["GET"])
+def api_yearly_trends(request):
+    """Get monthly trends data for yearly view"""
+    import calendar
+    year_param = request.GET.get('year', 'last12')
+    now = timezone.now()
+
+    if year_param == 'last12':
+        # Last 12 months
+        months = []
+        for i in range(11, -1, -1):
+            dt = now - timedelta(days=i*30)
+            months.append((dt.year, dt.month))
+    else:
+        year = int(year_param)
+        months = [(year, m) for m in range(1, 13)]
+
+    from datetime import datetime
+    monthly_data = []
+
+    for year, month in months:
+        _, last_day = calendar.monthrange(year, month)
+        start = timezone.make_aware(datetime(year, month, 1))
+        end = timezone.make_aware(datetime(year, month, last_day, 23, 59, 59))
+
+        food_items = FoodItem.objects.filter(consumed_at__gte=start, consumed_at__lte=end)
+        from django.db.models.functions import TruncDate
+        days_logged = food_items.annotate(day=TruncDate('consumed_at')).values('day').distinct().count()
+
+        totals = food_items.aggregate(
+            total_calories=Sum('calories'),
+            total_protein=Sum('protein'),
+            total_carbs=Sum('carbohydrates'),
+            total_fat=Sum('fat'),
+        )
+
+        total_cal = float(totals['total_calories'] or 0)
+        total_prot = float(totals['total_protein'] or 0)
+        total_carbs = float(totals['total_carbs'] or 0)
+        total_fat = float(totals['total_fat'] or 0)
+
+        # Weight for this month
+        weights = Weight.objects.filter(recorded_at__gte=start, recorded_at__lte=end).order_by('recorded_at')
+        avg_weight = None
+        weight_delta = None
+        if weights.exists():
+            weight_values = [float(w.weight) for w in weights]
+            avg_weight = round(sum(weight_values) / len(weight_values), 1)
+            weight_delta = round(weight_values[-1] - weight_values[0], 2) if len(weight_values) > 1 else 0
+
+        # Top food
+        top_food = (food_items.values('product_name')
+            .annotate(count=Count('id')).order_by('-count').first())
+
+        consistency = round((days_logged / last_day) * 100, 1) if last_day > 0 else 0
+
+        monthly_data.append({
+            'month': f'{year}-{month:02d}',
+            'month_name': calendar.month_abbr[month],
+            'year': year,
+            'days_logged': days_logged,
+            'days_in_month': last_day,
+            'consistency': consistency,
+            'total_calories': total_cal,
+            'avg_calories': round(total_cal / days_logged) if days_logged else 0,
+            'avg_protein': round(total_prot / days_logged, 1) if days_logged else 0,
+            'avg_carbs': round(total_carbs / days_logged, 1) if days_logged else 0,
+            'avg_fat': round(total_fat / days_logged, 1) if days_logged else 0,
+            'avg_weight': avg_weight,
+            'weight_delta': weight_delta,
+            'top_food': top_food['product_name'] if top_food else None,
+        })
+
+    return JsonResponse({'months': monthly_data})

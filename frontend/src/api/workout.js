@@ -32,19 +32,19 @@ export const workoutApi = {
 
   // Get workout tables
   getWorkoutTables: async () => {
-    const response = await apiClient.get('/api/workout-tables/');
+    const response = await apiClient.get('/api/react/workout-tables/');
     return response.data;
   },
 
   // Save workout table
   saveWorkoutTable: async (tableData) => {
-    const response = await apiClient.post('/api/workout-tables/save/', tableData);
+    const response = await apiClient.post('/api/react/workout-tables/add/', tableData);
     return response.data;
   },
 
   // Delete workout table
   deleteWorkoutTable: async (tableId) => {
-    const response = await apiClient.delete(`/api/workout-tables/${tableId}/delete/`);
+    const response = await apiClient.delete(`/api/react/workout-tables/${tableId}/delete/`);
     return response.data;
   },
 
