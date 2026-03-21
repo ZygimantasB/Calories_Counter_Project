@@ -370,6 +370,216 @@ function MonthCompareTab() {
   );
 }
 
+function YearlyTrendsTab() {
+  const currentYear = new Date().getFullYear();
+  const [selectedYear, setSelectedYear] = useState('last12');
+  const [trendsData, setTrendsData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const fetchTrends = useCallback(async (year) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await analyticsApi.getYearlyTrends(year);
+      setTrendsData(result);
+    } catch (err) {
+      console.error('Error fetching yearly trends:', err);
+      setError('Failed to load yearly trends data');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchTrends(selectedYear);
+  }, [fetchTrends, selectedYear]);
+
+  const months = trendsData?.months || [];
+  const activeMonths = months.filter((m) => m.days_logged > 0);
+
+  const totalDaysLogged = months.reduce((sum, m) => sum + m.days_logged, 0);
+  const totalCalories = months.reduce((sum, m) => sum + m.total_calories, 0);
+  const totalProtein = months.reduce((sum, m) => sum + (m.avg_protein * m.days_logged), 0);
+  const mostConsistentMonth = months.reduce(
+    (best, m) => (m.consistency > (best?.consistency || 0) ? m : best),
+    null
+  );
+
+  const yearButtons = [
+    { value: 'last12', label: 'Last 12 Months' },
+    { value: String(currentYear), label: String(currentYear) },
+    { value: String(currentYear - 1), label: String(currentYear - 1) },
+  ];
+
+  return (
+    <div className="space-y-6">
+      {/* Year Selector */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {yearButtons.map((btn) => (
+          <button
+            key={btn.value}
+            onClick={() => setSelectedYear(btn.value)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              selectedYear === btn.value
+                ? 'bg-primary-600 text-white shadow-sm'
+                : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-gray-100'
+            }`}
+          >
+            {btn.label}
+          </button>
+        ))}
+      </div>
+
+      {loading && (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="w-8 h-8 text-primary-500 animate-spin" />
+        </div>
+      )}
+
+      {error && !loading && (
+        <Card className="text-center py-8">
+          <AlertCircle className="w-10 h-10 text-red-500 mx-auto mb-3" />
+          <p className="text-gray-400">{error}</p>
+          <button
+            onClick={() => fetchTrends(selectedYear)}
+            className="mt-4 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg text-sm"
+          >
+            Try Again
+          </button>
+        </Card>
+      )}
+
+      {!loading && !error && trendsData && (
+        <>
+          {/* Summary Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <Card className="bg-gradient-to-br from-green-500/10 to-green-600/5 border-green-500/20">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-400">Total Days Logged</p>
+                  <p className="text-3xl font-bold text-gray-100">{totalDaysLogged}</p>
+                  <p className="text-xs text-gray-500">{activeMonths.length} active months</p>
+                </div>
+                <Calendar className="w-10 h-10 text-green-500 opacity-50" />
+              </div>
+            </Card>
+
+            <Card className="bg-gradient-to-br from-orange-500/10 to-orange-600/5 border-orange-500/20">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-400">Total Calories</p>
+                  <p className="text-3xl font-bold text-gray-100">{Math.round(totalCalories / 1000).toLocaleString()}k</p>
+                  <p className="text-xs text-gray-500">{Math.round(totalCalories).toLocaleString()} kcal</p>
+                </div>
+                <Flame className="w-10 h-10 text-orange-500 opacity-50" />
+              </div>
+            </Card>
+
+            <Card className="bg-gradient-to-br from-red-500/10 to-red-600/5 border-red-500/20">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-400">Total Protein</p>
+                  <p className="text-3xl font-bold text-gray-100">{Math.round(totalProtein / 1000).toLocaleString()}k<span className="text-lg">g</span></p>
+                  <p className="text-xs text-gray-500">{Math.round(totalProtein).toLocaleString()}g total</p>
+                </div>
+                <Beef className="w-10 h-10 text-red-500 opacity-50" />
+              </div>
+            </Card>
+
+            <Card className="bg-gradient-to-br from-yellow-500/10 to-yellow-600/5 border-yellow-500/20">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-400">Most Consistent</p>
+                  {mostConsistentMonth ? (
+                    <>
+                      <p className="text-xl font-bold text-gray-100">
+                        {mostConsistentMonth.month_name} {mostConsistentMonth.year}
+                      </p>
+                      <p className="text-xs text-gray-500">{mostConsistentMonth.consistency}% logged</p>
+                    </>
+                  ) : (
+                    <p className="text-gray-500 text-sm">No data</p>
+                  )}
+                </div>
+                <Trophy className="w-10 h-10 text-yellow-500 opacity-50" />
+              </div>
+            </Card>
+          </div>
+
+          {/* Monthly Breakdown Table */}
+          <Card title="Monthly Breakdown" subtitle="Detailed nutrition and weight data per month">
+            {months.length === 0 ? (
+              <p className="text-gray-500 text-sm text-center py-8">No data available for this period.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-xs text-gray-500 border-b border-gray-700">
+                      <th className="pb-3 pr-4 font-medium whitespace-nowrap">Month</th>
+                      <th className="pb-3 pr-4 font-medium whitespace-nowrap text-right">Days</th>
+                      <th className="pb-3 pr-4 font-medium whitespace-nowrap text-right">Consistency</th>
+                      <th className="pb-3 pr-4 font-medium whitespace-nowrap text-right">Avg Cal</th>
+                      <th className="pb-3 pr-4 font-medium whitespace-nowrap text-right">Avg Protein</th>
+                      <th className="pb-3 pr-4 font-medium whitespace-nowrap text-right">Avg Fat</th>
+                      <th className="pb-3 pr-4 font-medium whitespace-nowrap text-right">Avg Carbs</th>
+                      <th className="pb-3 pr-4 font-medium whitespace-nowrap text-right">Avg Weight</th>
+                      <th className="pb-3 pr-4 font-medium whitespace-nowrap text-right">Weight Delta</th>
+                      <th className="pb-3 font-medium whitespace-nowrap">Top Food</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-800">
+                    {months.map((m) => (
+                      <tr key={m.month} className={`hover:bg-gray-800/50 transition-colors ${m.days_logged === 0 ? 'opacity-40' : ''}`}>
+                        <td className="py-3 pr-4 font-medium text-gray-200 whitespace-nowrap">
+                          {m.month_name} {m.year}
+                        </td>
+                        <td className="py-3 pr-4 text-right text-gray-300 whitespace-nowrap">
+                          {m.days_logged}<span className="text-gray-600">/{m.days_in_month}</span>
+                        </td>
+                        <td className="py-3 pr-4 text-right whitespace-nowrap">
+                          <span className={`font-medium ${m.consistency >= 80 ? 'text-green-400' : m.consistency >= 50 ? 'text-yellow-400' : 'text-gray-400'}`}>
+                            {m.consistency}%
+                          </span>
+                        </td>
+                        <td className="py-3 pr-4 text-right text-orange-400 whitespace-nowrap">
+                          {m.days_logged ? m.avg_calories.toLocaleString() : '—'}
+                        </td>
+                        <td className="py-3 pr-4 text-right text-red-400 whitespace-nowrap">
+                          {m.days_logged ? `${m.avg_protein}g` : '—'}
+                        </td>
+                        <td className="py-3 pr-4 text-right text-yellow-400 whitespace-nowrap">
+                          {m.days_logged ? `${m.avg_fat}g` : '—'}
+                        </td>
+                        <td className="py-3 pr-4 text-right text-blue-400 whitespace-nowrap">
+                          {m.days_logged ? `${m.avg_carbs}g` : '—'}
+                        </td>
+                        <td className="py-3 pr-4 text-right text-gray-300 whitespace-nowrap">
+                          {m.avg_weight != null ? `${m.avg_weight} kg` : '—'}
+                        </td>
+                        <td className="py-3 pr-4 text-right whitespace-nowrap">
+                          {m.weight_delta != null ? (
+                            <span className={m.weight_delta < 0 ? 'text-green-400' : m.weight_delta > 0 ? 'text-red-400' : 'text-gray-500'}>
+                              {m.weight_delta > 0 ? '+' : ''}{m.weight_delta} kg
+                            </span>
+                          ) : '—'}
+                        </td>
+                        <td className="py-3 text-gray-400 max-w-[160px] truncate">
+                          {m.top_food || '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </Card>
+        </>
+      )}
+    </div>
+  );
+}
+
 const PRODUCT_SLOTS = ['Product A', 'Product B', 'Product C (optional)'];
 
 function ProductCompareTab() {
@@ -747,6 +957,7 @@ export default function Analytics() {
         {[
           { value: 'overview', label: 'Overview', icon: BarChart3 },
           { value: 'month_compare', label: 'Month Compare', icon: GitCompare },
+          { value: 'yearly_trends', label: 'Yearly Trends', icon: TrendingUp },
           { value: 'product_compare', label: 'Product Compare', icon: Search },
         ].map(({ value, label, icon: Icon }) => (
           <button
@@ -766,6 +977,9 @@ export default function Analytics() {
 
       {/* Month Compare Tab */}
       {activeTab === 'month_compare' && <MonthCompareTab />}
+
+      {/* Yearly Trends Tab */}
+      {activeTab === 'yearly_trends' && <YearlyTrendsTab />}
 
       {/* Product Compare Tab */}
       {activeTab === 'product_compare' && <ProductCompareTab />}

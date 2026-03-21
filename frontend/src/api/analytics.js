@@ -13,6 +13,11 @@ export const analyticsApi = {
     });
     return response.data;
   },
+
+  getYearlyTrends: async (year = 'last12') => {
+    const response = await apiClient.get('/api/react/analytics/yearly-trends/', { params: { year } });
+    return response.data;
+  },
 };
 
 export default analyticsApi;
