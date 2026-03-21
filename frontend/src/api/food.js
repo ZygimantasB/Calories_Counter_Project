@@ -96,6 +96,14 @@ export const foodApi = {
     const response = await apiClient.post(`/food/${foodItemId}/hide-from-quick-list/`);
     return response.data;
   },
+
+  copyDayFoods: async (sourceDate, targetDate = null) => {
+    const response = await apiClient.post('/api/react/food-items/copy-day/', {
+      source_date: sourceDate,
+      ...(targetDate && { target_date: targetDate }),
+    });
+    return response.data;
+  },
 };
 
 export default foodApi;

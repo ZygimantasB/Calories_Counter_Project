@@ -3,7 +3,7 @@ from datetime import timedelta
 from decimal import Decimal
 from django.test import TestCase, Client
 from django.utils import timezone
-from count_calories_app.models import Weight, RunningSession
+from count_calories_app.models import Weight, RunningSession, FoodItem, BodyMeasurement
 
 
 class WeightEditAPITestCase(TestCase):
@@ -72,3 +72,53 @@ class RunningEditDeleteAPITestCase(TestCase):
     def test_delete_nonexistent_running_returns_404(self):
         response = self.client.delete('/api/react/running-items/99999/delete/')
         self.assertEqual(response.status_code, 404)
+
+
+class CopyDayFoodsAPITestCase(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.yesterday = timezone.now() - timedelta(days=1)
+        FoodItem.objects.create(product_name='Test Food', calories=Decimal('500'), protein=Decimal('30'), carbohydrates=Decimal('50'), fat=Decimal('20'), consumed_at=self.yesterday)
+
+    def test_copy_day_creates_items(self):
+        yesterday_str = self.yesterday.strftime('%Y-%m-%d')
+        response = self.client.post('/api/react/food-items/copy-day/', json.dumps({'source_date': yesterday_str}), content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertEqual(data['copied_count'], 1)
+
+    def test_copy_day_no_items_returns_404(self):
+        response = self.client.post('/api/react/food-items/copy-day/', json.dumps({'source_date': '2020-01-01'}), content_type='application/json')
+        self.assertEqual(response.status_code, 404)
+
+
+class BodyMeasurementAPITestCase(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.measurement = BodyMeasurement.objects.create(
+            date=timezone.now(),
+            chest=Decimal('100.0'),
+            belly=Decimal('85.0'),
+        )
+
+    def test_add_measurement(self):
+        response = self.client.post('/api/react/body-measurements/add/',
+            json.dumps({'chest': 101.0, 'belly': 84.0}),
+            content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertTrue(data['success'])
+
+    def test_update_measurement(self):
+        response = self.client.put(
+            f'/api/react/body-measurements/{self.measurement.id}/update/',
+            json.dumps({'chest': 99.0}),
+            content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        self.measurement.refresh_from_db()
+        self.assertEqual(float(self.measurement.chest), 99.0)
+
+    def test_delete_measurement(self):
+        response = self.client.delete(f'/api/react/body-measurements/{self.measurement.id}/delete/')
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(BodyMeasurement.objects.filter(id=self.measurement.id).exists())

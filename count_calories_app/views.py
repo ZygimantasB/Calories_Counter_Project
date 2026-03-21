@@ -5566,3 +5566,105 @@ def delete_meal_template(request, template_id):
     name = template.name
     template.delete()
     return JsonResponse({'success': True, 'message': f'Template "{name}" deleted'})
+
+
+@require_http_methods(["POST"])
+def api_copy_day_foods(request):
+    """Copy food items from one date to another (React API)"""
+    data = json.loads(request.body)
+    source_date_str = data.get('source_date')
+    target_date_str = data.get('target_date')
+
+    if not source_date_str:
+        return JsonResponse({'success': False, 'message': 'source_date is required'}, status=400)
+
+    from datetime import datetime
+    source_date = datetime.strptime(source_date_str, '%Y-%m-%d').date()
+
+    if target_date_str:
+        target_date = datetime.strptime(target_date_str, '%Y-%m-%d').date()
+    else:
+        target_date = timezone.now().date()
+
+    # Get food items from source date
+    source_start = timezone.make_aware(datetime.combine(source_date, datetime.min.time()))
+    source_end = timezone.make_aware(datetime.combine(source_date, datetime.max.time()))
+    source_items = FoodItem.objects.filter(consumed_at__gte=source_start, consumed_at__lte=source_end)
+
+    if not source_items.exists():
+        return JsonResponse({'success': False, 'message': f'No food items found for {source_date_str}'}, status=404)
+
+    # Copy items to target date
+    copied_count = 0
+    target_datetime = timezone.make_aware(datetime.combine(target_date, datetime.min.time()))
+    for item in source_items:
+        FoodItem.objects.create(
+            product_name=item.product_name,
+            calories=item.calories,
+            fat=item.fat,
+            carbohydrates=item.carbohydrates,
+            protein=item.protein,
+            consumed_at=target_datetime.replace(hour=item.consumed_at.hour, minute=item.consumed_at.minute),
+        )
+        copied_count += 1
+
+    return JsonResponse({'success': True, 'copied_count': copied_count, 'message': f'Copied {copied_count} items to {target_date}'})
+
+
+@require_http_methods(["POST"])
+def api_add_body_measurement(request):
+    """Add a body measurement entry via React API"""
+    data = json.loads(request.body)
+    from django.utils.dateparse import parse_datetime
+
+    date = parse_datetime(data.get('recorded_at', '') or '') or timezone.now()
+
+    measurement = BodyMeasurement.objects.create(
+        date=date,
+        neck=data.get('neck'),
+        chest=data.get('chest'),
+        belly=data.get('belly'),
+        butt=data.get('butt'),
+        left_biceps=data.get('left_biceps'),
+        right_biceps=data.get('right_biceps'),
+        left_triceps=data.get('left_triceps'),
+        right_triceps=data.get('right_triceps'),
+        left_forearm=data.get('left_forearm'),
+        right_forearm=data.get('right_forearm'),
+        left_thigh=data.get('left_thigh'),
+        right_thigh=data.get('right_thigh'),
+        left_lower_leg=data.get('left_calf'),
+        right_lower_leg=data.get('right_calf'),
+        notes=data.get('notes', ''),
+    )
+    return JsonResponse({'success': True, 'id': measurement.id})
+
+
+@require_http_methods(["PUT", "PATCH"])
+def api_update_body_measurement(request, measurement_id):
+    """Update a body measurement entry via React API"""
+    measurement = get_object_or_404(BodyMeasurement, id=measurement_id)
+    data = json.loads(request.body)
+
+    fields = ['neck', 'chest', 'belly', 'butt', 'left_biceps', 'right_biceps',
+              'left_triceps', 'right_triceps', 'left_forearm', 'right_forearm',
+              'left_thigh', 'right_thigh', 'left_lower_leg', 'right_lower_leg', 'notes']
+
+    for field in fields:
+        if field in data:
+            setattr(measurement, field, data[field])
+
+    if 'recorded_at' in data:
+        from django.utils.dateparse import parse_datetime
+        measurement.date = parse_datetime(data['recorded_at']) or measurement.date
+
+    measurement.save()
+    return JsonResponse({'success': True})
+
+
+@require_http_methods(["DELETE"])
+def api_delete_body_measurement(request, measurement_id):
+    """Delete a body measurement entry via React API"""
+    measurement = get_object_or_404(BodyMeasurement, id=measurement_id)
+    measurement.delete()
+    return JsonResponse({'success': True})

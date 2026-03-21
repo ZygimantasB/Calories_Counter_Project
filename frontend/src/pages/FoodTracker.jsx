@@ -741,6 +741,9 @@ export default function FoodTracker() {
             </Card>
           )}
 
+          {/* Copy a Previous Day */}
+          <CopyPreviousDay onCopied={fetchFoodItems} />
+
           {/* Food Items List */}
           <Card title="Food Log" subtitle={`${foodItems.length} items`} padding={false}>
             {/* Search Filter */}
