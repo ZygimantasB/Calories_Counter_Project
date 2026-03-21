@@ -17,14 +17,14 @@ export const bodyMeasurementsApi = {
 
   // Add a measurement
   addMeasurement: async (measurementData) => {
-    const response = await apiClient.post('/body-measurements/', measurementData);
+    const response = await apiClient.post('/api/react/body-measurements/add/', measurementData);
     return response.data;
   },
 
   // Edit a measurement
   editMeasurement: async (measurementId, measurementData) => {
-    const response = await apiClient.post(
-      `/body-measurements/${measurementId}/edit/`,
+    const response = await apiClient.put(
+      `/api/react/body-measurements/${measurementId}/update/`,
       measurementData
     );
     return response.data;
@@ -32,7 +32,7 @@ export const bodyMeasurementsApi = {
 
   // Delete a measurement
   deleteMeasurement: async (measurementId) => {
-    const response = await apiClient.post(`/body-measurements/${measurementId}/delete/`);
+    const response = await apiClient.delete(`/api/react/body-measurements/${measurementId}/delete/`);
     return response.data;
   },
 

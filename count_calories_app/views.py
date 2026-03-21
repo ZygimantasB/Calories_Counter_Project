@@ -5617,7 +5617,7 @@ def api_add_body_measurement(request):
     data = json.loads(request.body)
     from django.utils.dateparse import parse_datetime
 
-    date = parse_datetime(data.get('recorded_at', '') or '') or timezone.now()
+    date = parse_datetime(data.get('recorded_at', '') or data.get('date', '') or '') or timezone.now()
 
     measurement = BodyMeasurement.objects.create(
         date=date,
