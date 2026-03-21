@@ -88,9 +88,9 @@
               <div class="d-flex justify-content-center justify-content-md-start">
                 <form method="get" class="d-flex align-items-center flex-wrap">
                   <label for="start-date" class="me-2">Date Range:</label>
-                  <input type="date" id="start-date" name="start_date" class="form-control form-control-sm me-2" value="{{ start_date_str }}" required>
+                  <input type="date" id="start-date" name="start_date" class="form-control form-control-sm me-2" value="{{ start_date_str|default_if_none:'' }}" required>
                   <label for="end-date" class="me-2">to</label>
-                  <input type="date" id="end-date" name="end_date" class="form-control form-control-sm me-2" value="{{ end_date_str }}" required>
+                  <input type="date" id="end-date" name="end_date" class="form-control form-control-sm me-2" value="{{ end_date_str|default_if_none:'' }}" required>
                   {% if search_query %}<input type="hidden" name="q" value="{{ search_query }}">{% endif %}
                   <button type="submit" class="btn btn-sm btn-success">View Range</button>
                 </form>

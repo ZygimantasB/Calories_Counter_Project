@@ -119,7 +119,7 @@
               <canvas id="weightChart"></canvas>
             </div>
           </div>
-          <small class="text-muted d-block text-center mb-3" id="chart-scroll-hint" style="display: none !important;">
+          <small class="text-muted text-center mb-3" id="chart-scroll-hint" style="display: none;">
             <i class="fas fa-arrows-alt-h me-1"></i>Scroll horizontally to see all data points
           </small>
 
@@ -154,7 +154,7 @@
 
       <div class="card shadow-sm rounded mb-4">
         <div class="card-header bg-info text-white">
-          <h2 class="h5 mb-0">Weight Change Analysis (Last 90 Days)</h2>
+          <h2 class="h5 mb-0" id="weight-analysis-heading">Weight Change Analysis (Last 90 Days)</h2>
         </div>
         <div class="card-body">
           <div class="row text-center mb-3">
@@ -705,6 +705,10 @@
                   document.querySelectorAll('.date-range-btn').forEach(b => b.classList.remove('active'));
                   this.classList.add('active');
 
+                  // Update the analysis heading to match selected range
+                  const heading = document.getElementById('weight-analysis-heading');
+                  if (heading) heading.textContent = 'Weight Change Analysis (' + this.textContent.trim() + ')';
+
                   // Clear custom date inputs
                   document.getElementById('weight-start-date').value = '';
                   document.getElementById('weight-end-date').value = '';
@@ -776,7 +780,7 @@
                               row.innerHTML = `
                   <td>${period}</td>
                   <td class="${weightChangeClass} fw-bold">${weightChangeFormatted}</td>
-                  <td>${item.days_between} days</td>
+                  <td>${item.days_between} ${item.days_between === 1 ? 'day' : 'days'}</td>
                   <td>${Math.round(item.total_calories).toLocaleString()} kcal</td>
                 `;
 

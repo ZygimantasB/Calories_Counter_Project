@@ -261,7 +261,7 @@
           <div class="row">
             <div class="col-md-4 mb-3">
               <label class="form-label">Daily Calorie Target</label>
-              <input type="number" class="form-control" name="daily_calorie_target" value="{{ settings.daily_calorie_target }}" min="500" max="10000" {% if settings.use_auto_macros %}disabled{% endif %}>
+              <input type="number" class="form-control" name="daily_calorie_target" value="{% if settings.use_auto_macros %}{{ effective_targets.calories }}{% else %}{{ settings.daily_calorie_target }}{% endif %}" min="500" max="10000" {% if settings.use_auto_macros %}disabled{% endif %}>
             </div>
             <div class="col-md-4 mb-3">
               <label class="form-label">Target Weight (kg)</label>
@@ -279,15 +279,15 @@
           <div class="row">
             <div class="col-md-4 mb-3">
               <label class="form-label">Protein (g)</label>
-              <input type="number" class="form-control macro-input" name="protein_target" value="{{ settings.protein_target }}" min="0" max="500" {% if settings.use_auto_macros %}disabled{% endif %}>
+              <input type="number" class="form-control macro-input" name="protein_target" value="{% if settings.use_auto_macros %}{{ effective_targets.protein }}{% else %}{{ settings.protein_target }}{% endif %}" min="0" max="500" {% if settings.use_auto_macros %}disabled{% endif %}>
             </div>
             <div class="col-md-4 mb-3">
               <label class="form-label">Carbohydrates (g)</label>
-              <input type="number" class="form-control macro-input" name="carbs_target" value="{{ settings.carbs_target }}" min="0" max="1000" {% if settings.use_auto_macros %}disabled{% endif %}>
+              <input type="number" class="form-control macro-input" name="carbs_target" value="{% if settings.use_auto_macros %}{{ effective_targets.carbs }}{% else %}{{ settings.carbs_target }}{% endif %}" min="0" max="1000" {% if settings.use_auto_macros %}disabled{% endif %}>
             </div>
             <div class="col-md-4 mb-3">
               <label class="form-label">Fat (g)</label>
-              <input type="number" class="form-control macro-input" name="fat_target" value="{{ settings.fat_target }}" min="0" max="500" {% if settings.use_auto_macros %}disabled{% endif %}>
+              <input type="number" class="form-control macro-input" name="fat_target" value="{% if settings.use_auto_macros %}{{ effective_targets.fat }}{% else %}{{ settings.fat_target }}{% endif %}" min="0" max="500" {% if settings.use_auto_macros %}disabled{% endif %}>
             </div>
           </div>
           {% if settings.use_auto_macros %}

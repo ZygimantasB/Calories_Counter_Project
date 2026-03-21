@@ -336,7 +336,7 @@ def food_tracker(request):
         else:
             try:
                 days = int(days_param)
-                start_date = now - timedelta(days=days)
+                start_date = now - timedelta(days=days - 1)
                 start_date = start_date.replace(hour=0, minute=0, second=0, microsecond=0)
                 end_date = now.replace(hour=23, minute=59, second=59, microsecond=999999)
             except ValueError:
@@ -1040,6 +1040,8 @@ def get_calories_trend_data(request):
             end_date = timezone.make_aware(datetime.strptime(end_date_str, '%Y-%m-%d').replace(hour=23, minute=59, second=59))
         except ValueError:
             pass
+    elif time_range == 'today':
+        start_date = end_date.replace(hour=0, minute=0, second=0, microsecond=0)
     elif time_range == 'week':
         start_date = end_date - timedelta(days=7)
     elif time_range == 'month':
@@ -1111,6 +1113,8 @@ def get_macros_trend_data(request):
             end_date = timezone.make_aware(datetime.strptime(end_date_str, '%Y-%m-%d').replace(hour=23, minute=59, second=59))
         except ValueError:
             pass
+    elif time_range == 'today':
+        start_date = end_date.replace(hour=0, minute=0, second=0, microsecond=0)
     elif time_range == 'week':
         start_date = end_date - timedelta(days=7)
     elif time_range == 'month':
@@ -1242,10 +1246,12 @@ def get_weight_data(request):
         else:
             weight_data['stats']['projected_weight'] = latest_weight_value
 
-        weight_goal = 70.0  # Default goal weight
-        if latest_weight_value > weight_goal and weight_data['stats']['change_rate'] < 0:
+        settings = UserSettings.get_settings()
+        weight_goal = float(settings.target_weight) if settings.target_weight else None
+        if weight_goal and latest_weight_value > weight_goal and weight_data['stats']['change_rate'] < 0:
             weeks_to_goal = (latest_weight_value - weight_goal) / abs(weight_data['stats']['change_rate'])
             weight_data['stats']['weeks_to_goal'] = round(weeks_to_goal, 1)
+            weight_data['stats']['weight_goal'] = weight_goal
 
             import datetime
             goal_date = latest_weight.recorded_at + datetime.timedelta(weeks=weeks_to_goal)
@@ -1253,6 +1259,7 @@ def get_weight_data(request):
         else:
             weight_data['stats']['weeks_to_goal'] = 0
             weight_data['stats']['goal_date'] = 'N/A'
+            weight_data['stats']['weight_goal'] = weight_goal
     else:
         weight_data['stats'] = {
             'avg': 0,
@@ -1870,7 +1877,14 @@ def get_running_data(request):
     API endpoint to get running data for charts
     """
     end_date = timezone.now()
-    start_date = end_date - timedelta(days=90)
+    days_param = request.GET.get('days', '90')
+    if days_param == 'all':
+        start_date = None
+    else:
+        try:
+            start_date = end_date - timedelta(days=int(days_param))
+        except ValueError:
+            start_date = end_date - timedelta(days=90)
 
     min_distance = request.GET.get('min_distance', 3)
     try:
@@ -1878,11 +1892,13 @@ def get_running_data(request):
     except ValueError:
         min_distance = 3
 
-    running_sessions = RunningSession.objects.filter(
-        date__gte=start_date,
+    qs = RunningSession.objects.filter(
         date__lte=end_date,
         distance__gte=min_distance
-    ).order_by('date')
+    )
+    if start_date is not None:
+        qs = qs.filter(date__gte=start_date)
+    running_sessions = qs.order_by('date')
 
     stats = {
         'total_distance': 0,
@@ -3391,10 +3407,10 @@ def api_dashboard(request):
             'count': today_stats['count'] or 0,
         },
         'week': {
-            'calories': week_stats['calories'] or 0,
-            'protein': round(week_stats['protein'] or 0, 1),
-            'carbs': round(week_stats['carbs'] or 0, 1),
-            'fat': round(week_stats['fat'] or 0, 1),
+            'calories': float(week_stats['calories'] or 0),
+            'protein': round(float(week_stats['protein'] or 0), 1),
+            'carbs': round(float(week_stats['carbs'] or 0), 1),
+            'fat': round(float(week_stats['fat'] or 0), 1),
             'count': week_stats['count'] or 0,
             'workouts': week_workouts,
             'runs': week_run_stats['count'] or 0,
@@ -4695,7 +4711,7 @@ def api_settings(request):
             'target_weight': float(user_settings.target_weight) if user_settings.target_weight else None,
             'weekly_workout_goal': user_settings.weekly_workout_goal,
             'protein_target': user_settings.protein_target, 'carbs_target': user_settings.carbs_target,
-            'fat_target': user_settings.fat_target, 'bmr': user_settings.calculate_bmr(),
+            'fat_target': user_settings.fat_target, 'bmr': user_settings.calculate_bmr(), 'tdee': user_settings.calculate_bmr(),
         },
         'recommended_macros': recommended_macros,
         'effective_targets': effective_targets,
@@ -4756,7 +4772,7 @@ def api_update_settings(request):
         return JsonResponse({
             'success': True,
             'message': 'Settings updated successfully',
-            'bmr': user_settings.calculate_bmr(),
+            'bmr': user_settings.calculate_bmr(), 'tdee': user_settings.calculate_bmr(),
             'recommended_macros': user_settings.get_recommended_macros(),
             'effective_targets': user_settings.get_effective_targets(),
         })
