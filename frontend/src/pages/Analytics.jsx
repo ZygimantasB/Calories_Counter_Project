@@ -20,6 +20,7 @@ import {
   Trophy,
   Star,
   ChevronRight,
+  GitCompare,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -53,7 +54,322 @@ const COLORS = {
   text: '#9ca3af',
 };
 
+// Generate list of months from Jan 2024 to current month
+function generateMonths() {
+  const months = [];
+  const now = new Date();
+  let year = 2024;
+  let month = 1;
+  while (year < now.getFullYear() || (year === now.getFullYear() && month <= now.getMonth() + 1)) {
+    const value = `${year}-${String(month).padStart(2, '0')}`;
+    const label = new Date(year, month - 1, 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+    months.push({ value, label });
+    month++;
+    if (month > 12) { month = 1; year++; }
+  }
+  return months.reverse();
+}
+
+const ALL_MONTHS = generateMonths();
+
+function getDelta(a, b) {
+  if (a == null || b == null) return null;
+  return b - a;
+}
+
+function DeltaBadge({ delta, unit = '', lowerIsBetter = false }) {
+  if (delta == null) return null;
+  const isPositive = delta > 0;
+  const isGood = lowerIsBetter ? !isPositive : isPositive;
+  if (delta === 0) return <span className="text-xs text-gray-500 ml-1">0{unit}</span>;
+  return (
+    <span className={`text-xs ml-1 flex items-center gap-0.5 ${isGood ? 'text-green-400' : 'text-red-400'}`}>
+      {isPositive ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+      {isPositive ? '+' : ''}{typeof delta === 'number' ? (Number.isInteger(delta) ? delta : delta.toFixed(1)) : delta}{unit}
+    </span>
+  );
+}
+
+function MonthCompareTab() {
+  const now = new Date();
+  const currentMonthVal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const prevMonth = now.getMonth() === 0
+    ? `${now.getFullYear() - 1}-12`
+    : `${now.getFullYear()}-${String(now.getMonth()).padStart(2, '0')}`;
+
+  const [monthA, setMonthA] = useState(prevMonth);
+  const [monthB, setMonthB] = useState(currentMonthVal);
+  const [compareData, setCompareData] = useState(null);
+  const [comparing, setComparing] = useState(false);
+  const [compareError, setCompareError] = useState(null);
+
+  const handleCompare = async () => {
+    try {
+      setComparing(true);
+      setCompareError(null);
+      const result = await analyticsApi.getMonthCompare(monthA, monthB);
+      setCompareData(result);
+    } catch (err) {
+      console.error('Error fetching month compare:', err);
+      setCompareError('Failed to load comparison data');
+    } finally {
+      setComparing(false);
+    }
+  };
+
+  const mA = compareData?.month_a;
+  const mB = compareData?.month_b;
+
+  const formatMonth = (str) => {
+    if (!str) return '';
+    const [y, m] = str.split('-');
+    return new Date(parseInt(y), parseInt(m) - 1, 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Selectors */}
+      <Card title="Compare Months" subtitle="Select two months to compare nutrition data">
+        <div className="flex flex-col sm:flex-row gap-4 items-end">
+          <div className="flex-1">
+            <label className="block text-sm text-gray-400 mb-1">Month A</label>
+            <select
+              value={monthA}
+              onChange={(e) => setMonthA(e.target.value)}
+              className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-gray-200 focus:outline-none focus:border-primary-500"
+            >
+              {ALL_MONTHS.map((m) => (
+                <option key={m.value} value={m.value}>{m.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex-1">
+            <label className="block text-sm text-gray-400 mb-1">Month B</label>
+            <select
+              value={monthB}
+              onChange={(e) => setMonthB(e.target.value)}
+              className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-gray-200 focus:outline-none focus:border-primary-500"
+            >
+              {ALL_MONTHS.map((m) => (
+                <option key={m.value} value={m.value}>{m.label}</option>
+              ))}
+            </select>
+          </div>
+          <button
+            onClick={handleCompare}
+            disabled={comparing || monthA === monthB}
+            className="px-6 py-2 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+          >
+            {comparing ? <Loader2 className="w-4 h-4 animate-spin" /> : <GitCompare className="w-4 h-4" />}
+            {comparing ? 'Comparing...' : 'Compare'}
+          </button>
+        </div>
+        {monthA === monthB && (
+          <p className="text-sm text-yellow-400 mt-2">Please select two different months to compare.</p>
+        )}
+      </Card>
+
+      {compareError && (
+        <Card className="text-center py-8">
+          <AlertCircle className="w-10 h-10 text-red-500 mx-auto mb-3" />
+          <p className="text-gray-400">{compareError}</p>
+        </Card>
+      )}
+
+      {compareData && mA && mB && (
+        <>
+          {/* Overview Cards */}
+          <div>
+            <h2 className="text-lg font-semibold text-gray-200 mb-4">Overview Comparison</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Days Logged */}
+              <Card className="bg-gradient-to-br from-green-500/10 to-green-600/5 border-green-500/20">
+                <p className="text-sm text-gray-400 mb-2">Days Logged</p>
+                <div className="flex items-end justify-between">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-0.5">{formatMonth(mA.month)}</p>
+                    <p className="text-2xl font-bold text-gray-100">{mA.days_logged}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500 mb-0.5">{formatMonth(mB.month)}</p>
+                    <p className="text-2xl font-bold text-gray-100">{mB.days_logged}</p>
+                    <DeltaBadge delta={getDelta(mA.days_logged, mB.days_logged)} />
+                  </div>
+                </div>
+              </Card>
+
+              {/* Avg Calories */}
+              <Card className="bg-gradient-to-br from-orange-500/10 to-orange-600/5 border-orange-500/20">
+                <p className="text-sm text-gray-400 mb-2">Avg Daily Calories</p>
+                <div className="flex items-end justify-between">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-0.5">{formatMonth(mA.month)}</p>
+                    <p className="text-2xl font-bold text-gray-100">{mA.avg_calories}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500 mb-0.5">{formatMonth(mB.month)}</p>
+                    <p className="text-2xl font-bold text-gray-100">{mB.avg_calories}</p>
+                    <DeltaBadge delta={getDelta(mA.avg_calories, mB.avg_calories)} unit=" kcal" />
+                  </div>
+                </div>
+              </Card>
+
+              {/* Total Calories */}
+              <Card className="bg-gradient-to-br from-amber-500/10 to-amber-600/5 border-amber-500/20">
+                <p className="text-sm text-gray-400 mb-2">Total Calories</p>
+                <div className="flex items-end justify-between">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-0.5">{formatMonth(mA.month)}</p>
+                    <p className="text-2xl font-bold text-gray-100">{Math.round(mA.total_calories).toLocaleString()}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500 mb-0.5">{formatMonth(mB.month)}</p>
+                    <p className="text-2xl font-bold text-gray-100">{Math.round(mB.total_calories).toLocaleString()}</p>
+                    <DeltaBadge delta={getDelta(mA.total_calories, mB.total_calories)} unit=" kcal" />
+                  </div>
+                </div>
+              </Card>
+
+              {/* Avg Protein */}
+              <Card className="bg-gradient-to-br from-red-500/10 to-red-600/5 border-red-500/20">
+                <p className="text-sm text-gray-400 mb-2">Avg Daily Protein</p>
+                <div className="flex items-end justify-between">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-0.5">{formatMonth(mA.month)}</p>
+                    <p className="text-2xl font-bold text-gray-100">{mA.avg_protein}g</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500 mb-0.5">{formatMonth(mB.month)}</p>
+                    <p className="text-2xl font-bold text-gray-100">{mB.avg_protein}g</p>
+                    <DeltaBadge delta={getDelta(mA.avg_protein, mB.avg_protein)} unit="g" />
+                  </div>
+                </div>
+              </Card>
+
+              {/* Avg Fat */}
+              <Card className="bg-gradient-to-br from-yellow-500/10 to-yellow-600/5 border-yellow-500/20">
+                <p className="text-sm text-gray-400 mb-2">Avg Daily Fat</p>
+                <div className="flex items-end justify-between">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-0.5">{formatMonth(mA.month)}</p>
+                    <p className="text-2xl font-bold text-gray-100">{mA.avg_fat}g</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500 mb-0.5">{formatMonth(mB.month)}</p>
+                    <p className="text-2xl font-bold text-gray-100">{mB.avg_fat}g</p>
+                    <DeltaBadge delta={getDelta(mA.avg_fat, mB.avg_fat)} unit="g" lowerIsBetter />
+                  </div>
+                </div>
+              </Card>
+
+              {/* Avg Carbs */}
+              <Card className="bg-gradient-to-br from-blue-500/10 to-blue-600/5 border-blue-500/20">
+                <p className="text-sm text-gray-400 mb-2">Avg Daily Carbs</p>
+                <div className="flex items-end justify-between">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-0.5">{formatMonth(mA.month)}</p>
+                    <p className="text-2xl font-bold text-gray-100">{mA.avg_carbs}g</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-gray-500 mb-0.5">{formatMonth(mB.month)}</p>
+                    <p className="text-2xl font-bold text-gray-100">{mB.avg_carbs}g</p>
+                    <DeltaBadge delta={getDelta(mA.avg_carbs, mB.avg_carbs)} unit="g" />
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </div>
+
+          {/* Weight Comparison */}
+          {(mA.weight || mB.weight) && (
+            <Card title="Weight Comparison" subtitle="Body weight data for each month">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {[{ data: mA, label: formatMonth(mA.month) }, { data: mB, label: formatMonth(mB.month) }].map(({ data: md, label }) => (
+                  <div key={label} className="bg-gray-800/50 rounded-lg p-4">
+                    <p className="font-semibold text-gray-200 mb-3">{label}</p>
+                    {md.weight ? (
+                      <div className="grid grid-cols-3 gap-3 text-center">
+                        <div>
+                          <p className="text-lg font-bold text-primary-400">{md.weight.avg} kg</p>
+                          <p className="text-xs text-gray-500">Avg</p>
+                        </div>
+                        <div>
+                          <p className="text-lg font-bold text-gray-200">{md.weight.start} kg</p>
+                          <p className="text-xs text-gray-500">Start</p>
+                        </div>
+                        <div>
+                          <p className="text-lg font-bold text-gray-200">{md.weight.end} kg</p>
+                          <p className="text-xs text-gray-500">End</p>
+                        </div>
+                        <div>
+                          <p className={`text-lg font-bold ${md.weight.change < 0 ? 'text-green-400' : 'text-red-400'}`}>
+                            {md.weight.change > 0 ? '+' : ''}{md.weight.change} kg
+                          </p>
+                          <p className="text-xs text-gray-500">Change</p>
+                        </div>
+                        <div>
+                          <p className="text-lg font-bold text-blue-400">{md.weight.min} kg</p>
+                          <p className="text-xs text-gray-500">Min</p>
+                        </div>
+                        <div>
+                          <p className="text-lg font-bold text-orange-400">{md.weight.max} kg</p>
+                          <p className="text-xs text-gray-500">Max</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-gray-500 text-sm">No weight data recorded</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {/* Top Foods Comparison */}
+          {(mA.top_foods?.length > 0 || mB.top_foods?.length > 0) && (
+            <Card title="Top Foods Comparison" subtitle="Most frequently eaten foods">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {[{ data: mA, label: formatMonth(mA.month) }, { data: mB, label: formatMonth(mB.month) }].map(({ data: md, label }) => (
+                  <div key={label}>
+                    <p className="font-semibold text-gray-300 mb-3">{label}</p>
+                    {md.top_foods?.length > 0 ? (
+                      <div className="space-y-2">
+                        {md.top_foods.map((food, idx) => (
+                          <div key={idx} className="flex items-center justify-between py-1.5 border-b border-gray-800">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <span className="text-xs text-gray-600 w-5 shrink-0">{idx + 1}.</span>
+                              <span className="text-sm text-gray-200 truncate">{food.product_name}</span>
+                            </div>
+                            <div className="flex items-center gap-3 shrink-0 ml-2">
+                              <span className="text-xs text-gray-400">{food.count}x</span>
+                              <span className="text-xs text-orange-400">{Math.round(food.total_cal)} kcal</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-gray-500 text-sm">No food data</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+        </>
+      )}
+
+      {!compareData && !comparing && !compareError && (
+        <Card className="text-center py-12">
+          <GitCompare className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+          <p className="text-gray-400">Select two months and click Compare to see the breakdown.</p>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 export default function Analytics() {
+  const [activeTab, setActiveTab] = useState('overview');
   const [timeRange, setTimeRange] = useState('90');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -151,37 +467,66 @@ export default function Analytics() {
           <h1 className="text-2xl font-bold text-gray-100">Analytics</h1>
           <p className="text-gray-400 mt-1">Deep insights into your health journey</p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex gap-1 p-1 bg-gray-700 rounded-lg">
-            {[
-              { value: '7', label: '1W' },
-              { value: '30', label: '1M' },
-              { value: '90', label: '3M' },
-              { value: '180', label: '6M' },
-              { value: '365', label: '1Y' },
-              { value: 'all', label: 'All' },
-            ].map((range) => (
-              <button
-                key={range.value}
-                onClick={() => setTimeRange(range.value)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-                  timeRange === range.value
-                    ? 'bg-gray-600 text-gray-100 shadow-sm'
-                    : 'text-gray-400 hover:text-gray-200'
-                }`}
-              >
-                {range.label}
-              </button>
-            ))}
+        {activeTab === 'overview' && (
+          <div className="flex items-center gap-3">
+            <div className="flex gap-1 p-1 bg-gray-700 rounded-lg">
+              {[
+                { value: '7', label: '1W' },
+                { value: '30', label: '1M' },
+                { value: '90', label: '3M' },
+                { value: '180', label: '6M' },
+                { value: '365', label: '1Y' },
+                { value: 'all', label: 'All' },
+              ].map((range) => (
+                <button
+                  key={range.value}
+                  onClick={() => setTimeRange(range.value)}
+                  className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                    timeRange === range.value
+                      ? 'bg-gray-600 text-gray-100 shadow-sm'
+                      : 'text-gray-400 hover:text-gray-200'
+                  }`}
+                >
+                  {range.label}
+                </button>
+              ))}
+            </div>
+            {streaks.current_streak > 0 && (
+              <Badge className="bg-orange-500/20 text-orange-400 border-0 px-3 py-1">
+                <Zap className="w-3.5 h-3.5 mr-1" />
+                {streaks.current_streak} day streak
+              </Badge>
+            )}
           </div>
-          {streaks.current_streak > 0 && (
-            <Badge className="bg-orange-500/20 text-orange-400 border-0 px-3 py-1">
-              <Zap className="w-3.5 h-3.5 mr-1" />
-              {streaks.current_streak} day streak
-            </Badge>
-          )}
-        </div>
+        )}
       </div>
+
+      {/* Tab Navigation */}
+      <div className="flex gap-1 p-1 bg-gray-800 rounded-xl border border-gray-700 w-fit">
+        {[
+          { value: 'overview', label: 'Overview', icon: BarChart3 },
+          { value: 'month_compare', label: 'Month Compare', icon: GitCompare },
+        ].map(({ value, label, icon: Icon }) => (
+          <button
+            key={value}
+            onClick={() => setActiveTab(value)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              activeTab === value
+                ? 'bg-primary-600 text-white shadow-sm'
+                : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700'
+            }`}
+          >
+            <Icon className="w-4 h-4" />
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Month Compare Tab */}
+      {activeTab === 'month_compare' && <MonthCompareTab />}
+
+      {/* Overview Tab */}
+      {activeTab === 'overview' && <>
 
       {/* Weekly Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -722,6 +1067,8 @@ export default function Analytics() {
           </div>
         </Card>
       )}
+
+      </> /* end overview tab */}
     </div>
   );
 }
