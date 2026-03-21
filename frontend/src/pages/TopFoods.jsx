@@ -22,18 +22,45 @@ import {
 } from 'recharts';
 import { Card, Badge, Button } from '../components/ui';
 import CSVDownloadButton from '../components/CSVDownloadButton';
+import DateRangeFilter from '../components/DateRangeFilter';
 import { foodApi } from '../api';
+
+function filterToDays(filter) {
+  if (!filter) return 30;
+  if (filter.type === 'days') return filter.days;
+  if (filter.type === 'today') return 1;
+  if (filter.type === 'range_name') {
+    if (filter.name === 'week') return 7;
+    if (filter.name === 'month') return 30;
+  }
+  return 30;
+}
 
 export default function TopFoods() {
   const [activeTab, setActiveTab] = useState('calories');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [data, setData] = useState(null);
+  const [dateFilter, setDateFilter] = useState({ type: 'days', days: 30 });
+  const [sortBy, setSortBy] = useState('calories');
+  const [sortDir, setSortDir] = useState('desc');
+
+  const days = filterToDays(dateFilter);
+
+  const handleSort = (field) => {
+    if (sortBy === field) {
+      setSortDir((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortBy(field);
+      setSortDir('desc');
+    }
+  };
 
   const fetchTopFoods = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await foodApi.getTopFoods({ days: 30 });
+      setError(null);
+      const response = await foodApi.getTopFoods({ days, sort: sortBy });
       setData(response);
     } catch (err) {
       console.error('Error fetching top foods:', err);
@@ -41,7 +68,7 @@ export default function TopFoods() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [days, sortBy]);
 
   useEffect(() => {
     fetchTopFoods();
@@ -65,6 +92,44 @@ export default function TopFoods() {
     }
   };
 
+  // Unified list combining all foods from all lists (by_calories is most complete)
+  const allFoods = data?.by_calories || [];
+
+  // Client-side sort the active list by sortBy / sortDir
+  const sortedActiveData = [...getActiveData()].sort((a, b) => {
+    let aVal, bVal;
+    switch (sortBy) {
+      case 'name':
+        aVal = (a.name || '').toLowerCase();
+        bVal = (b.name || '').toLowerCase();
+        return sortDir === 'asc'
+          ? aVal.localeCompare(bVal)
+          : bVal.localeCompare(aVal);
+      case 'count':
+        aVal = a.count || 0;
+        bVal = b.count || 0;
+        break;
+      case 'protein':
+        aVal = a.total_protein || 0;
+        bVal = b.total_protein || 0;
+        break;
+      case 'fat':
+        aVal = a.total_fat || 0;
+        bVal = b.total_fat || 0;
+        break;
+      case 'carbs':
+        aVal = a.total_carbs || 0;
+        bVal = b.total_carbs || 0;
+        break;
+      case 'calories':
+      default:
+        aVal = a.total_calories || 0;
+        bVal = b.total_calories || 0;
+        break;
+    }
+    return sortDir === 'asc' ? aVal - bVal : bVal - aVal;
+  });
+
   const getRankBadge = (index) => {
     if (index === 0) return { variant: 'warning', icon: Trophy };
     if (index === 1) return { variant: 'default', icon: Award };
@@ -81,6 +146,14 @@ export default function TopFoods() {
     calories: food.total_calories || 0,
   }));
 
+  // Summary statistics computed from all by_calories entries
+  const uniqueFoodsCount = allFoods.length;
+  const totalTimesEaten = allFoods.reduce((sum, f) => sum + (f.count || 0), 0);
+  const totalCalories = allFoods.reduce((sum, f) => sum + (f.total_calories || 0), 0);
+  const totalProtein = allFoods.reduce((sum, f) => sum + (f.total_protein || 0), 0);
+  const totalFat = allFoods.reduce((sum, f) => sum + (f.total_fat || 0), 0);
+  const totalCarbs = allFoods.reduce((sum, f) => sum + (f.total_carbs || 0), 0);
+
   return (
     <div className="space-y-6 animate-in">
       {/* Header */}
@@ -93,9 +166,18 @@ export default function TopFoods() {
         </div>
         <CSVDownloadButton
           endpoint="/top_foods/"
-          params={{ days: '30' }}
+          params={{ days: String(days) }}
         />
       </div>
+
+      {/* Date Range Filter */}
+      <Card>
+        <DateRangeFilter
+          value={dateFilter}
+          onChange={setDateFilter}
+          showDatePicker={false}
+        />
+      </Card>
 
       {loading ? (
         <div className="flex items-center justify-center py-12">
@@ -111,7 +193,35 @@ export default function TopFoods() {
         </Card>
       ) : (
         <>
-          {/* Summary Stats */}
+          {/* Summary Stats Row */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div className="bg-gray-700/50 rounded-xl p-3 text-center">
+              <div className="text-xl font-bold text-gray-100">{uniqueFoodsCount}</div>
+              <div className="text-xs text-gray-400">Unique Foods</div>
+            </div>
+            <div className="bg-gray-700/50 rounded-xl p-3 text-center">
+              <div className="text-xl font-bold text-gray-100">{totalTimesEaten}</div>
+              <div className="text-xs text-gray-400">Times Eaten</div>
+            </div>
+            <div className="bg-gray-700/50 rounded-xl p-3 text-center">
+              <div className="text-xl font-bold text-orange-400">{totalCalories.toLocaleString()}</div>
+              <div className="text-xs text-gray-400">Total Calories</div>
+            </div>
+            <div className="bg-gray-700/50 rounded-xl p-3 text-center">
+              <div className="text-xl font-bold text-red-400">{Math.round(totalProtein).toLocaleString()}g</div>
+              <div className="text-xs text-gray-400">Total Protein</div>
+            </div>
+            <div className="bg-gray-700/50 rounded-xl p-3 text-center">
+              <div className="text-xl font-bold text-yellow-400">{Math.round(totalFat).toLocaleString()}g</div>
+              <div className="text-xs text-gray-400">Total Fat</div>
+            </div>
+            <div className="bg-gray-700/50 rounded-xl p-3 text-center">
+              <div className="text-xl font-bold text-blue-400">{Math.round(totalCarbs).toLocaleString()}g</div>
+              <div className="text-xs text-gray-400">Total Carbs</div>
+            </div>
+          </div>
+
+          {/* Top-3 Highlight Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card className="bg-gradient-to-br from-orange-500 to-orange-600 border-0 text-white">
               <div className="flex items-center gap-4">
@@ -216,11 +326,29 @@ export default function TopFoods() {
             ))}
           </div>
 
+          {/* Sort Controls */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            {['count', 'name', 'calories', 'protein', 'fat', 'carbs'].map((field) => (
+              <button
+                key={field}
+                onClick={() => handleSort(field)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  sortBy === field
+                    ? 'bg-primary-500 text-white'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                }`}
+              >
+                {field.charAt(0).toUpperCase() + field.slice(1)}
+                {sortBy === field && (sortDir === 'asc' ? ' \u2191' : ' \u2193')}
+              </button>
+            ))}
+          </div>
+
           {/* Top Foods List */}
           <Card title="Rankings" subtitle="Based on your food log" padding={false}>
-            {getActiveData().length > 0 ? (
+            {sortedActiveData.length > 0 ? (
               <div className="divide-y divide-gray-700">
-                {getActiveData().map((food, index) => {
+                {sortedActiveData.map((food, index) => {
                   const rankBadge = getRankBadge(index);
 
                   return (
