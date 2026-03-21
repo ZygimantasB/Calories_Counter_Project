@@ -786,6 +786,82 @@ export default function FoodTracker() {
             </Card>
           </div>
 
+          {/* Nutrition Overview (multi-day) */}
+          {!isSingleDayFilter(dateFilter) && (() => {
+            const daysCount = estimateDaysCount(dateFilter);
+            const totalCals = Math.round(totals.calories);
+            const totalProtein = Math.round(totals.protein);
+            const totalCarbs = Math.round(totals.carbs);
+            const totalFat = Math.round(totals.fat);
+
+            const calFromProtein = totals.protein * 4;
+            const calFromCarbs = totals.carbs * 4;
+            const calFromFat = totals.fat * 9;
+            const calFromMacros = calFromProtein + calFromCarbs + calFromFat;
+
+            const pctProteinCal = calFromMacros > 0 ? Math.round((calFromProtein / calFromMacros) * 100) : 0;
+            const pctCarbsCal = calFromMacros > 0 ? Math.round((calFromCarbs / calFromMacros) * 100) : 0;
+            const pctFatCal = calFromMacros > 0 ? Math.round((calFromFat / calFromMacros) * 100) : 0;
+
+            const totalMacroWeight = totals.protein + totals.carbs + totals.fat;
+            const pctProteinW = totalMacroWeight > 0 ? Math.round((totals.protein / totalMacroWeight) * 100) : 0;
+            const pctCarbsW = totalMacroWeight > 0 ? Math.round((totals.carbs / totalMacroWeight) * 100) : 0;
+            const pctFatW = totalMacroWeight > 0 ? Math.round((totals.fat / totalMacroWeight) * 100) : 0;
+
+            const avgCals = daysCount ? Math.round(totals.calories / daysCount) : totalCals;
+            const avgProtein = daysCount ? Math.round(totals.protein / daysCount) : totalProtein;
+            const avgCarbs = daysCount ? Math.round(totals.carbs / daysCount) : totalCarbs;
+            const avgFat = daysCount ? Math.round(totals.fat / daysCount) : totalFat;
+
+            return (
+              <Card title="Nutrition Overview">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="text-center p-4 rounded-xl bg-orange-500/10">
+                    <div className="text-3xl font-bold text-gray-100">{totalCals.toLocaleString()}</div>
+                    <div className="text-sm text-gray-400">Total Calories</div>
+                  </div>
+                  <div className="text-center p-4 rounded-xl bg-red-500/10">
+                    <div className="text-3xl font-bold text-gray-100">{totalProtein}g</div>
+                    <div className="text-sm text-gray-400">Protein</div>
+                    <div className="text-xs text-gray-500 mt-1">{pctProteinCal}% cal · {pctProteinW}% wt</div>
+                  </div>
+                  <div className="text-center p-4 rounded-xl bg-orange-500/10">
+                    <div className="text-3xl font-bold text-gray-100">{totalCarbs}g</div>
+                    <div className="text-sm text-gray-400">Carbs</div>
+                    <div className="text-xs text-gray-500 mt-1">{pctCarbsCal}% cal · {pctCarbsW}% wt</div>
+                  </div>
+                  <div className="text-center p-4 rounded-xl bg-yellow-500/10">
+                    <div className="text-3xl font-bold text-gray-100">{totalFat}g</div>
+                    <div className="text-sm text-gray-400">Fat</div>
+                    <div className="text-xs text-gray-500 mt-1">{pctFatCal}% cal · {pctFatW}% wt</div>
+                  </div>
+                </div>
+                <hr className="border-gray-700 my-4" />
+                <h5 className="text-sm font-medium text-gray-300 mb-3">
+                  Daily Averages{daysCount ? ` (${daysCount} days)` : ''}
+                </h5>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-gray-100">{avgCals.toLocaleString()}</div>
+                    <div className="text-sm text-gray-400">kcal / day</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-gray-100">{avgProtein}g</div>
+                    <div className="text-sm text-gray-400">protein / day</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-gray-100">{avgCarbs}g</div>
+                    <div className="text-sm text-gray-400">carbs / day</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-gray-100">{avgFat}g</div>
+                    <div className="text-sm text-gray-400">fat / day</div>
+                  </div>
+                </div>
+              </Card>
+            );
+          })()}
+
           {/* Quick Add */}
           {quickAddFoods.length > 0 && (
             <Card title="Quick Add" subtitle="Recently logged foods">
@@ -855,6 +931,11 @@ export default function FoodTracker() {
                         <span>P: {Math.round(item.protein)}g</span>
                         <span>C: {Math.round(item.carbs)}g</span>
                         <span>F: {Math.round(item.fat)}g</span>
+                        {!isSingleDayFilter(dateFilter) && item.consumed_at && (
+                          <span className="text-xs text-gray-600">
+                            {format(parseISO(item.consumed_at), 'MMM d')}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-3">

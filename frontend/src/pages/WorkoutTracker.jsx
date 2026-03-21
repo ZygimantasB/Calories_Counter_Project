@@ -12,6 +12,9 @@ import {
   Timer,
   Loader2,
   AlertCircle,
+  X,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
 import {
   BarChart,
@@ -26,12 +29,31 @@ import { format, parseISO } from 'date-fns';
 import { Card, Button, Badge } from '../components/ui';
 import { workoutApi } from '../api';
 
+const emptyForm = {
+  name: '',
+  date: format(new Date(), 'yyyy-MM-dd'),
+  notes: '',
+};
+
 export default function WorkoutTracker() {
   const [workouts, setWorkouts] = useState([]);
   const [exercises, setExercises] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Add modal
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addForm, setAddForm] = useState(emptyForm);
+  const [addLoading, setAddLoading] = useState(false);
+
+  // Edit modal
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editForm, setEditForm] = useState(null);
+  const [editLoading, setEditLoading] = useState(false);
+
+  // Delete confirm
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
 
   const fetchWorkoutData = useCallback(async () => {
     try {
@@ -40,7 +62,7 @@ export default function WorkoutTracker() {
         workoutApi.getWorkouts({ days: 30 }),
         workoutApi.getExercises(),
       ]);
-      setWorkouts(workoutsRes.workouts || []);
+      setWorkouts(workoutsRes.items || workoutsRes.workouts || []);
       setStats(workoutsRes.stats || null);
       setExercises(exercisesRes.exercises || []);
     } catch (err) {
@@ -54,6 +76,65 @@ export default function WorkoutTracker() {
   useEffect(() => {
     fetchWorkoutData();
   }, [fetchWorkoutData]);
+
+  const handleAddWorkout = async (e) => {
+    e.preventDefault();
+    try {
+      setAddLoading(true);
+      await workoutApi.add({
+        name: addForm.name || 'Workout',
+        date: addForm.date ? addForm.date + 'T00:00:00' : undefined,
+        notes: addForm.notes,
+      });
+      setShowAddModal(false);
+      setAddForm(emptyForm);
+      fetchWorkoutData();
+    } catch (err) {
+      console.error('Error adding workout:', err);
+    } finally {
+      setAddLoading(false);
+    }
+  };
+
+  const openEditModal = (workout) => {
+    setEditForm({
+      id: workout.id,
+      name: workout.name || '',
+      date: workout.date ? workout.date.split('T')[0] : format(new Date(), 'yyyy-MM-dd'),
+      notes: workout.notes || '',
+    });
+    setShowEditModal(true);
+  };
+
+  const handleEditWorkout = async (e) => {
+    e.preventDefault();
+    if (!editForm) return;
+    try {
+      setEditLoading(true);
+      await workoutApi.update(editForm.id, {
+        name: editForm.name || 'Workout',
+        date: editForm.date ? editForm.date + 'T00:00:00' : undefined,
+        notes: editForm.notes,
+      });
+      setShowEditModal(false);
+      setEditForm(null);
+      fetchWorkoutData();
+    } catch (err) {
+      console.error('Error updating workout:', err);
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const handleDeleteWorkout = async (workoutId) => {
+    try {
+      await workoutApi.delete(workoutId);
+      setShowDeleteConfirm(null);
+      fetchWorkoutData();
+    } catch (err) {
+      console.error('Error deleting workout:', err);
+    }
+  };
 
   const totalWorkouts = stats?.total_workouts || workouts.length;
   const avgDuration = stats?.avg_duration || (
@@ -74,7 +155,7 @@ export default function WorkoutTracker() {
             Track your strength training progress
           </p>
         </div>
-        <Button icon={Plus}>Start Workout</Button>
+        <Button icon={Plus} onClick={() => setShowAddModal(true)}>Start Workout</Button>
       </div>
 
       {loading ? (
@@ -167,7 +248,7 @@ export default function WorkoutTracker() {
                 {workouts.map((workout) => (
                   <div
                     key={workout.id}
-                    className="p-4 flex items-center justify-between hover:bg-gray-700/30 transition-colors cursor-pointer group"
+                    className="p-4 flex items-center justify-between hover:bg-gray-700/30 transition-colors group"
                   >
                     <div className="flex items-center gap-4">
                       <div className="w-12 h-12 rounded-xl bg-purple-500/20 flex items-center justify-center">
@@ -181,27 +262,43 @@ export default function WorkoutTracker() {
                           </Badge>
                         </div>
                         <p className="text-sm text-gray-500">
-                          {format(parseISO(workout.date), 'EEEE, MMMM d')}
+                          {workout.date ? format(parseISO(workout.date), 'EEEE, MMMM d') : 'Unknown date'}
                         </p>
+                        {workout.notes && (
+                          <p className="text-xs text-gray-600 mt-0.5 truncate max-w-xs">{workout.notes}</p>
+                        )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-3">
                       <div className="hidden md:flex items-center gap-6 text-sm text-gray-400">
                         <div className="flex items-center gap-1">
                           <Timer className="w-4 h-4" />
-                          {workout.duration} min
+                          {workout.duration || 0} min
                         </div>
                         <div className="flex items-center gap-1">
                           <Dumbbell className="w-4 h-4" />
-                          {workout.exercises_count || 0} exercises
+                          {workout.exercise_count || workout.exercises_count || 0} exercises
                         </div>
-                        {workout.volume && (
+                        {workout.total_volume > 0 && (
                           <div>
-                            {(workout.volume / 1000).toFixed(1)}k kg
+                            {(workout.total_volume / 1000).toFixed(1)}k kg
                           </div>
                         )}
                       </div>
-                      <ChevronRight className="w-5 h-5 text-gray-600 group-hover:text-gray-400" />
+                      <button
+                        onClick={() => openEditModal(workout)}
+                        className="p-1.5 rounded-lg text-gray-500 hover:text-blue-400 hover:bg-blue-500/10 transition-colors opacity-0 group-hover:opacity-100"
+                        title="Edit workout"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => setShowDeleteConfirm(workout.id)}
+                        className="p-1.5 rounded-lg text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100"
+                        title="Delete workout"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -213,6 +310,7 @@ export default function WorkoutTracker() {
                   variant="ghost"
                   icon={Plus}
                   className="mt-4"
+                  onClick={() => setShowAddModal(true)}
                 >
                   Start your first workout
                 </Button>
@@ -220,6 +318,180 @@ export default function WorkoutTracker() {
             )}
           </Card>
         </>
+      )}
+
+      {/* Add Workout Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-2xl w-full max-w-md shadow-2xl border border-gray-700">
+            <div className="flex items-center justify-between p-6 border-b border-gray-700">
+              <h2 className="text-lg font-semibold text-gray-100">Log Workout</h2>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="p-2 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleAddWorkout} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Workout Name
+                </label>
+                <input
+                  type="text"
+                  value={addForm.name}
+                  onChange={(e) => setAddForm({ ...addForm, name: e.target.value })}
+                  placeholder="e.g. Push Day, Leg Day..."
+                  className="w-full px-4 py-2.5 bg-gray-700 border border-gray-600 rounded-xl text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Date
+                </label>
+                <input
+                  type="date"
+                  value={addForm.date}
+                  onChange={(e) => setAddForm({ ...addForm, date: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-gray-700 border border-gray-600 rounded-xl text-gray-100 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Notes (optional)
+                </label>
+                <textarea
+                  value={addForm.notes}
+                  onChange={(e) => setAddForm({ ...addForm, notes: e.target.value })}
+                  placeholder="How did it go?"
+                  rows={3}
+                  className="w-full px-4 py-2.5 bg-gray-700 border border-gray-600 rounded-xl text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 resize-none"
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setShowAddModal(false)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={addLoading}
+                  className="flex-1"
+                >
+                  {addLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Log Workout'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Workout Modal */}
+      {showEditModal && editForm && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-2xl w-full max-w-md shadow-2xl border border-gray-700">
+            <div className="flex items-center justify-between p-6 border-b border-gray-700">
+              <h2 className="text-lg font-semibold text-gray-100">Edit Workout</h2>
+              <button
+                onClick={() => { setShowEditModal(false); setEditForm(null); }}
+                className="p-2 rounded-lg text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleEditWorkout} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Workout Name
+                </label>
+                <input
+                  type="text"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  placeholder="e.g. Push Day, Leg Day..."
+                  className="w-full px-4 py-2.5 bg-gray-700 border border-gray-600 rounded-xl text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Date
+                </label>
+                <input
+                  type="date"
+                  value={editForm.date}
+                  onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                  className="w-full px-4 py-2.5 bg-gray-700 border border-gray-600 rounded-xl text-gray-100 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Notes (optional)
+                </label>
+                <textarea
+                  value={editForm.notes}
+                  onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                  placeholder="How did it go?"
+                  rows={3}
+                  className="w-full px-4 py-2.5 bg-gray-700 border border-gray-600 rounded-xl text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 resize-none"
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => { setShowEditModal(false); setEditForm(null); }}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={editLoading}
+                  className="flex-1"
+                >
+                  {editLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save Changes'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gray-800 rounded-2xl w-full max-w-sm shadow-2xl border border-gray-700 p-6">
+            <div className="text-center">
+              <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center mx-auto mb-4">
+                <Trash2 className="w-6 h-6 text-red-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-100 mb-2">Delete Workout</h3>
+              <p className="text-gray-400 text-sm mb-6">
+                Are you sure you want to delete this workout? This action cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <Button
+                  variant="ghost"
+                  onClick={() => setShowDeleteConfirm(null)}
+                  className="flex-1"
+                >
+                  Cancel
+                </Button>
+                <button
+                  onClick={() => handleDeleteWorkout(showDeleteConfirm)}
+                  className="flex-1 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-xl font-medium transition-colors"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

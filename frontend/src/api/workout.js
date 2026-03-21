@@ -47,6 +47,24 @@ export const workoutApi = {
     const response = await apiClient.delete(`/api/workout-tables/${tableId}/delete/`);
     return response.data;
   },
+
+  // Add a new workout session
+  add: async (data) => {
+    const response = await apiClient.post('/api/react/workouts/add/', data);
+    return response.data;
+  },
+
+  // Update an existing workout session
+  update: async (id, data) => {
+    const response = await apiClient.put(`/api/react/workouts/${id}/update/`, data);
+    return response.data;
+  },
+
+  // Delete a workout session
+  delete: async (id) => {
+    const response = await apiClient.delete(`/api/react/workouts/${id}/delete/`);
+    return response.data;
+  },
 };
 
 export default workoutApi;
