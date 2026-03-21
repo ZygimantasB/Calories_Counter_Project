@@ -52,8 +52,15 @@ export default function WorkoutTracker() {
   const [editForm, setEditForm] = useState(null);
   const [editLoading, setEditLoading] = useState(false);
 
-  // Delete confirm
+  // Delete confirm (workout)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
+
+  // Exercise library management
+  const [showLibraryModal, setShowLibraryModal] = useState(false);
+  const [exForm, setExForm] = useState({ name: '', muscle_group: '', description: '' });
+  const [exAddLoading, setExAddLoading] = useState(false);
+  const [exAddError, setExAddError] = useState(null);
+  const [deletingExerciseId, setDeletingExerciseId] = useState(null);
 
   const fetchWorkoutData = useCallback(async () => {
     try {
@@ -135,6 +142,45 @@ export default function WorkoutTracker() {
       console.error('Error deleting workout:', err);
     }
   };
+
+  const handleAddExercise = async (e) => {
+    e.preventDefault();
+    setExAddError(null);
+    try {
+      setExAddLoading(true);
+      await workoutApi.addExerciseToLibrary({
+        name: exForm.name,
+        muscle_group: exForm.muscle_group,
+        description: exForm.description,
+      });
+      setExForm({ name: '', muscle_group: '', description: '' });
+      fetchWorkoutData();
+    } catch (err) {
+      setExAddError(err?.response?.data?.message || 'Failed to add exercise');
+    } finally {
+      setExAddLoading(false);
+    }
+  };
+
+  const handleDeleteExercise = async (exerciseId) => {
+    try {
+      setDeletingExerciseId(exerciseId);
+      await workoutApi.deleteExerciseFromLibrary(exerciseId);
+      fetchWorkoutData();
+    } catch (err) {
+      console.error('Error deleting exercise:', err);
+    } finally {
+      setDeletingExerciseId(null);
+    }
+  };
+
+  // Group exercises by muscle group
+  const exercisesByGroup = exercises.reduce((acc, ex) => {
+    const group = ex.muscle_group || 'Other';
+    if (!acc[group]) acc[group] = [];
+    acc[group].push(ex);
+    return acc;
+  }, {});
 
   const totalWorkouts = stats?.total_workouts || workouts.length;
   const avgDuration = stats?.avg_duration || (
@@ -225,21 +271,94 @@ export default function WorkoutTracker() {
           </div>
 
           {/* Exercise Library */}
-          {exercises.length > 0 && (
-            <Card title="Exercise Library" subtitle="Available exercises">
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                {exercises.slice(0, 8).map((exercise) => (
-                  <div
-                    key={exercise.id}
-                    className="p-4 rounded-xl border border-gray-700 hover:border-primary-500 hover:bg-gray-700/50 transition-all"
-                  >
-                    <h3 className="font-medium text-gray-100">{exercise.name}</h3>
-                    <p className="text-sm text-gray-500 mt-1">{exercise.muscle_group}</p>
+          <Card
+            title="Exercise Library"
+            subtitle={`${exercises.length} exercise${exercises.length !== 1 ? 's' : ''} available`}
+          >
+            <div className="space-y-4">
+              {/* Add Exercise Form */}
+              <form onSubmit={handleAddExercise} className="p-4 bg-gray-700/40 rounded-xl border border-gray-600 space-y-3">
+                <h3 className="text-sm font-semibold text-gray-300">Add Exercise</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <input
+                      type="text"
+                      value={exForm.name}
+                      onChange={(e) => setExForm({ ...exForm, name: e.target.value })}
+                      placeholder="Exercise name *"
+                      required
+                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 text-sm"
+                    />
                   </div>
-                ))}
-              </div>
-            </Card>
-          )}
+                  <div>
+                    <input
+                      type="text"
+                      value={exForm.muscle_group}
+                      onChange={(e) => setExForm({ ...exForm, muscle_group: e.target.value })}
+                      placeholder="Muscle group (e.g. Chest)"
+                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <input
+                      type="text"
+                      value={exForm.description}
+                      onChange={(e) => setExForm({ ...exForm, description: e.target.value })}
+                      placeholder="Description (optional)"
+                      className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-100 placeholder-gray-500 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500 text-sm"
+                    />
+                  </div>
+                </div>
+                {exAddError && (
+                  <p className="text-sm text-red-400">{exAddError}</p>
+                )}
+                <div className="flex justify-end">
+                  <Button type="submit" icon={Plus} disabled={exAddLoading} size="sm">
+                    {exAddLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Add Exercise'}
+                  </Button>
+                </div>
+              </form>
+
+              {/* Exercise List grouped by muscle group */}
+              {exercises.length > 0 ? (
+                <div className="space-y-4">
+                  {Object.entries(exercisesByGroup).sort(([a], [b]) => a.localeCompare(b)).map(([group, groupExercises]) => (
+                    <div key={group}>
+                      <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">{group}</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                        {groupExercises.map((exercise) => (
+                          <div
+                            key={exercise.id}
+                            className="flex items-center justify-between p-3 rounded-xl border border-gray-700 hover:border-gray-600 hover:bg-gray-700/30 transition-all group"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <h3 className="font-medium text-gray-100 text-sm truncate">{exercise.name}</h3>
+                              {exercise.description && (
+                                <p className="text-xs text-gray-500 mt-0.5 truncate">{exercise.description}</p>
+                              )}
+                            </div>
+                            <button
+                              onClick={() => handleDeleteExercise(exercise.id)}
+                              disabled={deletingExerciseId === exercise.id}
+                              className="ml-2 p-1.5 rounded-lg text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0"
+                              title="Delete exercise"
+                            >
+                              {deletingExerciseId === exercise.id
+                                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                : <Trash2 className="w-3.5 h-3.5" />
+                              }
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-center text-gray-500 py-4 text-sm">No exercises in the library yet. Add one above.</p>
+              )}
+            </div>
+          </Card>
 
           {/* Workout History */}
           <Card title="Recent Workouts" subtitle="Your training history" padding={false}>

@@ -4039,6 +4039,48 @@ def api_delete_workout(request, workout_id):
     return JsonResponse({'success': True})
 
 
+@require_http_methods(["POST"])
+def api_add_workout_exercise(request, workout_id):
+    """Add an exercise to a workout session"""
+    workout = get_object_or_404(WorkoutSession, id=workout_id)
+    data = json.loads(request.body)
+
+    exercise_id = data.get('exercise_id')
+    exercise = get_object_or_404(Exercise, id=exercise_id) if exercise_id else None
+
+    workout_exercise = WorkoutExercise.objects.create(
+        workout=workout,
+        exercise=exercise,
+        sets=data.get('sets', 1),
+        reps=data.get('reps', 1),
+        weight=Decimal(str(data.get('weight', 0))) if data.get('weight') else None,
+        notes=data.get('notes', ''),
+    )
+    return JsonResponse({'success': True, 'id': workout_exercise.id})
+
+
+@require_http_methods(["PUT", "PATCH"])
+def api_update_workout_exercise(request, workout_id, exercise_id):
+    """Update an exercise within a workout session"""
+    workout_exercise = get_object_or_404(WorkoutExercise, id=exercise_id, workout_id=workout_id)
+    data = json.loads(request.body)
+    for field in ['sets', 'reps', 'notes']:
+        if field in data:
+            setattr(workout_exercise, field, data[field])
+    if 'weight' in data:
+        workout_exercise.weight = Decimal(str(data['weight'])) if data['weight'] else None
+    workout_exercise.save()
+    return JsonResponse({'success': True})
+
+
+@require_http_methods(["DELETE"])
+def api_delete_workout_exercise(request, workout_id, exercise_id):
+    """Delete an exercise from a workout session"""
+    workout_exercise = get_object_or_404(WorkoutExercise, id=exercise_id, workout_id=workout_id)
+    workout_exercise.delete()
+    return JsonResponse({'success': True})
+
+
 @require_http_methods(["GET"])
 def api_exercises(request):
     """Get exercise library"""
@@ -4053,6 +4095,29 @@ def api_exercises(request):
         })
 
     return JsonResponse({'exercises': items})
+
+
+@require_http_methods(["POST"])
+def api_add_exercise(request):
+    """Add a new exercise to the library"""
+    data = json.loads(request.body)
+    name = data.get('name', '').strip()
+    if not name:
+        return JsonResponse({'success': False, 'message': 'Exercise name is required'}, status=400)
+    exercise = Exercise.objects.create(
+        name=name,
+        muscle_group=data.get('muscle_group', ''),
+        description=data.get('description', ''),
+    )
+    return JsonResponse({'success': True, 'id': exercise.id})
+
+
+@require_http_methods(["DELETE"])
+def api_delete_exercise(request, exercise_id):
+    """Delete an exercise from the library"""
+    exercise = get_object_or_404(Exercise, id=exercise_id)
+    exercise.delete()
+    return JsonResponse({'success': True})
 
 
 @require_http_methods(["GET"])
@@ -5814,3 +5879,119 @@ def api_delete_meal_template(request, template_id):
     template = get_object_or_404(MealTemplate, id=template_id)
     template.delete()
     return JsonResponse({'success': True})
+
+
+@require_http_methods(["GET"])
+def api_hourly_eating_pattern(request):
+    """Get calorie distribution by hour of day"""
+    days_param = request.GET.get('days', '30')
+    date_param = request.GET.get('date')
+    now = timezone.now()
+
+    if date_param:
+        from datetime import datetime
+        target = datetime.strptime(date_param, '%Y-%m-%d').date()
+        start = timezone.make_aware(datetime.combine(target, datetime.min.time()))
+        end = timezone.make_aware(datetime.combine(target, datetime.max.time()))
+        food_items = FoodItem.objects.filter(consumed_at__gte=start, consumed_at__lte=end)
+    elif days_param == 'all':
+        food_items = FoodItem.objects.all()
+    else:
+        days = int(days_param)
+        start = now - timedelta(days=days)
+        food_items = FoodItem.objects.filter(consumed_at__gte=start)
+
+    hourly = {}
+    for hour in range(24):
+        hourly[hour] = 0
+
+    for item in food_items:
+        if item.consumed_at:
+            hour = item.consumed_at.hour
+            hourly[hour] += float(item.calories or 0)
+
+    return JsonResponse({
+        'hours': list(range(24)),
+        'calories': [round(hourly[h], 1) for h in range(24)],
+    })
+
+
+@require_http_methods(["GET"])
+def api_month_compare(request):
+    """Compare two months of nutrition data"""
+    month_a = request.GET.get('month_a')  # Format: "2026-01"
+    month_b = request.GET.get('month_b')  # Format: "2026-02"
+
+    if not month_a or not month_b:
+        return JsonResponse({'error': 'Both month_a and month_b are required'}, status=400)
+
+    from datetime import datetime
+    import calendar
+
+    def get_month_data(month_str):
+        year, month = map(int, month_str.split('-'))
+        _, last_day = calendar.monthrange(year, month)
+        start = timezone.make_aware(datetime(year, month, 1))
+        end = timezone.make_aware(datetime(year, month, last_day, 23, 59, 59))
+
+        food_items = FoodItem.objects.filter(consumed_at__gte=start, consumed_at__lte=end)
+        from django.db.models.functions import TruncDate
+        days_logged = food_items.annotate(day=TruncDate('consumed_at')).values('day').distinct().count()
+
+        totals = food_items.aggregate(
+            total_calories=Sum('calories'),
+            total_protein=Sum('protein'),
+            total_carbs=Sum('carbohydrates'),
+            total_fat=Sum('fat'),
+            count=Count('id'),
+        )
+
+        total_cal = float(totals['total_calories'] or 0)
+        total_prot = float(totals['total_protein'] or 0)
+        total_carbs = float(totals['total_carbs'] or 0)
+        total_fat = float(totals['total_fat'] or 0)
+
+        avg_cal = round(total_cal / days_logged) if days_logged else 0
+        avg_prot = round(total_prot / days_logged, 1) if days_logged else 0
+        avg_carbs = round(total_carbs / days_logged, 1) if days_logged else 0
+        avg_fat = round(total_fat / days_logged, 1) if days_logged else 0
+
+        # Weight data for this month
+        weights = Weight.objects.filter(recorded_at__gte=start, recorded_at__lte=end).order_by('recorded_at')
+        weight_data = None
+        if weights.exists():
+            weight_values = [float(w.weight) for w in weights]
+            weight_data = {
+                'avg': round(sum(weight_values) / len(weight_values), 1),
+                'start': weight_values[0],
+                'end': weight_values[-1],
+                'change': round(weight_values[-1] - weight_values[0], 2),
+                'min': round(min(weight_values), 1),
+                'max': round(max(weight_values), 1),
+            }
+
+        # Top foods
+        top_foods = (food_items.values('product_name')
+            .annotate(count=Count('id'), total_cal=Sum('calories'))
+            .order_by('-count')[:10])
+
+        return {
+            'month': month_str,
+            'days_logged': days_logged,
+            'total_calories': total_cal,
+            'total_protein': total_prot,
+            'total_carbs': total_carbs,
+            'total_fat': total_fat,
+            'avg_calories': avg_cal,
+            'avg_protein': avg_prot,
+            'avg_carbs': avg_carbs,
+            'avg_fat': avg_fat,
+            'items_count': totals['count'] or 0,
+            'weight': weight_data,
+            'top_foods': list(top_foods),
+        }
+
+    data_a = get_month_data(month_a)
+    data_b = get_month_data(month_b)
+
+    return JsonResponse({'month_a': data_a, 'month_b': data_b})

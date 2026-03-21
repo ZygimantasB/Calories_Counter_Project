@@ -268,3 +268,56 @@ class WorkoutCRUDAPITestCase(TestCase):
     def test_delete_nonexistent_workout_returns_404(self):
         response = self.client.delete('/api/react/workouts/99999/delete/')
         self.assertEqual(response.status_code, 404)
+
+
+class ExerciseLibraryCRUDTestCase(TestCase):
+    def setUp(self):
+        self.client = Client()
+
+    def test_add_exercise(self):
+        response = self.client.post(
+            '/api/react/exercises/add/',
+            json.dumps({'name': 'Squats', 'muscle_group': 'Legs'}),
+            content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertTrue(data['success'])
+        self.assertIn('id', data)
+
+    def test_add_exercise_with_description(self):
+        response = self.client.post(
+            '/api/react/exercises/add/',
+            json.dumps({'name': 'Bench Press', 'muscle_group': 'Chest', 'description': 'Flat bench press'}),
+            content_type='application/json')
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertTrue(data['success'])
+
+    def test_add_exercise_no_name_returns_400(self):
+        response = self.client.post(
+            '/api/react/exercises/add/',
+            json.dumps({'name': ''}),
+            content_type='application/json')
+        self.assertEqual(response.status_code, 400)
+        data = json.loads(response.content)
+        self.assertFalse(data['success'])
+
+    def test_add_exercise_whitespace_name_returns_400(self):
+        response = self.client.post(
+            '/api/react/exercises/add/',
+            json.dumps({'name': '   '}),
+            content_type='application/json')
+        self.assertEqual(response.status_code, 400)
+
+    def test_delete_exercise(self):
+        from count_calories_app.models import Exercise
+        ex = Exercise.objects.create(name='Test', muscle_group='Test')
+        response = self.client.delete(f'/api/react/exercises/{ex.id}/delete/')
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertTrue(data['success'])
+        self.assertFalse(Exercise.objects.filter(id=ex.id).exists())
+
+    def test_delete_nonexistent_exercise_returns_404(self):
+        response = self.client.delete('/api/react/exercises/99999/delete/')
+        self.assertEqual(response.status_code, 404)
