@@ -37,6 +37,8 @@ export default function WeightTracker() {
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingWeight, setEditingWeight] = useState(null);
   const [timeRange, setTimeRange] = useState('month');
 
   // Form states
@@ -46,6 +48,8 @@ export default function WeightTracker() {
     note: '',
   });
   const [addLoading, setAddLoading] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+  const [editForm, setEditForm] = useState({ weight: '', date: '', note: '' });
 
   // Fetch weight data
   const fetchWeightData = useCallback(async () => {
@@ -112,6 +116,37 @@ export default function WeightTracker() {
       fetchWeightData();
     } catch (err) {
       console.error('Error deleting weight:', err);
+    }
+  };
+
+  // Open edit modal with pre-filled data
+  const openEditModal = (entry) => {
+    setEditingWeight(entry);
+    setEditForm({
+      weight: entry.weight,
+      date: format(parseISO(entry.recorded_at), 'yyyy-MM-dd'),
+      note: entry.notes || '',
+    });
+    setShowEditModal(true);
+  };
+
+  // Update weight entry
+  const handleEditWeight = async (e) => {
+    e.preventDefault();
+    try {
+      setEditLoading(true);
+      await weightApi.update(editingWeight.id, {
+        weight: parseFloat(editForm.weight),
+        date: editForm.date,
+        notes: editForm.note,
+      });
+      setShowEditModal(false);
+      setEditingWeight(null);
+      fetchWeightData();
+    } catch (err) {
+      console.error('Error updating weight:', err);
+    } finally {
+      setEditLoading(false);
     }
   };
 
@@ -363,6 +398,12 @@ export default function WeightTracker() {
                       )}
                       <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
                         <button
+                          onClick={() => openEditModal(entry)}
+                          className="p-1.5 rounded-lg hover:bg-blue-500/20 text-gray-400 hover:text-blue-400"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
                           onClick={() => setShowDeleteConfirm(entry.id)}
                           className="p-1.5 rounded-lg hover:bg-red-500/20 text-gray-400 hover:text-red-400"
                         >
@@ -443,6 +484,65 @@ export default function WeightTracker() {
                   <Check className="w-4 h-4 mr-2" />
                 )}
                 Save Entry
+              </Button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Weight Modal */}
+      {showEditModal && editingWeight && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className="bg-gray-800 rounded-2xl w-full max-w-md animate-in border border-gray-700">
+            <div className="p-4 border-b border-gray-700 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-100">Edit Weight Entry</h2>
+              <button
+                onClick={() => { setShowEditModal(false); setEditingWeight(null); }}
+                className="p-2 rounded-lg hover:bg-gray-700 text-gray-400"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleEditWeight} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Weight (kg)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  placeholder="75.0"
+                  value={editForm.weight}
+                  onChange={(e) => setEditForm({ ...editForm, weight: e.target.value })}
+                  className="w-full px-4 py-3 rounded-lg border border-gray-600 bg-gray-700 text-gray-100 text-center text-2xl font-semibold focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Date</label>
+                <input
+                  type="date"
+                  value={editForm.date}
+                  onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-lg border border-gray-600 bg-gray-700 text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Note (optional)</label>
+                <input
+                  type="text"
+                  placeholder="Morning weigh-in, after workout, etc."
+                  value={editForm.note}
+                  onChange={(e) => setEditForm({ ...editForm, note: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-lg border border-gray-600 bg-gray-700 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+              <Button type="submit" className="w-full" size="lg" disabled={editLoading}>
+                {editLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <Check className="w-4 h-4 mr-2" />
+                )}
+                Update Entry
               </Button>
             </form>
           </div>

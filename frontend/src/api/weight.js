@@ -19,6 +19,12 @@ export const weightApi = {
     return response.data;
   },
 
+  // Update a weight entry
+  update: async (id, data) => {
+    const response = await apiClient.put(`/api/react/weight-items/${id}/update/`, data);
+    return response.data;
+  },
+
   // Get weight data for charts (legacy endpoint)
   getWeightData: async (days = 365) => {
     const response = await apiClient.get('/api/weight-data/', {

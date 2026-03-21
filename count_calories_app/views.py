@@ -1,6 +1,8 @@
 ﻿from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from datetime import timedelta
+from decimal import Decimal
 from django.db.models import Sum, Count, Avg, Max, Min
 from django.http import JsonResponse, HttpResponse
 from django.contrib import messages
@@ -3790,6 +3792,21 @@ def api_delete_weight(request, weight_id):
         return JsonResponse({'success': False, 'error': 'Failed to delete weight entry. Please try again.'}, status=400)
 
 
+@require_http_methods(["PUT", "PATCH"])
+def api_update_weight(request, weight_id):
+    """Update a weight entry via React API"""
+    weight = get_object_or_404(Weight, id=weight_id)
+    data = json.loads(request.body)
+    if 'weight' in data:
+        weight.weight = Decimal(str(data['weight']))
+    if 'notes' in data:
+        weight.notes = data.get('notes', '')
+    if 'recorded_at' in data:
+        weight.recorded_at = parse_datetime(data['recorded_at'])
+    weight.save()
+    return JsonResponse({'success': True, 'message': 'Weight entry updated'})
+
+
 @require_http_methods(["GET"])
 def api_running_items(request):
     """Get running sessions for React frontend"""
@@ -3871,6 +3888,36 @@ def api_add_running(request):
     except Exception as e:
         logger.error(f"Error adding running session: {str(e)}")
         return JsonResponse({'success': False, 'error': 'Failed to add running session. Please try again.'}, status=400)
+
+
+@require_http_methods(["PUT", "PATCH"])
+def api_update_running(request, session_id):
+    """Update a running session via React API"""
+    session = get_object_or_404(RunningSession, id=session_id)
+    data = json.loads(request.body)
+    if 'date' in data:
+        from django.utils.dateparse import parse_datetime
+        session.date = parse_datetime(data['date']) or session.date
+    if 'distance' in data:
+        session.distance = Decimal(str(data['distance']))
+    if 'duration' in data:
+        parts = data['duration'].split(':')
+        if len(parts) == 2:
+            session.duration = timedelta(minutes=int(parts[0]), seconds=int(parts[1]))
+        elif len(parts) == 3:
+            session.duration = timedelta(hours=int(parts[0]), minutes=int(parts[1]), seconds=int(parts[2]))
+    if 'notes' in data:
+        session.notes = data.get('notes', '')
+    session.save()
+    return JsonResponse({'success': True})
+
+
+@require_http_methods(["DELETE"])
+def api_delete_running(request, session_id):
+    """Delete a running session via React API"""
+    session = get_object_or_404(RunningSession, id=session_id)
+    session.delete()
+    return JsonResponse({'success': True})
 
 
 @require_http_methods(["GET"])
