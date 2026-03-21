@@ -8,13 +8,14 @@ import {
   TrendingUp,
   Timer,
   ChevronRight,
-  Heart,
   Target,
   X,
   Loader2,
   AlertCircle,
   Check,
   Trash2,
+  Edit2,
+  Zap,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -24,11 +25,9 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  BarChart,
-  Bar,
 } from 'recharts';
 import { format, parseISO } from 'date-fns';
-import { Card, Button, Badge, ProgressBar } from '../components/ui';
+import { Card, Button, Badge } from '../components/ui';
 import { runningApi } from '../api';
 
 export default function RunningTracker() {
@@ -39,6 +38,12 @@ export default function RunningTracker() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [addLoading, setAddLoading] = useState(false);
   const [timeRange, setTimeRange] = useState('month');
+
+  // Edit/delete state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
+  const [editRun, setEditRun] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
 
   const [newRun, setNewRun] = useState({
     distance: '',
@@ -92,17 +97,109 @@ export default function RunningTracker() {
     }
   };
 
+  const openEditModal = (run) => {
+    setEditRun({
+      id: run.id,
+      distance: run.distance,
+      duration: run.duration_minutes || '',
+      date: run.date ? run.date.split('T')[0] : format(new Date(), 'yyyy-MM-dd'),
+      notes: run.notes || '',
+    });
+    setShowEditModal(true);
+  };
+
+  const handleEditRun = async (e) => {
+    e.preventDefault();
+    if (!editRun) return;
+    try {
+      setEditLoading(true);
+      const durationStr = `${editRun.duration}:00`;
+      await runningApi.update(editRun.id, {
+        distance: parseFloat(editRun.distance),
+        duration: durationStr,
+        date: editRun.date + 'T00:00:00',
+        notes: editRun.notes,
+      });
+      setShowEditModal(false);
+      setEditRun(null);
+      fetchRunningData();
+    } catch (err) {
+      console.error('Error updating run:', err);
+    } finally {
+      setEditLoading(false);
+    }
+  };
+
+  const handleDeleteRun = async (sessionId) => {
+    try {
+      await runningApi.delete(sessionId);
+      setShowDeleteConfirm(null);
+      fetchRunningData();
+    } catch (err) {
+      console.error('Error deleting run:', err);
+    }
+  };
+
+  // Computed stats
   const totalDistance = stats?.total_distance || runHistory.reduce((sum, r) => sum + (r.distance || 0), 0);
   const totalRuns = stats?.total_runs || runHistory.length;
-  // Calculate avg pace from avg_speed (km/h) -> pace (min/km)
   const avgSpeed = stats?.avg_speed || 0;
   const avgPace = avgSpeed > 0
     ? `${Math.floor(60 / avgSpeed)}:${String(Math.round((60 / avgSpeed % 1) * 60)).padStart(2, '0')}`
     : '--:--';
-  // Estimate calories burned: ~60 kcal per km of running
   const totalCalories = Math.round(totalDistance * 60);
   const weeklyGoal = stats?.weekly_goal || 25;
   const weeklyProgress = (totalDistance / weeklyGoal) * 100;
+
+  // Extended performance metrics
+  const longestRun = runHistory.length > 0
+    ? Math.max(...runHistory.map(r => parseFloat(r.distance) || 0))
+    : 0;
+
+  const sortedByDate = [...runHistory].sort((a, b) => new Date(a.date) - new Date(b.date));
+  let paceImprovement = null;
+  if (sortedByDate.length >= 2) {
+    const firstPace = sortedByDate[0].duration_minutes && parseFloat(sortedByDate[0].distance) > 0
+      ? sortedByDate[0].duration_minutes / parseFloat(sortedByDate[0].distance)
+      : null;
+    const lastPace = sortedByDate[sortedByDate.length - 1].duration_minutes && parseFloat(sortedByDate[sortedByDate.length - 1].distance) > 0
+      ? sortedByDate[sortedByDate.length - 1].duration_minutes / parseFloat(sortedByDate[sortedByDate.length - 1].distance)
+      : null;
+    if (firstPace && lastPace && firstPace > 0) {
+      paceImprovement = ((firstPace - lastPace) / firstPace * 100).toFixed(1);
+    }
+  }
+
+  const fastestPaceRun = runHistory.reduce((best, r) => {
+    if (!r.duration_minutes || !parseFloat(r.distance)) return best;
+    const pace = r.duration_minutes / parseFloat(r.distance);
+    if (!best || pace < best) return pace;
+    return best;
+  }, null);
+
+  const fastestPaceStr = fastestPaceRun
+    ? `${Math.floor(fastestPaceRun)}:${String(Math.round((fastestPaceRun % 1) * 60)).padStart(2, '0')}`
+    : '--:--';
+
+  let daySpan = 1;
+  if (sortedByDate.length >= 2) {
+    const first = new Date(sortedByDate[0].date);
+    const last = new Date(sortedByDate[sortedByDate.length - 1].date);
+    daySpan = Math.max(1, (last - first) / (1000 * 60 * 60 * 24));
+  }
+  const avgWeeklyDistance = daySpan > 0 ? (totalDistance / (daySpan / 7)).toFixed(1) : totalDistance.toFixed(1);
+  const avgMonthlyDistance = daySpan > 0 ? (totalDistance / (daySpan / 30)).toFixed(1) : totalDistance.toFixed(1);
+
+  // Chart data
+  const distanceChartData = sortedByDate.map(r => ({
+    date: format(parseISO(r.date), 'MMM d'),
+    distance: parseFloat(r.distance) || 0,
+  }));
+
+  const durationChartData = sortedByDate.map(r => ({
+    date: format(parseISO(r.date), 'MMM d'),
+    duration: r.duration_minutes || 0,
+  }));
 
   return (
     <div className="space-y-6 animate-in">
@@ -210,6 +307,59 @@ export default function RunningTracker() {
             </Card>
           </div>
 
+          {/* Extended Performance Metrics */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+            <Card>
+              <div className="flex flex-col gap-1">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center mb-1">
+                  <TrendingUp className="w-4 h-4 text-emerald-400" />
+                </div>
+                <p className="text-xs text-gray-400">Pace Improvement</p>
+                <p className="text-xl font-bold text-gray-100">
+                  {paceImprovement !== null
+                    ? `${paceImprovement > 0 ? '+' : ''}${paceImprovement}%`
+                    : '--'}
+                </p>
+              </div>
+            </Card>
+            <Card>
+              <div className="flex flex-col gap-1">
+                <div className="w-8 h-8 rounded-lg bg-yellow-500/20 flex items-center justify-center mb-1">
+                  <Zap className="w-4 h-4 text-yellow-400" />
+                </div>
+                <p className="text-xs text-gray-400">Fastest Pace</p>
+                <p className="text-xl font-bold text-gray-100">{fastestPaceStr}/km</p>
+              </div>
+            </Card>
+            <Card>
+              <div className="flex flex-col gap-1">
+                <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center mb-1">
+                  <MapPin className="w-4 h-4 text-purple-400" />
+                </div>
+                <p className="text-xs text-gray-400">Longest Run</p>
+                <p className="text-xl font-bold text-gray-100">{longestRun.toFixed(1)} km</p>
+              </div>
+            </Card>
+            <Card>
+              <div className="flex flex-col gap-1">
+                <div className="w-8 h-8 rounded-lg bg-sky-500/20 flex items-center justify-center mb-1">
+                  <Target className="w-4 h-4 text-sky-400" />
+                </div>
+                <p className="text-xs text-gray-400">Avg Weekly</p>
+                <p className="text-xl font-bold text-gray-100">{avgWeeklyDistance} km</p>
+              </div>
+            </Card>
+            <Card>
+              <div className="flex flex-col gap-1">
+                <div className="w-8 h-8 rounded-lg bg-pink-500/20 flex items-center justify-center mb-1">
+                  <Clock className="w-4 h-4 text-pink-400" />
+                </div>
+                <p className="text-xs text-gray-400">Avg Monthly</p>
+                <p className="text-xl font-bold text-gray-100">{avgMonthlyDistance} km</p>
+              </div>
+            </Card>
+          </div>
+
           {/* Weekly Goal Progress */}
           <Card className="bg-gradient-to-br from-green-500 to-green-600 border-0 text-white">
             <div className="flex flex-col md:flex-row md:items-center gap-6">
@@ -247,13 +397,108 @@ export default function RunningTracker() {
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold">
-                    {runHistory.reduce((sum, r) => sum + (r.duration || 0), 0)}
+                    {runHistory.reduce((sum, r) => sum + (r.duration_minutes || 0), 0)}
                   </div>
                   <div className="text-sm text-white/70">Minutes</div>
                 </div>
               </div>
             </div>
           </Card>
+
+          {/* Charts Row */}
+          {distanceChartData.length > 1 && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {/* Distance Over Time */}
+              <Card title="Distance Over Time">
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={distanceChartData}>
+                      <defs>
+                        <linearGradient id="distanceGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.4} />
+                          <stop offset="95%" stopColor="#0ea5e9" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                      <XAxis
+                        dataKey="date"
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: '#9ca3af', fontSize: 11 }}
+                      />
+                      <YAxis
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: '#9ca3af', fontSize: 11 }}
+                        tickFormatter={(v) => `${v}km`}
+                      />
+                      <Tooltip
+                        formatter={(value) => [`${value.toFixed(2)} km`, 'Distance']}
+                        contentStyle={{
+                          backgroundColor: '#1f2937',
+                          border: '1px solid #374151',
+                          borderRadius: '8px',
+                        }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="distance"
+                        stroke="#0ea5e9"
+                        strokeWidth={2}
+                        fillOpacity={1}
+                        fill="url(#distanceGradient)"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </Card>
+
+              {/* Duration Over Time */}
+              <Card title="Duration Over Time">
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={durationChartData}>
+                      <defs>
+                        <linearGradient id="durationGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#22c55e" stopOpacity={0.4} />
+                          <stop offset="95%" stopColor="#22c55e" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                      <XAxis
+                        dataKey="date"
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: '#9ca3af', fontSize: 11 }}
+                      />
+                      <YAxis
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fill: '#9ca3af', fontSize: 11 }}
+                        tickFormatter={(v) => `${v}m`}
+                      />
+                      <Tooltip
+                        formatter={(value) => [`${value} min`, 'Duration']}
+                        contentStyle={{
+                          backgroundColor: '#1f2937',
+                          border: '1px solid #374151',
+                          borderRadius: '8px',
+                        }}
+                      />
+                      <Area
+                        type="monotone"
+                        dataKey="duration"
+                        stroke="#22c55e"
+                        strokeWidth={2}
+                        fillOpacity={1}
+                        fill="url(#durationGradient)"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </Card>
+            </div>
+          )}
 
           {/* Recent Runs */}
           <Card title="Recent Runs" subtitle="Your running history" padding={false}>
@@ -282,9 +527,12 @@ export default function RunningTracker() {
                         <p className="text-sm text-gray-500">
                           {format(parseISO(run.date), 'EEEE, MMMM d')}
                         </p>
+                        {run.notes && (
+                          <p className="text-xs text-gray-500 mt-0.5">{run.notes}</p>
+                        )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-6">
+                    <div className="flex items-center gap-3">
                       <div className="hidden md:flex items-center gap-6 text-sm text-gray-400">
                         <div className="flex items-center gap-1">
                           <Clock className="w-4 h-4" />
@@ -295,7 +543,20 @@ export default function RunningTracker() {
                           {Math.round(run.distance * 60)} kcal
                         </div>
                       </div>
-                      <ChevronRight className="w-5 h-5 text-gray-600 group-hover:text-gray-400" />
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                        <button
+                          onClick={() => openEditModal(run)}
+                          className="p-1.5 rounded-lg hover:bg-blue-500/20 text-gray-400 hover:text-blue-400"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => setShowDeleteConfirm(run.id)}
+                          className="p-1.5 rounded-lg hover:bg-red-500/20 text-gray-400 hover:text-red-400"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -391,6 +652,117 @@ export default function RunningTracker() {
                 Save Run
               </Button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Run Modal */}
+      {showEditModal && editRun && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className="bg-gray-800 rounded-2xl w-full max-w-md animate-in border border-gray-700">
+            <div className="p-4 border-b border-gray-700 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-100">Edit Run</h2>
+              <button
+                onClick={() => { setShowEditModal(false); setEditRun(null); }}
+                className="p-2 rounded-lg hover:bg-gray-700 text-gray-400"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleEditRun} className="p-6 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Distance (km)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    placeholder="5.0"
+                    value={editRun.distance}
+                    onChange={(e) => setEditRun({ ...editRun, distance: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-lg border border-gray-600 bg-gray-700 text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">
+                    Duration (min)
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="30"
+                    value={editRun.duration}
+                    onChange={(e) => setEditRun({ ...editRun, duration: e.target.value })}
+                    className="w-full px-4 py-2.5 rounded-lg border border-gray-600 bg-gray-700 text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    required
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Date</label>
+                <input
+                  type="date"
+                  value={editRun.date}
+                  onChange={(e) => setEditRun({ ...editRun, date: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-lg border border-gray-600 bg-gray-700 text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Notes (optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="How did it go?"
+                  value={editRun.notes}
+                  onChange={(e) => setEditRun({ ...editRun, notes: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-lg border border-gray-600 bg-gray-700 text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+              <Button type="submit" className="w-full" size="lg" disabled={editLoading}>
+                {editLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <Check className="w-4 h-4 mr-2" />
+                )}
+                Update Run
+              </Button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+          <div className="bg-gray-800 rounded-2xl w-full max-w-sm overflow-hidden animate-in border border-gray-700">
+            <div className="p-6 text-center">
+              <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center mx-auto mb-4">
+                <Trash2 className="w-6 h-6 text-red-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-100 mb-2">Delete Run?</h3>
+              <p className="text-gray-400 mb-6">
+                This action cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <Button
+                  variant="ghost"
+                  className="flex-1"
+                  onClick={() => setShowDeleteConfirm(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="danger"
+                  className="flex-1 bg-red-500 hover:bg-red-600"
+                  onClick={() => handleDeleteRun(showDeleteConfirm)}
+                >
+                  Delete
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       )}

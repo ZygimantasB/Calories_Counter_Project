@@ -13,6 +13,18 @@ export const runningApi = {
     return response.data;
   },
 
+  // Update a running session
+  update: async (id, data) => {
+    const response = await apiClient.put(`/api/react/running-items/${id}/update/`, data);
+    return response.data;
+  },
+
+  // Delete a running session
+  delete: async (id) => {
+    const response = await apiClient.delete(`/api/react/running-items/${id}/delete/`);
+    return response.data;
+  },
+
   // Get running data for charts (legacy endpoint)
   getRunningData: async (days = 365) => {
     const response = await apiClient.get('/api/running-data/', {
