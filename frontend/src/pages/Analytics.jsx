@@ -21,6 +21,8 @@ import {
   Star,
   ChevronRight,
   GitCompare,
+  Search,
+  X,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -41,7 +43,7 @@ import {
 } from 'recharts';
 import { format, parseISO } from 'date-fns';
 import { Card, Badge, Button, ProgressBar } from '../components/ui';
-import { analyticsApi } from '../api';
+import { analyticsApi, foodApi } from '../api';
 
 const COLORS = {
   primary: '#0ea5e9',
@@ -368,6 +370,245 @@ function MonthCompareTab() {
   );
 }
 
+const PRODUCT_SLOTS = ['Product A', 'Product B', 'Product C (optional)'];
+
+function ProductCompareTab() {
+  const [compareProducts, setCompareProducts] = useState([null, null, null]);
+  const [compareSearches, setCompareSearches] = useState(['', '', '']);
+  const [compareResults, setCompareResults] = useState([[], [], []]);
+  const [compareData, setCompareData] = useState(null);
+  const [searching, setSearching] = useState([false, false, false]);
+  const [openDropdown, setOpenDropdown] = useState(null);
+
+  const handleCompareSearch = async (index, query) => {
+    const updatedSearches = [...compareSearches];
+    updatedSearches[index] = query;
+    setCompareSearches(updatedSearches);
+
+    if (query.length < 2) {
+      const updatedResults = [...compareResults];
+      updatedResults[index] = [];
+      setCompareResults(updatedResults);
+      return;
+    }
+
+    const updatedSearching = [...searching];
+    updatedSearching[index] = true;
+    setSearching(updatedSearching);
+
+    try {
+      const data = await foodApi.searchAllFoods(query, 5);
+      const results = [...compareResults];
+      results[index] = data?.results || data || [];
+      setCompareResults(results);
+      setOpenDropdown(index);
+    } catch (err) {
+      console.error('Error searching foods:', err);
+    } finally {
+      const doneSearching = [...searching];
+      doneSearching[index] = false;
+      setSearching(doneSearching);
+    }
+  };
+
+  const selectCompareProduct = (index, product) => {
+    const updated = [...compareProducts];
+    updated[index] = product;
+    setCompareProducts(updated);
+
+    const updatedSearches = [...compareSearches];
+    updatedSearches[index] = product.name;
+    setCompareSearches(updatedSearches);
+
+    const updatedResults = [...compareResults];
+    updatedResults[index] = [];
+    setCompareResults(updatedResults);
+
+    setOpenDropdown(null);
+    setCompareData(null);
+  };
+
+  const clearProduct = (index) => {
+    const updated = [...compareProducts];
+    updated[index] = null;
+    setCompareProducts(updated);
+
+    const updatedSearches = [...compareSearches];
+    updatedSearches[index] = '';
+    setCompareSearches(updatedSearches);
+
+    setCompareData(null);
+  };
+
+  const canCompare = compareProducts[0] !== null && compareProducts[1] !== null;
+  const activeProducts = compareProducts.filter(Boolean);
+
+  const handleCompare = () => {
+    if (!canCompare) return;
+    setCompareData(activeProducts);
+  };
+
+  // Build chart data from selected products
+  const chartData = compareData
+    ? [
+        { macro: 'Calories', ...Object.fromEntries(compareData.map((p) => [p.name, p.calories])) },
+        { macro: 'Protein (g)', ...Object.fromEntries(compareData.map((p) => [p.name, p.protein])) },
+        { macro: 'Carbs (g)', ...Object.fromEntries(compareData.map((p) => [p.name, p.carbs])) },
+        { macro: 'Fat (g)', ...Object.fromEntries(compareData.map((p) => [p.name, p.fat])) },
+      ]
+    : [];
+
+  const barColors = [COLORS.primary, COLORS.protein, COLORS.success];
+
+  return (
+    <div className="space-y-6">
+      <Card title="Product Compare" subtitle="Search 2–3 foods and compare their nutritional values side by side">
+        <div className="space-y-4">
+          {PRODUCT_SLOTS.map((label, index) => (
+            <div key={index} className="relative">
+              <label className="block text-sm text-gray-400 mb-1">{label}</label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                    {searching[index]
+                      ? <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />
+                      : <Search className="w-4 h-4 text-gray-400" />
+                    }
+                  </div>
+                  <input
+                    type="text"
+                    value={compareSearches[index]}
+                    onChange={(e) => handleCompareSearch(index, e.target.value)}
+                    onFocus={() => compareResults[index].length > 0 && setOpenDropdown(index)}
+                    placeholder={`Search for ${label.toLowerCase()}...`}
+                    className="w-full bg-gray-700 border border-gray-600 rounded-lg pl-10 pr-3 py-2 text-gray-200 placeholder-gray-500 focus:outline-none focus:border-primary-500"
+                  />
+                  {openDropdown === index && compareResults[index].length > 0 && (
+                    <div className="absolute z-10 top-full mt-1 left-0 right-0 bg-gray-800 border border-gray-600 rounded-lg shadow-xl max-h-48 overflow-y-auto">
+                      {compareResults[index].map((food, i) => (
+                        <button
+                          key={i}
+                          onClick={() => selectCompareProduct(index, food)}
+                          className="w-full text-left px-4 py-2.5 hover:bg-gray-700 transition-colors border-b border-gray-700 last:border-0"
+                        >
+                          <span className="text-sm text-gray-200">{food.name}</span>
+                          <span className="text-xs text-gray-500 ml-2">{food.calories} kcal · P:{food.protein}g · C:{food.carbs}g · F:{food.fat}g</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {compareProducts[index] && (
+                  <button
+                    onClick={() => clearProduct(index)}
+                    className="px-2 py-2 text-gray-400 hover:text-gray-200 bg-gray-700 rounded-lg transition-colors"
+                    title="Clear"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+              {compareProducts[index] && (
+                <p className="text-xs text-green-400 mt-1">
+                  Selected: {compareProducts[index].name}
+                </p>
+              )}
+            </div>
+          ))}
+
+          <button
+            onClick={handleCompare}
+            disabled={!canCompare}
+            className="px-6 py-2 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors flex items-center gap-2"
+          >
+            <GitCompare className="w-4 h-4" />
+            Compare
+          </button>
+
+          {!canCompare && (
+            <p className="text-xs text-yellow-400">Select at least 2 products to compare.</p>
+          )}
+        </div>
+      </Card>
+
+      {compareData && (
+        <>
+          {/* Side-by-side nutrition cards */}
+          <div>
+            <h2 className="text-lg font-semibold text-gray-200 mb-4">Nutrition Comparison</h2>
+            <div className={`grid grid-cols-1 sm:grid-cols-${compareData.length} gap-4`}>
+              {compareData.map((product, idx) => (
+                <Card key={idx} className="bg-gradient-to-br from-primary-500/10 to-primary-600/5 border-primary-500/20">
+                  <p className="font-semibold text-gray-100 mb-4 truncate" title={product.name}>{product.name}</p>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-400 flex items-center gap-1.5">
+                        <Flame className="w-3.5 h-3.5 text-orange-400" /> Calories
+                      </span>
+                      <span className="font-bold text-orange-400">{product.calories} kcal</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-400 flex items-center gap-1.5">
+                        <Beef className="w-3.5 h-3.5 text-red-400" /> Protein
+                      </span>
+                      <span className="font-bold text-red-400">{product.protein}g</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-400 flex items-center gap-1.5">
+                        <Zap className="w-3.5 h-3.5 text-blue-400" /> Carbs
+                      </span>
+                      <span className="font-bold text-blue-400">{product.carbs}g</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-400 flex items-center gap-1.5">
+                        <Scale className="w-3.5 h-3.5 text-yellow-400" /> Fat
+                      </span>
+                      <span className="font-bold text-yellow-400">{product.fat}g</span>
+                    </div>
+                    <div className="flex justify-between items-center border-t border-gray-700 pt-3">
+                      <span className="text-sm text-gray-400 flex items-center gap-1.5">
+                        <Trophy className="w-3.5 h-3.5 text-purple-400" /> Times eaten
+                      </span>
+                      <span className="font-bold text-purple-400">{product.count}x</span>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          </div>
+
+          {/* Bar chart comparison */}
+          <Card title="Macro Breakdown Chart" subtitle="Side-by-side comparison across all macros">
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke={COLORS.grid} />
+                <XAxis dataKey="macro" tick={{ fill: COLORS.text, fontSize: 12 }} />
+                <YAxis tick={{ fill: COLORS.text, fontSize: 12 }} />
+                <Tooltip
+                  contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: '8px' }}
+                  labelStyle={{ color: '#f3f4f6' }}
+                  itemStyle={{ color: '#9ca3af' }}
+                />
+                <Legend />
+                {compareData.map((product, idx) => (
+                  <Bar key={idx} dataKey={product.name} fill={barColors[idx % barColors.length]} radius={[4, 4, 0, 0]} maxBarSize={60} />
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
+          </Card>
+        </>
+      )}
+
+      {!compareData && (
+        <Card className="text-center py-12">
+          <Search className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+          <p className="text-gray-400">Search for foods above and click Compare to see a side-by-side breakdown.</p>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 export default function Analytics() {
   const [activeTab, setActiveTab] = useState('overview');
   const [timeRange, setTimeRange] = useState('90');
@@ -502,10 +743,11 @@ export default function Analytics() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="flex gap-1 p-1 bg-gray-800 rounded-xl border border-gray-700 w-fit">
+      <div className="flex flex-wrap gap-1 p-1 bg-gray-800 rounded-xl border border-gray-700 w-fit">
         {[
           { value: 'overview', label: 'Overview', icon: BarChart3 },
           { value: 'month_compare', label: 'Month Compare', icon: GitCompare },
+          { value: 'product_compare', label: 'Product Compare', icon: Search },
         ].map(({ value, label, icon: Icon }) => (
           <button
             key={value}
@@ -524,6 +766,9 @@ export default function Analytics() {
 
       {/* Month Compare Tab */}
       {activeTab === 'month_compare' && <MonthCompareTab />}
+
+      {/* Product Compare Tab */}
+      {activeTab === 'product_compare' && <ProductCompareTab />}
 
       {/* Overview Tab */}
       {activeTab === 'overview' && <>
