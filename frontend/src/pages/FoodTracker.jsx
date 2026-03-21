@@ -25,11 +25,13 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from 'recharts';
-import { format, addDays, subDays, isToday, parseISO } from 'date-fns';
+import { format, addDays, subDays, isToday, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, differenceInDays } from 'date-fns';
 import { Card, Button, Badge, ProgressBar } from '../components/ui';
 import Calculator from '../components/Calculator';
 import CSVDownloadButton from '../components/CSVDownloadButton';
 import CopyPreviousDay from '../components/CopyPreviousDay';
+import MealTemplates from '../components/MealTemplates';
+import DateRangeFilter from '../components/DateRangeFilter';
 import { foodApi, settingsApi } from '../api';
 
 const MACRO_COLORS = {
@@ -38,8 +40,81 @@ const MACRO_COLORS = {
   fat: '#eab308',
 };
 
+// Helper: build API params from dateFilter
+function buildFetchParams(dateFilter) {
+  const today = format(new Date(), 'yyyy-MM-dd');
+  switch (dateFilter.type) {
+    case 'today':
+      return { date: today };
+    case 'date':
+      return { date: dateFilter.date };
+    case 'days':
+      return { days: dateFilter.days };
+    case 'range':
+      return { start_date: dateFilter.startDate, end_date: dateFilter.endDate };
+    case 'range_name': {
+      const now = new Date();
+      if (dateFilter.name === 'week') {
+        return {
+          start_date: format(startOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd'),
+          end_date: format(endOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd'),
+        };
+      }
+      if (dateFilter.name === 'month') {
+        return {
+          start_date: format(startOfMonth(now), 'yyyy-MM-dd'),
+          end_date: format(endOfMonth(now), 'yyyy-MM-dd'),
+        };
+      }
+      return { date: today };
+    }
+    default:
+      return { date: today };
+  }
+}
+
+// Helper: estimate number of days in the current filter
+function estimateDaysCount(dateFilter) {
+  switch (dateFilter.type) {
+    case 'today':
+    case 'date':
+      return 1;
+    case 'days':
+      return dateFilter.days === 'all' ? null : dateFilter.days;
+    case 'range': {
+      try {
+        const start = new Date(dateFilter.startDate);
+        const end = new Date(dateFilter.endDate);
+        return Math.max(1, differenceInDays(end, start) + 1);
+      } catch {
+        return null;
+      }
+    }
+    case 'range_name': {
+      const now = new Date();
+      if (dateFilter.name === 'week') {
+        const start = startOfWeek(now, { weekStartsOn: 1 });
+        return Math.max(1, differenceInDays(now, start) + 1);
+      }
+      if (dateFilter.name === 'month') {
+        const start = startOfMonth(now);
+        return Math.max(1, differenceInDays(now, start) + 1);
+      }
+      return 1;
+    }
+    default:
+      return 1;
+  }
+}
+
+// Helper: check if the filter is single-day mode
+function isSingleDayFilter(dateFilter) {
+  return dateFilter.type === 'today' || dateFilter.type === 'date';
+}
+
 export default function FoodTracker() {
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [dateFilter, setDateFilter] = useState({ type: 'today' });
   const [foodItems, setFoodItems] = useState([]);
   const [totals, setTotals] = useState({ calories: 0, protein: 0, carbs: 0, fat: 0 });
   const [quickAddFoods, setQuickAddFoods] = useState([]);
@@ -96,8 +171,8 @@ export default function FoodTracker() {
     try {
       setLoading(true);
       setError(null);
-      const dateStr = format(selectedDate, 'yyyy-MM-dd');
-      const response = await foodApi.getFoodItems({ date: dateStr });
+      const params = buildFetchParams(dateFilter);
+      const response = await foodApi.getFoodItems(params);
       setFoodItems(response.items || []);
       setTotals(response.totals || { calories: 0, protein: 0, carbs: 0, fat: 0 });
     } catch (err) {
@@ -106,7 +181,7 @@ export default function FoodTracker() {
     } finally {
       setLoading(false);
     }
-  }, [selectedDate]);
+  }, [dateFilter]);
 
   // Fetch quick-add foods
   const fetchQuickAddFoods = async () => {
@@ -523,72 +598,65 @@ export default function FoodTracker() {
         </Card>
       )}
 
-      {/* Date Selector */}
-      <div className="flex flex-col items-center gap-3">
-        {/* Quick Date Jump Buttons */}
-        <div className="flex gap-1 p-1 bg-gray-700 rounded-lg">
-          {[
-            { label: 'Today', days: 0 },
-            { label: 'Yesterday', days: 1 },
-            { label: '3 Days Ago', days: 3 },
-            { label: '1 Week Ago', days: 7 },
-            { label: '2 Weeks Ago', days: 14 },
-            { label: '1 Month Ago', days: 30 },
-          ].map((item) => {
-            const targetDate = subDays(new Date(), item.days);
-            const isSelected = format(selectedDate, 'yyyy-MM-dd') === format(targetDate, 'yyyy-MM-dd');
-            return (
-              <button
-                key={item.label}
-                onClick={() => setSelectedDate(targetDate)}
-                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-                  isSelected
-                    ? 'bg-gray-600 text-gray-100 shadow-sm'
-                    : 'text-gray-400 hover:text-gray-200'
-                }`}
-              >
-                {item.label}
-              </button>
-            );
-          })}
-        </div>
-        {/* Day Navigation */}
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => handleDateChange('prev')}
-            className="p-2 rounded-lg hover:bg-gray-700 text-gray-400 transition-colors"
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-          <div className="text-center min-w-[160px] relative">
-            <label className="cursor-pointer group">
-              <input
-                type="date"
-                value={format(selectedDate, 'yyyy-MM-dd')}
-                onChange={(e) => {
-                  if (e.target.value) {
-                    setSelectedDate(new Date(e.target.value + 'T12:00:00'));
-                  }
-                }}
-                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-              />
-              <h2 className="text-lg font-semibold text-gray-100 group-hover:text-primary-400 transition-colors flex items-center justify-center gap-2">
-                {isToday(selectedDate) ? 'Today' : format(selectedDate, 'EEEE')}
-                <Calendar className="w-4 h-4 opacity-50 group-hover:opacity-100" />
-              </h2>
-              <p className="text-sm text-gray-500 group-hover:text-gray-400">
-                {format(selectedDate, 'MMMM d, yyyy')}
-              </p>
-            </label>
+      {/* Date Filter */}
+      <Card>
+        <div className="space-y-3">
+          <DateRangeFilter
+            value={dateFilter}
+            onChange={(newFilter) => {
+              setDateFilter(newFilter);
+              // Keep selectedDate in sync for single-day filters
+              if (newFilter.type === 'today') {
+                setSelectedDate(new Date());
+              } else if (newFilter.type === 'date' && newFilter.date) {
+                setSelectedDate(new Date(newFilter.date + 'T12:00:00'));
+              }
+            }}
+            showDatePicker={true}
+          />
+          {/* Quick Single-Day Jump Buttons */}
+          <div className="border-t border-gray-700 pt-3">
+            <p className="text-xs text-gray-500 mb-2">Quick jump (single day):</p>
+            <div className="flex flex-wrap gap-1">
+              {[
+                { label: 'Today', days: 0 },
+                { label: 'Yesterday', days: 1 },
+                { label: '3 Days Ago', days: 3 },
+                { label: '1 Week Ago', days: 7 },
+                { label: '2 Weeks Ago', days: 14 },
+                { label: '1 Month Ago', days: 30 },
+              ].map((item) => {
+                const targetDate = subDays(new Date(), item.days);
+                const targetDateStr = format(targetDate, 'yyyy-MM-dd');
+                const isSelected =
+                  (item.days === 0 && dateFilter.type === 'today') ||
+                  (dateFilter.type === 'date' && dateFilter.date === targetDateStr);
+                return (
+                  <button
+                    key={item.label}
+                    onClick={() => {
+                      if (item.days === 0) {
+                        setDateFilter({ type: 'today' });
+                        setSelectedDate(new Date());
+                      } else {
+                        setDateFilter({ type: 'date', date: targetDateStr });
+                        setSelectedDate(targetDate);
+                      }
+                    }}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
+                      isSelected
+                        ? 'bg-gray-600 text-gray-100 shadow-sm'
+                        : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <button
-            onClick={() => handleDateChange('next')}
-            className="p-2 rounded-lg hover:bg-gray-700 text-gray-400 transition-colors"
-          >
-            <ChevronRight className="w-5 h-5" />
-          </button>
         </div>
-      </div>
+      </Card>
 
       {loading ? (
         <div className="flex items-center justify-center py-12">
@@ -743,6 +811,9 @@ export default function FoodTracker() {
 
           {/* Copy a Previous Day */}
           <CopyPreviousDay onCopied={fetchFoodItems} />
+
+          {/* Meal Templates */}
+          <MealTemplates onApplied={fetchFoodItems} />
 
           {/* Food Items List */}
           <Card title="Food Log" subtitle={`${foodItems.length} items`} padding={false}>

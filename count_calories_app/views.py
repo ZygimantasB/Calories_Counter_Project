@@ -3459,6 +3459,8 @@ def api_food_items(request):
     """Get food items with filtering for React frontend"""
     days = request.GET.get('days', '90')
     date_param = request.GET.get('date')  # Single day filter (YYYY-MM-DD)
+    start_date_param = request.GET.get('start_date')  # Custom range start (YYYY-MM-DD)
+    end_date_param = request.GET.get('end_date')  # Custom range end (YYYY-MM-DD)
     now = timezone.now()
 
     # Single day filter takes priority
@@ -3471,6 +3473,16 @@ def api_food_items(request):
             food_items = FoodItem.objects.filter(consumed_at__gte=day_start, consumed_at__lte=day_end)
         except ValueError:
             food_items = FoodItem.objects.filter(consumed_at__gte=now - timedelta(days=1))
+    elif start_date_param and end_date_param:
+        try:
+            from datetime import datetime
+            start = datetime.strptime(start_date_param, '%Y-%m-%d').date()
+            end = datetime.strptime(end_date_param, '%Y-%m-%d').date()
+            range_start = timezone.make_aware(datetime.combine(start, datetime.min.time()))
+            range_end = timezone.make_aware(datetime.combine(end, datetime.max.time()))
+            food_items = FoodItem.objects.filter(consumed_at__gte=range_start, consumed_at__lte=range_end)
+        except ValueError:
+            food_items = FoodItem.objects.filter(consumed_at__gte=now - timedelta(days=90))
     elif days == 'all':
         food_items = FoodItem.objects.all()
     else:
@@ -3977,6 +3989,54 @@ def api_workouts(request):
         'items': items,
         'stats': stats,
     })
+
+
+@require_http_methods(["POST"])
+def api_add_workout(request):
+    """Create a new workout session"""
+    data = json.loads(request.body)
+    name = data.get('name', 'Workout')
+    date_str = data.get('date')
+    notes = data.get('notes', '')
+
+    from django.utils.dateparse import parse_datetime
+    if date_str:
+        date = parse_datetime(date_str) or timezone.now()
+    else:
+        date = timezone.now()
+
+    session = WorkoutSession.objects.create(
+        name=name,
+        date=date,
+        notes=notes,
+    )
+    return JsonResponse({'success': True, 'id': session.id})
+
+
+@require_http_methods(["PUT", "PATCH"])
+def api_update_workout(request, workout_id):
+    """Update a workout session"""
+    session = get_object_or_404(WorkoutSession, id=workout_id)
+    data = json.loads(request.body)
+    if 'name' in data:
+        session.name = data['name']
+    if 'notes' in data:
+        session.notes = data['notes']
+    if 'date' in data:
+        from django.utils.dateparse import parse_datetime
+        parsed = parse_datetime(data['date'])
+        if parsed:
+            session.date = parsed
+    session.save()
+    return JsonResponse({'success': True})
+
+
+@require_http_methods(["DELETE"])
+def api_delete_workout(request, workout_id):
+    """Delete a workout session"""
+    session = get_object_or_404(WorkoutSession, id=workout_id)
+    session.delete()
+    return JsonResponse({'success': True})
 
 
 @require_http_methods(["GET"])
@@ -5667,4 +5727,90 @@ def api_delete_body_measurement(request, measurement_id):
     """Delete a body measurement entry via React API"""
     measurement = get_object_or_404(BodyMeasurement, id=measurement_id)
     measurement.delete()
+    return JsonResponse({'success': True})
+
+
+@require_http_methods(["GET"])
+def api_meal_templates(request):
+    """List all meal templates"""
+    from count_calories_app.models import MealTemplate, MealTemplateItem
+    templates = MealTemplate.objects.all().order_by('-created_at')
+    result = []
+    for t in templates:
+        items = MealTemplateItem.objects.filter(template=t)
+        result.append({
+            'id': t.id,
+            'name': t.name,
+            'created_at': t.created_at.isoformat(),
+            'items_count': items.count(),
+            'total_calories': sum(float(i.calories or 0) for i in items),
+        })
+    return JsonResponse({'templates': result})
+
+
+@require_http_methods(["POST"])
+def api_add_meal_template(request):
+    """Save current day's foods as a named template"""
+    data = json.loads(request.body)
+    name = data.get('name', '').strip()
+    date_str = data.get('date')
+
+    if not name:
+        return JsonResponse({'success': False, 'message': 'Template name is required'}, status=400)
+
+    from count_calories_app.models import MealTemplate, MealTemplateItem
+    from datetime import datetime
+
+    if date_str:
+        target_date = datetime.strptime(date_str, '%Y-%m-%d').date()
+    else:
+        target_date = timezone.now().date()
+
+    day_start = timezone.make_aware(datetime.combine(target_date, datetime.min.time()))
+    day_end = timezone.make_aware(datetime.combine(target_date, datetime.max.time()))
+    food_items = FoodItem.objects.filter(consumed_at__gte=day_start, consumed_at__lte=day_end)
+
+    if not food_items.exists():
+        return JsonResponse({'success': False, 'message': 'No food items found for this day'}, status=404)
+
+    template = MealTemplate.objects.create(name=name)
+    for item in food_items:
+        MealTemplateItem.objects.create(
+            template=template,
+            product_name=item.product_name,
+            calories=item.calories,
+            fat=item.fat,
+            carbohydrates=item.carbohydrates,
+            protein=item.protein,
+        )
+
+    return JsonResponse({'success': True, 'id': template.id, 'items_count': food_items.count()})
+
+
+@require_http_methods(["POST"])
+def api_apply_meal_template(request, template_id):
+    """Apply a meal template - create food items for today"""
+    from count_calories_app.models import MealTemplate, MealTemplateItem
+    template = get_object_or_404(MealTemplate, id=template_id)
+    items = MealTemplateItem.objects.filter(template=template)
+
+    now = timezone.now()
+    for item in items:
+        FoodItem.objects.create(
+            product_name=item.product_name,
+            calories=item.calories,
+            fat=item.fat,
+            carbohydrates=item.carbohydrates,
+            protein=item.protein,
+            consumed_at=now,
+        )
+
+    return JsonResponse({'success': True, 'items_logged': items.count()})
+
+
+@require_http_methods(["DELETE"])
+def api_delete_meal_template(request, template_id):
+    from count_calories_app.models import MealTemplate
+    template = get_object_or_404(MealTemplate, id=template_id)
+    template.delete()
     return JsonResponse({'success': True})
