@@ -27,6 +27,7 @@ import {
 } from 'recharts';
 import { format, addDays, subDays, isToday, parseISO } from 'date-fns';
 import { Card, Button, Badge, ProgressBar } from '../components/ui';
+import Calculator from '../components/Calculator';
 import { foodApi, settingsApi } from '../api';
 
 const MACRO_COLORS = {
@@ -42,6 +43,9 @@ export default function FoodTracker() {
   const [quickAddFoods, setQuickAddFoods] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Calculator state
+  const [showCalculator, setShowCalculator] = useState(false);
 
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false);
@@ -398,6 +402,12 @@ export default function FoodTracker() {
             {showDbSearch ? 'Close Search' : 'Search Foods'}
           </Button>
           <Button
+            variant={showCalculator ? 'primary' : 'ghost'}
+            onClick={() => setShowCalculator(!showCalculator)}
+          >
+            {showCalculator ? 'Hide Calculator' : 'Calculator'}
+          </Button>
+          <Button
             icon={Plus}
             onClick={() => setShowAddModal(true)}
           >
@@ -405,6 +415,17 @@ export default function FoodTracker() {
           </Button>
         </div>
       </div>
+
+      {/* Calculator Section */}
+      {showCalculator && (
+        <div className="max-w-sm">
+          <Calculator
+            onCopyValue={(field, value) =>
+              setNewFood((prev) => ({ ...prev, [field]: value }))
+            }
+          />
+        </div>
+      )}
 
       {/* Database Search Section */}
       {showDbSearch && (
