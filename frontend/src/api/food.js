@@ -91,6 +91,12 @@ export const foodApi = {
     return response.data;
   },
 
+  // Get hourly eating pattern data
+  getHourlyPattern: async (params) => {
+    const response = await apiClient.get('/api/react/food-items/hourly/', { params });
+    return response.data;
+  },
+
   // Hide from quick list
   hideFromQuickList: async (foodItemId) => {
     const response = await apiClient.post(`/food/${foodItemId}/hide-from-quick-list/`);

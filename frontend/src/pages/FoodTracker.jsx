@@ -32,6 +32,9 @@ import CSVDownloadButton from '../components/CSVDownloadButton';
 import CopyPreviousDay from '../components/CopyPreviousDay';
 import MealTemplates from '../components/MealTemplates';
 import DateRangeFilter from '../components/DateRangeFilter';
+import CalorieTrendChart from '../components/CalorieTrendChart';
+import MacroTrendChart from '../components/MacroTrendChart';
+import EatingPatternChart from '../components/EatingPatternChart';
 import { foodApi, settingsApi } from '../api';
 
 const MACRO_COLORS = {
@@ -166,6 +169,11 @@ export default function FoodTracker() {
     fat: 70,
   });
 
+  // Trend / eating pattern chart data
+  const [calorieTrendData, setCalorieTrendData] = useState(null);
+  const [macroTrendData, setMacroTrendData] = useState(null);
+  const [hourlyPatternData, setHourlyPatternData] = useState(null);
+
   // Fetch food items
   const fetchFoodItems = useCallback(async () => {
     try {
@@ -196,6 +204,28 @@ export default function FoodTracker() {
   useEffect(() => {
     fetchFoodItems();
   }, [fetchFoodItems]);
+
+  // Fetch trend and pattern data whenever dateFilter changes
+  useEffect(() => {
+    const fetchTrendData = async () => {
+      try {
+        const params = buildFetchParams(dateFilter);
+        // Convert params to the format expected by the trend endpoints
+        // trend endpoints accept: days, start_date, end_date, date
+        const [calTrend, macroTrend, hourly] = await Promise.all([
+          foodApi.getCaloriesTrend(params.days || (params.date ? 30 : undefined)).catch(() => null),
+          foodApi.getMacrosTrend(params.days || (params.date ? 30 : undefined)).catch(() => null),
+          foodApi.getHourlyPattern(params).catch(() => null),
+        ]);
+        setCalorieTrendData(calTrend);
+        setMacroTrendData(macroTrend);
+        setHourlyPatternData(hourly);
+      } catch (err) {
+        console.error('Error fetching trend data:', err);
+      }
+    };
+    fetchTrendData();
+  }, [dateFilter]);
 
   useEffect(() => {
     fetchQuickAddFoods();
@@ -861,6 +891,23 @@ export default function FoodTracker() {
               </Card>
             );
           })()}
+
+          {/* Trend Charts */}
+          {(calorieTrendData?.labels?.length > 0 || macroTrendData?.labels?.length > 0 || hourlyPatternData) && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {calorieTrendData?.labels?.length > 0 && (
+                  <CalorieTrendChart data={calorieTrendData} target={targets.calories} />
+                )}
+                {macroTrendData?.labels?.length > 0 && (
+                  <MacroTrendChart data={macroTrendData} />
+                )}
+              </div>
+              {hourlyPatternData && hourlyPatternData.calories?.some(c => c > 0) && (
+                <EatingPatternChart data={hourlyPatternData} />
+              )}
+            </div>
+          )}
 
           {/* Quick Add */}
           {quickAddFoods.length > 0 && (
