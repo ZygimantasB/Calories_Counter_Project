@@ -29,6 +29,7 @@ import CSVDownloadButton from '../components/CSVDownloadButton';
 import WeightChangeAnalysis from '../components/WeightChangeAnalysis';
 import HealthMetrics from '../components/HealthMetrics';
 import WeightProjections from '../components/WeightProjections';
+import WeightCorrelationTable from '../components/WeightCorrelationTable';
 import { weightApi } from '../api';
 
 export default function WeightTracker() {
@@ -272,6 +273,9 @@ export default function WeightTracker() {
 
           {/* Weight Projections */}
           <WeightProjections stats={stats} />
+
+          {/* Weight vs Calorie Correlation */}
+          <WeightCorrelationTable days={({ week: 7, month: 30, '3months': 90, '6months': 180, year: 365, all: 'all' })[timeRange] || 30} />
 
           {/* Progress to Goal */}
           <Card>
