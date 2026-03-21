@@ -16,6 +16,7 @@ nul
 .vscode
 agents
 skills
+*.png
 
 
 ### PyCharm+iml template

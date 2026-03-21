@@ -1016,7 +1016,7 @@ def get_calories_trend_data(request):
     selected_date_str = request.GET.get('date')
     time_range = request.GET.get('range', 'today')
 
-    end_date = timezone.now()
+    end_date = timezone.now().replace(hour=23, minute=59, second=59, microsecond=999999)
     start_date = end_date - timedelta(days=30)  # Default 30 days
 
     # Handle days parameter
@@ -1087,7 +1087,7 @@ def get_macros_trend_data(request):
     selected_date_str = request.GET.get('date')
     time_range = request.GET.get('range', 'today')
 
-    end_date = timezone.now()
+    end_date = timezone.now().replace(hour=23, minute=59, second=59, microsecond=999999)
     start_date = end_date - timedelta(days=30)  # Default 30 days
 
     # Handle days parameter
