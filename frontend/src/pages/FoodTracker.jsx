@@ -28,6 +28,8 @@ import {
 import { format, addDays, subDays, isToday, parseISO } from 'date-fns';
 import { Card, Button, Badge, ProgressBar } from '../components/ui';
 import Calculator from '../components/Calculator';
+import CSVDownloadButton from '../components/CSVDownloadButton';
+import CopyPreviousDay from '../components/CopyPreviousDay';
 import { foodApi, settingsApi } from '../api';
 
 const MACRO_COLORS = {
@@ -394,6 +396,10 @@ export default function FoodTracker() {
           </p>
         </div>
         <div className="flex gap-2">
+          <CSVDownloadButton
+            endpoint="/food_tracker/"
+            params={{ range: 'today' }}
+          />
           <Button
             variant={showDbSearch ? 'primary' : 'ghost'}
             icon={Search}

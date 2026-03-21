@@ -21,6 +21,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import { Card, Badge, Button } from '../components/ui';
+import CSVDownloadButton from '../components/CSVDownloadButton';
 import { foodApi } from '../api';
 
 export default function TopFoods() {
@@ -83,11 +84,17 @@ export default function TopFoods() {
   return (
     <div className="space-y-6 animate-in">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-100">Top Foods</h1>
-        <p className="text-gray-400 mt-1">
-          Your most consumed foods and nutrition sources
-        </p>
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-100">Top Foods</h1>
+          <p className="text-gray-400 mt-1">
+            Your most consumed foods and nutrition sources
+          </p>
+        </div>
+        <CSVDownloadButton
+          endpoint="/top_foods/"
+          params={{ days: '30' }}
+        />
       </div>
 
       {loading ? (

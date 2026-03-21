@@ -25,6 +25,10 @@ import {
 } from 'recharts';
 import { format, subDays, parseISO } from 'date-fns';
 import { Card, Button, Badge, ProgressBar } from '../components/ui';
+import CSVDownloadButton from '../components/CSVDownloadButton';
+import WeightChangeAnalysis from '../components/WeightChangeAnalysis';
+import HealthMetrics from '../components/HealthMetrics';
+import WeightProjections from '../components/WeightProjections';
 import { weightApi } from '../api';
 
 export default function WeightTracker() {
@@ -166,9 +170,15 @@ export default function WeightTracker() {
           <h1 className="text-2xl font-bold text-gray-100">Weight Tracker</h1>
           <p className="text-gray-400 mt-1">Track your body weight over time</p>
         </div>
-        <Button icon={Plus} onClick={() => setShowAddModal(true)}>
-          Log Weight
-        </Button>
+        <div className="flex gap-2">
+          <CSVDownloadButton
+            endpoint="/weight/"
+            params={{ export: 'csv' }}
+          />
+          <Button icon={Plus} onClick={() => setShowAddModal(true)}>
+            Log Weight
+          </Button>
+        </div>
       </div>
 
       {loading ? (
@@ -253,6 +263,15 @@ export default function WeightTracker() {
               </div>
             </Card>
           </div>
+
+          {/* Weight Change Analysis */}
+          <WeightChangeAnalysis stats={stats} entries={weightEntries} />
+
+          {/* Health Metrics */}
+          <HealthMetrics stats={stats} />
+
+          {/* Weight Projections */}
+          <WeightProjections stats={stats} />
 
           {/* Progress to Goal */}
           <Card>
