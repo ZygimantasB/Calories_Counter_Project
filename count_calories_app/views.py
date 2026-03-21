@@ -3800,12 +3800,53 @@ def api_weight_items(request):
     weight_values = [float(w.weight) for w in weights]
     stats = {}
     if weight_values:
+        current_weight = weight_values[0]
+        change = round(weight_values[0] - weight_values[-1], 1) if len(weight_values) > 1 else 0
+
+        # Change rate (kg/week)
+        change_rate = 0
+        if len(weights) >= 2:
+            days_span = (weights[0].recorded_at - weights[len(weights)-1].recorded_at).days
+            if days_span > 0:
+                change_rate = round(change / (days_span / 7), 2)
+
+        # Consistency (standard deviation)
+        consistency = 0
+        if len(weight_values) >= 3:
+            import numpy as np
+            consistency = round(float(np.std(weight_values)), 2)
+
+        # BMI
+        user_settings = UserSettings.get_settings()
+        bmi = 0
+        height_m = float(user_settings.height) / 100 if user_settings.height else 1.75
+        if current_weight > 0 and height_m > 0:
+            bmi = round(current_weight / (height_m * height_m), 1)
+
+        # Projections
+        projected_weight = round(current_weight + (change_rate * 4), 1) if change_rate != 0 else current_weight
+        target_weight = float(user_settings.target_weight) if user_settings.target_weight else None
+        weeks_to_goal = 0
+        goal_date = 'N/A'
+        if target_weight and current_weight > target_weight and change_rate < 0:
+            weeks_to_goal = round((current_weight - target_weight) / abs(change_rate), 1)
+            import datetime as dt
+            goal_date_val = weights[0].recorded_at + dt.timedelta(weeks=weeks_to_goal)
+            goal_date = goal_date_val.strftime('%Y-%m-%d')
+
         stats = {
-            'current': weight_values[0] if weight_values else None,
+            'current': current_weight,
             'avg': round(sum(weight_values) / len(weight_values), 1),
             'min': min(weight_values),
             'max': max(weight_values),
-            'change': round(weight_values[0] - weight_values[-1], 1) if len(weight_values) > 1 else 0,
+            'change': change,
+            'change_rate': change_rate,
+            'consistency': consistency,
+            'bmi': bmi,
+            'projected_weight': projected_weight,
+            'weeks_to_goal': weeks_to_goal,
+            'goal_date': goal_date,
+            'weight_goal': target_weight,
         }
 
     return JsonResponse({
