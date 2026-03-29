@@ -250,7 +250,13 @@ def get_nutrition_data(request):
             start_date = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
     # Build query based on start_date and end_date
-    if start_date is None and end_date:
+    from django.db.models.functions import TruncDate
+    if time_range == 'today' and not days_param and not selected_date_str and not start_date_str:
+        # Use TruncDate to respect Django TIME_ZONE (matches food_tracker view)
+        food_items = FoodItem.objects.annotate(
+            consumed_date=TruncDate('consumed_at')
+        ).filter(consumed_date=now.date())
+    elif start_date is None and end_date:
         # "All" option - no start date filter
         food_items = FoodItem.objects.filter(consumed_at__lte=end_date)
     elif end_date:
@@ -1227,7 +1233,8 @@ def get_weight_data(request):
         else:
             weight_data['stats']['change_rate'] = 0
 
-        height_in_meters = 1.75  # Default height
+        _settings = UserSettings.get_settings()
+        height_in_meters = float(_settings.height) / 100 if _settings.height else 1.75
         latest_weight_value = float(latest_weight.weight) if latest_weight else 0
         if latest_weight_value > 0:
             bmi = latest_weight_value / (height_in_meters * height_in_meters)
@@ -4551,6 +4558,61 @@ def api_analytics(request):
             'recommendation': 'Keep the momentum going!'
         })
 
+    # Weight-nutrition correlation insights (same logic as Django template view)
+    if len(weights_list) >= 3:
+        import statistics as _stats
+        weight_changes_with_nutrition = []
+        for i in range(len(weights_list) - 1):
+            older_w = weights_list[i]
+            newer_w = weights_list[i + 1]
+            w_change = float(newer_w.weight) - float(older_w.weight)
+            period_start = older_w.recorded_at
+            period_end = newer_w.recorded_at
+            period_food = FoodItem.objects.filter(consumed_at__gte=period_start, consumed_at__lte=period_end)
+            if period_food.exists():
+                from django.db.models.functions import TruncDate as _TD
+                days_count = period_food.annotate(day=_TD('consumed_at')).values('day').distinct().count()
+                if days_count > 0:
+                    p_totals = period_food.aggregate(cal=Sum('calories'), prot=Sum('protein'), carb=Sum('carbohydrates'), fat_=Sum('fat'))
+                    weight_changes_with_nutrition.append({
+                        'weight_change': w_change,
+                        'avg_calories': float(p_totals['cal'] or 0) / days_count,
+                        'avg_protein': float(p_totals['prot'] or 0) / days_count,
+                        'avg_carbs': float(p_totals['carb'] or 0) / days_count,
+                        'avg_fat': float(p_totals['fat_'] or 0) / days_count,
+                    })
+
+        if len(weight_changes_with_nutrition) >= 3:
+            weight_loss_periods = [p for p in weight_changes_with_nutrition if p['weight_change'] < -0.1]
+            weight_gain_periods = [p for p in weight_changes_with_nutrition if p['weight_change'] > 0.1]
+
+            if weight_loss_periods and weight_gain_periods:
+                avg_cal_loss = _stats.mean([p['avg_calories'] for p in weight_loss_periods])
+                avg_cal_gain = _stats.mean([p['avg_calories'] for p in weight_gain_periods])
+                if avg_cal_loss < avg_cal_gain:
+                    insights.append({
+                        'type': 'calories', 'icon': '🔥', 'title': 'Calorie Impact',
+                        'description': f'You tend to lose weight when averaging {avg_cal_loss:.0f} kcal/day and gain when averaging {avg_cal_gain:.0f} kcal/day.',
+                        'recommendation': f'Try to stay around {avg_cal_loss:.0f} kcal/day for weight loss.'
+                    })
+
+                avg_carbs_loss = _stats.mean([p['avg_carbs'] for p in weight_loss_periods])
+                avg_carbs_gain = _stats.mean([p['avg_carbs'] for p in weight_gain_periods])
+                if avg_carbs_loss < avg_carbs_gain * 0.9:
+                    insights.append({
+                        'type': 'carbs', 'icon': '🍞', 'title': 'Carbohydrate Pattern',
+                        'description': f'Lower carb intake (~{avg_carbs_loss:.0f}g/day) correlates with weight loss vs (~{avg_carbs_gain:.0f}g/day) with weight gain.',
+                        'recommendation': f'Consider keeping carbs around {avg_carbs_loss:.0f}g/day.'
+                    })
+
+    # Weekend Pattern insight
+    if weekday_insights.get('weekend_difference') and weekday_insights['weekend_difference'] > 200:
+        insights.append({
+            'type': 'weekend', 'icon': '📅', 'title': 'Weekend Pattern',
+            'description': f'You consume about {weekday_insights["weekend_difference"]:.0f} more calories on weekends compared to weekdays.',
+            'recommendation': 'Try to maintain more consistent eating patterns throughout the week.'
+        })
+
     # === ACHIEVEMENTS ===
     achievements = []
     if streaks.get('current_streak', 0) >= 30:
@@ -4699,6 +4761,28 @@ def api_analytics(request):
                     'night': round((night/total_cal)*100, 1),
                 }
 
+    # Late Night Eating insight (added after meal_timing is computed)
+    if meal_timing.get('night', 0) > 15:
+        insights.append({
+            'type': 'timing', 'icon': '🌙', 'title': 'Late Night Eating',
+            'description': f'{meal_timing["night"]:.0f}% of your calories are consumed late at night (after 10 PM).',
+            'recommendation': 'Try to finish eating earlier for better digestion and sleep quality.'
+        })
+
+    # High Calorie Days insight (added after calorie_distribution is computed)
+    if calorie_distribution:
+        high_cal_entry = next((d for d in calorie_distribution if '3000+' in d.get('label', '')), None)
+        if high_cal_entry and high_cal_entry.get('percent', 0) > 20:
+            insights.append({
+                'type': 'distribution', 'icon': '📊', 'title': 'High Calorie Days',
+                'description': f'{high_cal_entry["percent"]:.0f}% of your days exceed 3000 calories.',
+                'recommendation': 'Identify triggers for high-calorie days and plan alternatives.'
+            })
+
+    # Nutrition Master achievement
+    if nutrition_score.get('total', 0) >= 80:
+        achievements.append({'icon': '🌟', 'title': 'Nutrition Master', 'desc': 'Excellent overall nutrition score'})
+
     return JsonResponse({
         'period': period,
         'daily_data': daily_data,
@@ -4764,15 +4848,25 @@ def api_top_foods(request):
         items.append({
             'name': food['product_name'],
             'count': food['count'],
-            'total_calories': food['total_calories'] or 0,
-            'avg_calories': round(food['avg_calories'] or 0, 0),
+            'total_calories': float(food['total_calories'] or 0),
+            'avg_calories': round(float(food['avg_calories'] or 0)),
             'total_protein': round(float(food['total_protein'] or 0), 1),
             'total_carbs': round(float(food['total_carbs'] or 0), 1),
             'total_fat': round(float(food['total_fat'] or 0), 1),
             'latest': food['latest'].isoformat() if food['latest'] else None,
         })
 
-    return JsonResponse({'items': items})
+    # Build separate sorted lists for React frontend
+    by_calories = sorted(items, key=lambda x: x['total_calories'], reverse=True)
+    by_protein = sorted(items, key=lambda x: x['total_protein'], reverse=True)
+    by_frequency = sorted(items, key=lambda x: x['count'], reverse=True)
+
+    return JsonResponse({
+        'items': items,
+        'by_calories': by_calories,
+        'by_protein': by_protein,
+        'by_frequency': by_frequency,
+    })
 
 
 # ==================== Settings Views ====================

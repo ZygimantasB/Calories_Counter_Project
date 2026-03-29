@@ -37,7 +37,7 @@ export default function RunningTracker() {
   const [error, setError] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [addLoading, setAddLoading] = useState(false);
-  const [timeRange, setTimeRange] = useState('month');
+  const [timeRange, setTimeRange] = useState('all');
 
   // Edit/delete state
   const [showEditModal, setShowEditModal] = useState(false);
