@@ -25,16 +25,18 @@ export function groupByWeek(measurements) {
 }
 
 function pickLatest(entries) {
-  return entries.reduce((best, e) => !best || e.date > best.date ? e : best, null);
+  return entries.reduce((best, e) =>
+    !best || parseISO(e.date) > parseISO(best.date) ? e : best, null);
 }
 
 function pickFirst(entries) {
-  return entries.reduce((best, e) => !best || e.date < best.date ? e : best, null);
+  return entries.reduce((best, e) =>
+    !best || parseISO(e.date) < parseISO(best.date) ? e : best, null);
 }
 
 function computeAverage(entries) {
   if (!entries.length) return null;
-  const averaged = { date: pickLatest(entries).date };
+  const averaged = { id: null, date: pickLatest(entries).date };
   for (const field of MEASUREMENT_FIELDS) {
     const vals = entries.map(e => e[field]).filter(v => v != null);
     averaged[field] = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
