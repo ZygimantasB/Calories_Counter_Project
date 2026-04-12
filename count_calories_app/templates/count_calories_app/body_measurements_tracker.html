@@ -1788,8 +1788,8 @@
     var snapB = resolveSnapshot(mode, selB, strategy);
     if (!snapA || !snapB) { alert('No measurement data found for one or both selections.'); return; }
 
-    var resolvedA = snapA.first || snapA;
-    var resolvedB = snapB.last || snapB;
+    var resolvedA = strategy === 'firstlast' ? snapA.first : snapA;
+    var resolvedB = strategy === 'firstlast' ? snapB.last  : snapB;
     var deltas = computeDeltas(resolvedA, resolvedB);
     var weightA = findWeightNear(resolvedA);
     var weightB = findWeightNear(resolvedB);
@@ -1818,10 +1818,14 @@
   document.getElementById('compare-tab').addEventListener('shown.bs.tab', function() {
     if (!weightFetched) {
       weightFetched = true;
-      fetch('{% url "weight_data" %}')
+      fetch('{% url "weight_data" %}?days=all')
         .then(function(r) { return r.json(); })
         .then(function(data) {
-          weightItems = data.weight_data || [];
+          var labels = data.labels || [];
+          var values = data.data || [];
+          weightItems = labels.map(function(d, i) {
+            return { date: d, weight: values[i] };
+          });
         })
         .catch(function() {});
     }
