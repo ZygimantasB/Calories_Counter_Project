@@ -141,6 +141,13 @@
           <i class="fas fa-plus-circle me-2"></i>Add New
         </button>
       </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="compare-tab" data-bs-toggle="tab"
+          data-bs-target="#compare" type="button" role="tab"
+          aria-controls="compare" aria-selected="false">
+          <i class="fas fa-exchange-alt me-2"></i>Compare
+        </button>
+      </li>
     </ul>
 
     <div class="tab-content" id="measurementTabsContent">
@@ -953,6 +960,124 @@
           </div>
         </div>
       </div>
+
+      <!-- Compare Tab -->
+      <div class="tab-pane fade" id="compare" role="tabpanel" aria-labelledby="compare-tab">
+        <div class="card mb-4">
+          <div class="card-header text-white">
+            <h2 class="h4 mb-0"><i class="fas fa-exchange-alt me-2"></i>Compare Measurements</h2>
+          </div>
+          <div class="card-body">
+
+            <!-- Mode -->
+            <div class="mb-3">
+              <div class="btn-group" role="group">
+                <input type="radio" class="btn-check" name="compareMode" id="modeDate" value="date" autocomplete="off" checked>
+                <label class="btn btn-outline-success" for="modeDate">Date vs Date</label>
+                <input type="radio" class="btn-check" name="compareMode" id="modeWeek" value="week" autocomplete="off">
+                <label class="btn btn-outline-success" for="modeWeek">Week vs Week</label>
+                <input type="radio" class="btn-check" name="compareMode" id="modePeriod" value="period" autocomplete="off">
+                <label class="btn btn-outline-success" for="modePeriod">Period vs Period</label>
+              </div>
+            </div>
+
+            <!-- Strategy (hidden in date mode) -->
+            <div class="mb-3" id="strategyRow" style="display:none">
+              <span class="form-label text-muted small me-2">Strategy:</span>
+              <div class="btn-group btn-group-sm" role="group">
+                <input type="radio" class="btn-check" name="compareStrategy" id="stratLatest" value="latest" autocomplete="off" checked>
+                <label class="btn btn-outline-secondary" for="stratLatest">Latest entry</label>
+                <input type="radio" class="btn-check" name="compareStrategy" id="stratAverage" value="average" autocomplete="off">
+                <label class="btn btn-outline-secondary" for="stratAverage">Average</label>
+                <input type="radio" class="btn-check" name="compareStrategy" id="stratFirstLast" value="firstlast" autocomplete="off">
+                <label class="btn btn-outline-secondary" for="stratFirstLast">First vs Last</label>
+              </div>
+            </div>
+
+            <!-- Date selectors -->
+            <div id="dateSelectors" class="row mb-3">
+              <div class="col-md-5">
+                <label class="form-label small text-muted">Side A</label>
+                <select class="form-select" id="sideADate"></select>
+              </div>
+              <div class="col-md-5">
+                <label class="form-label small text-muted">Side B</label>
+                <select class="form-select" id="sideBDate"></select>
+              </div>
+            </div>
+
+            <!-- Week selectors -->
+            <div id="weekSelectors" class="row mb-3" style="display:none">
+              <div class="col-md-5">
+                <label class="form-label small text-muted">Side A (Week)</label>
+                <select class="form-select" id="sideAWeek"></select>
+              </div>
+              <div class="col-md-5">
+                <label class="form-label small text-muted">Side B (Week)</label>
+                <select class="form-select" id="sideBWeek"></select>
+              </div>
+            </div>
+
+            <!-- Period selectors -->
+            <div id="periodSelectors" class="row mb-3" style="display:none">
+              <div class="col-md-5">
+                <label class="form-label small text-muted">Period A</label>
+                <div class="d-flex gap-2 align-items-center">
+                  <input type="date" class="form-control" id="periodAStart">
+                  <span>to</span>
+                  <input type="date" class="form-control" id="periodAEnd">
+                </div>
+              </div>
+              <div class="col-md-5">
+                <label class="form-label small text-muted">Period B</label>
+                <div class="d-flex gap-2 align-items-center">
+                  <input type="date" class="form-control" id="periodBStart">
+                  <span>to</span>
+                  <input type="date" class="form-control" id="periodBEnd">
+                </div>
+              </div>
+            </div>
+
+            <button class="btn btn-success mb-4" id="compareBtn">
+              <i class="fas fa-exchange-alt me-2"></i>Compare
+            </button>
+
+            <!-- Results (hidden until comparison runs) -->
+            <div id="compareResults" style="display:none">
+              <div class="row mb-4" id="compareSummaryRow"></div>
+              <div class="card mb-3 p-3" id="compareFieldFilter"></div>
+              <div class="card mb-4">
+                <div class="card-body p-0">
+                  <table class="table table-hover mb-0">
+                    <thead class="table-dark">
+                      <tr>
+                        <th>Measurement</th>
+                        <th class="text-end" id="colLabelA">Side A</th>
+                        <th class="text-end" id="colLabelB">Side B</th>
+                        <th class="text-end">Change</th>
+                      </tr>
+                    </thead>
+                    <tbody id="compareTableBody"></tbody>
+                  </table>
+                </div>
+              </div>
+              <div class="card mb-4">
+                <div class="card-header"><h5 class="mb-0">Side-by-Side Bar Chart</h5></div>
+                <div class="card-body" style="height:360px">
+                  <canvas id="compareBarCanvas"></canvas>
+                </div>
+              </div>
+              <div class="card mb-4">
+                <div class="card-header"><h5 class="mb-0">Delta Chart (Net Change)</h5></div>
+                <div class="card-body" style="height:360px">
+                  <canvas id="compareDeltaCanvas"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- End Compare Tab -->
     </div>
 
     <!-- Floating Action Button for Mobile -->
@@ -1268,5 +1393,449 @@
         }
       }
     });
+
+// ========== Compare Tab ==========
+(function() {
+  'use strict';
+
+  const MEASUREMENT_FIELDS = ['neck','chest','belly','butt',
+    'left_biceps','right_biceps','left_triceps','right_triceps',
+    'left_forearm','right_forearm','left_thigh','right_thigh',
+    'left_lower_leg','right_lower_leg'];
+
+  const FIELD_META = {
+    neck:{label:'Neck',group:'core'}, chest:{label:'Chest',group:'core'},
+    belly:{label:'Belly/Waist',group:'core'}, butt:{label:'Butt/Glutes',group:'core'},
+    left_biceps:{label:'L. Biceps',group:'arms'}, right_biceps:{label:'R. Biceps',group:'arms'},
+    left_triceps:{label:'L. Triceps',group:'arms'}, right_triceps:{label:'R. Triceps',group:'arms'},
+    left_forearm:{label:'L. Forearm',group:'arms'}, right_forearm:{label:'R. Forearm',group:'arms'},
+    left_thigh:{label:'L. Thigh',group:'legs'}, right_thigh:{label:'R. Thigh',group:'legs'},
+    left_lower_leg:{label:'L. Calf',group:'legs'}, right_lower_leg:{label:'R. Calf',group:'legs'},
+  };
+
+  // Data injected from Django context
+  var measurements = JSON.parse('{{ measurements_json|escapejs }}');
+  var weightItems = [];
+  var lastSideA = null;
+  var lastSideB = null;
+  var lastDeltas = null;
+
+  // ---------- Utils ----------
+
+  function getISOWeekKey(dateStr) {
+    var d = new Date(dateStr);
+    var tmp = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    var day = tmp.getUTCDay() || 7;
+    tmp.setUTCDate(tmp.getUTCDate() + 4 - day);
+    var yearStart = new Date(Date.UTC(tmp.getUTCFullYear(), 0, 1));
+    var week = String(Math.ceil((((tmp - yearStart) / 86400000) + 1) / 7)).padStart(2, '0');
+    return tmp.getUTCFullYear() + '-W' + week;
+  }
+
+  function groupByWeek(items) {
+    var g = {};
+    items.forEach(function(m) {
+      if (!m.date) return;
+      var k = getISOWeekKey(m.date);
+      if (!g[k]) g[k] = [];
+      g[k].push(m);
+    });
+    return g;
+  }
+
+  function pickLatest(entries) {
+    return entries.reduce(function(best, e) {
+      return !best || new Date(e.date) > new Date(best.date) ? e : best;
+    }, null);
+  }
+
+  function pickFirst(entries) {
+    return entries.reduce(function(best, e) {
+      return !best || new Date(e.date) < new Date(best.date) ? e : best;
+    }, null);
+  }
+
+  function avgEntries(entries) {
+    if (!entries.length) return null;
+    var out = { id: null, date: pickLatest(entries).date };
+    MEASUREMENT_FIELDS.forEach(function(f) {
+      var vals = entries.map(function(e) { return e[f]; }).filter(function(v) { return v != null; });
+      out[f] = vals.length ? vals.reduce(function(a, b) { return a + b; }, 0) / vals.length : null;
+    });
+    return out;
+  }
+
+  function resolveSnapshot(mode, selector, strategy) {
+    var entries = [];
+    if (mode === 'date') {
+      return measurements.find(function(m) { return m.id === selector; }) || null;
+    }
+    if (mode === 'week') {
+      entries = measurements.filter(function(m) { return m.date && getISOWeekKey(m.date) === selector; });
+    }
+    if (mode === 'period') {
+      var start = new Date(selector.start + 'T00:00:00');
+      var end = new Date(selector.end + 'T23:59:59');
+      entries = measurements.filter(function(m) {
+        if (!m.date) return false;
+        var d = new Date(m.date);
+        return d >= start && d <= end;
+      });
+    }
+    if (!entries.length) return null;
+    if (strategy === 'latest') return pickLatest(entries);
+    if (strategy === 'average') return avgEntries(entries);
+    if (strategy === 'firstlast') return { first: pickFirst(entries), last: pickLatest(entries) };
+    return pickLatest(entries);
+  }
+
+  function computeDeltas(a, b) {
+    var d = {};
+    MEASUREMENT_FIELDS.forEach(function(f) {
+      d[f] = a[f] != null && b[f] != null ? Math.round((b[f] - a[f]) * 100) / 100 : null;
+    });
+    return d;
+  }
+
+  function findWeightNear(snap) {
+    if (!snap || !snap.date || !weightItems.length) return null;
+    var snapDate = snap.date.substring(0, 10);
+    var item = weightItems.find(function(w) {
+      return (w.date || '').substring(0, 10) === snapDate;
+    });
+    return item ? parseFloat(item.weight) : null;
+  }
+
+  function formatDate(dateStr) {
+    if (!dateStr) return '\u2014';
+    return new Date(dateStr).toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric'});
+  }
+
+  // ---------- Populate selectors ----------
+
+  function populateDateSelects() {
+    ['sideADate', 'sideBDate'].forEach(function(id) {
+      var sel = document.getElementById(id);
+      while (sel.firstChild) sel.removeChild(sel.firstChild);
+      var placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = '\u2014 Select date \u2014';
+      sel.appendChild(placeholder);
+      measurements.forEach(function(m) {
+        var opt = document.createElement('option');
+        opt.value = String(m.id);
+        opt.textContent = formatDate(m.date);
+        sel.appendChild(opt);
+      });
+    });
+  }
+
+  function populateWeekSelects() {
+    var groups = groupByWeek(measurements);
+    var weeks = Object.keys(groups).sort(function(a, b) { return b.localeCompare(a); });
+    ['sideAWeek', 'sideBWeek'].forEach(function(id) {
+      var sel = document.getElementById(id);
+      while (sel.firstChild) sel.removeChild(sel.firstChild);
+      var placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = '\u2014 Select week \u2014';
+      sel.appendChild(placeholder);
+      weeks.forEach(function(key) {
+        var opt = document.createElement('option');
+        opt.value = key;
+        opt.textContent = key + ' (' + groups[key].length + ' entries)';
+        sel.appendChild(opt);
+      });
+    });
+  }
+
+  function buildFieldFilter() {
+    var container = document.getElementById('compareFieldFilter');
+    while (container.firstChild) container.removeChild(container.firstChild);
+
+    var groups = { core: [], arms: [], legs: [] };
+    MEASUREMENT_FIELDS.forEach(function(f) { groups[FIELD_META[f].group].push(f); });
+
+    // Weight checkbox
+    var weightLabel = document.createElement('label');
+    weightLabel.className = 'form-check form-check-inline me-3';
+    var weightCb = document.createElement('input');
+    weightCb.type = 'checkbox';
+    weightCb.className = 'form-check-input field-filter';
+    weightCb.id = 'filterWeight';
+    weightCb.value = '_weight';
+    weightCb.checked = true;
+    weightLabel.appendChild(weightCb);
+    var weightSpan = document.createElement('span');
+    weightSpan.className = 'form-check-label text-warning fw-bold';
+    weightSpan.textContent = 'Weight';
+    weightLabel.appendChild(weightSpan);
+    container.appendChild(weightLabel);
+
+    // Field groups
+    ['core', 'arms', 'legs'].forEach(function(grp) {
+      var grpSpan = document.createElement('span');
+      grpSpan.className = 'text-muted small me-2';
+      grpSpan.textContent = grp.charAt(0).toUpperCase() + grp.slice(1) + ':';
+      container.appendChild(grpSpan);
+      groups[grp].forEach(function(f) {
+        var lbl = document.createElement('label');
+        lbl.className = 'form-check form-check-inline';
+        var cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.className = 'form-check-input field-filter';
+        cb.value = f;
+        cb.checked = true;
+        lbl.appendChild(cb);
+        var sp = document.createElement('span');
+        sp.className = 'form-check-label';
+        sp.textContent = FIELD_META[f].label;
+        lbl.appendChild(sp);
+        container.appendChild(lbl);
+      });
+    });
+
+    // Re-render table/charts when field selection changes
+    container.addEventListener('change', function() {
+      if (lastSideA && lastSideB && lastDeltas) {
+        renderTable(lastSideA, lastSideB, lastDeltas);
+        renderCharts(lastSideA, lastSideB, lastDeltas);
+      }
+    });
+  }
+
+  // ---------- Render results ----------
+
+  var compareBarChart = null;
+  var compareDeltaChart = null;
+
+  function getEnabledFields() {
+    return MEASUREMENT_FIELDS.filter(function(f) {
+      var cb = document.querySelector('.field-filter[value="' + f + '"]');
+      return cb && cb.checked;
+    });
+  }
+
+  function renderSummary(sideA, sideB, deltas, weightA, weightB) {
+    var summaryRow = document.getElementById('compareSummaryRow');
+    while (summaryRow.firstChild) summaryRow.removeChild(summaryRow.firstChild);
+
+    var vals = Object.values(deltas).filter(function(v) { return v != null; });
+    var improved = vals.filter(function(v) { return v < 0; }).length;
+    var worsened = vals.filter(function(v) { return v > 0; }).length;
+    var totalLost = Math.abs(vals.filter(function(v) { return v < 0; }).reduce(function(s, v) { return s + v; }, 0)).toFixed(1);
+    var wChange = weightA != null && weightB != null ? (weightB - weightA).toFixed(2) : null;
+
+    var statsData = [
+      { label: 'Weight Change', value: wChange !== null ? (parseFloat(wChange) > 0 ? '+' : '') + wChange + ' kg' : '\u2014', good: wChange !== null && parseFloat(wChange) < 0 },
+      { label: 'Total cm Lost', value: '-' + totalLost + ' cm', good: true },
+      { label: 'Improved', value: improved + ' / ' + (improved + worsened), good: true },
+      { label: 'Got Bigger', value: String(worsened), good: false },
+    ];
+
+    statsData.forEach(function(stat) {
+      var col = document.createElement('div');
+      col.className = 'col-6 col-md-3 mb-2';
+      var card = document.createElement('div');
+      card.className = 'card text-center p-2';
+      var labelEl = document.createElement('div');
+      labelEl.className = 'text-muted small';
+      labelEl.textContent = stat.label;
+      var valueEl = document.createElement('div');
+      valueEl.className = 'fs-4 fw-bold ' + (stat.good ? 'text-success' : 'text-danger');
+      valueEl.textContent = stat.value;
+      card.appendChild(labelEl);
+      card.appendChild(valueEl);
+      col.appendChild(card);
+      summaryRow.appendChild(col);
+    });
+  }
+
+  function renderTable(sideA, sideB, deltas) {
+    var tbody = document.getElementById('compareTableBody');
+    while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+
+    var showWeight = document.getElementById('filterWeight') && document.getElementById('filterWeight').checked;
+
+    if (showWeight) {
+      var tr = document.createElement('tr');
+      var tdName = document.createElement('td');
+      tdName.className = 'text-warning fw-medium';
+      tdName.textContent = 'Weight';
+      var tdA = document.createElement('td');
+      tdA.className = 'text-end';
+      tdA.textContent = sideA._weight != null ? sideA._weight + ' kg' : '\u2014';
+      var tdB = document.createElement('td');
+      tdB.className = 'text-end';
+      tdB.textContent = sideB._weight != null ? sideB._weight + ' kg' : '\u2014';
+      var tdDelta = document.createElement('td');
+      tdDelta.className = 'text-end';
+      if (sideA._weight != null && sideB._weight != null) {
+        var wd = (sideB._weight - sideA._weight).toFixed(2);
+        tdDelta.className += parseFloat(wd) < 0 ? ' text-success' : ' text-danger';
+        tdDelta.textContent = (parseFloat(wd) > 0 ? '+' : '') + wd + ' kg';
+      } else {
+        tdDelta.textContent = '\u2014';
+      }
+      tr.appendChild(tdName); tr.appendChild(tdA); tr.appendChild(tdB); tr.appendChild(tdDelta);
+      tbody.appendChild(tr);
+    }
+
+    getEnabledFields().forEach(function(f) {
+      var d = deltas[f];
+      var tr2 = document.createElement('tr');
+      var n = document.createElement('td');
+      n.textContent = FIELD_META[f].label;
+      var a = document.createElement('td');
+      a.className = 'text-end';
+      a.textContent = sideA[f] != null ? sideA[f] + ' cm' : '\u2014';
+      var b = document.createElement('td');
+      b.className = 'text-end';
+      b.textContent = sideB[f] != null ? sideB[f] + ' cm' : '\u2014';
+      var delta = document.createElement('td');
+      delta.className = 'text-end';
+      if (d != null) {
+        delta.className += d < 0 ? ' text-success' : d > 0 ? ' text-danger' : ' text-muted';
+        delta.textContent = (d > 0 ? '+' : '') + d + ' cm';
+      } else {
+        delta.className += ' text-muted';
+        delta.textContent = '\u2014';
+      }
+      tr2.appendChild(n); tr2.appendChild(a); tr2.appendChild(b); tr2.appendChild(delta);
+      tbody.appendChild(tr2);
+    });
+  }
+
+  function renderCharts(sideA, sideB, deltas) {
+    var fields = getEnabledFields().filter(function(f) { return deltas[f] != null; });
+    if (!fields.length) return;
+    var labels = fields.map(function(f) { return FIELD_META[f].label; });
+    var labelA = document.getElementById('colLabelA').textContent;
+    var labelB = document.getElementById('colLabelB').textContent;
+
+    if (compareBarChart) { compareBarChart.destroy(); compareBarChart = null; }
+    var barCanvas = document.getElementById('compareBarCanvas');
+    compareBarChart = new Chart(barCanvas, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [
+          { label: labelA, data: fields.map(function(f) { return sideA[f]; }), backgroundColor: 'rgba(56,189,248,0.7)', borderColor: '#38bdf8', borderWidth: 1 },
+          { label: labelB, data: fields.map(function(f) { return sideB[f]; }), backgroundColor: 'rgba(167,139,250,0.7)', borderColor: '#a78bfa', borderWidth: 1 }
+        ]
+      },
+      options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { maxRotation: 45 } }, y: { title: { display: true, text: 'cm' } } } }
+    });
+
+    if (compareDeltaChart) { compareDeltaChart.destroy(); compareDeltaChart = null; }
+    var deltaCanvas = document.getElementById('compareDeltaCanvas');
+    compareDeltaChart = new Chart(deltaCanvas, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{
+          label: 'Change (cm)',
+          data: fields.map(function(f) { return deltas[f]; }),
+          backgroundColor: fields.map(function(f) { return deltas[f] < 0 ? 'rgba(52,211,153,0.7)' : deltas[f] > 0 ? 'rgba(248,113,113,0.7)' : 'rgba(107,114,128,0.7)'; }),
+          borderColor: fields.map(function(f) { return deltas[f] < 0 ? '#34d399' : deltas[f] > 0 ? '#f87171' : '#6b7280'; }),
+          borderWidth: 1
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, scales: { x: { ticks: { maxRotation: 45 } }, y: { title: { display: true, text: 'cm change' } } } }
+    });
+  }
+
+  // ---------- Mode switching ----------
+
+  function getMode() { return document.querySelector('input[name="compareMode"]:checked').value; }
+  function getStrategy() { return document.querySelector('input[name="compareStrategy"]:checked').value; }
+
+  document.querySelectorAll('input[name="compareMode"]').forEach(function(radio) {
+    radio.addEventListener('change', function() {
+      var mode = getMode();
+      document.getElementById('strategyRow').style.display = mode === 'date' ? 'none' : '';
+      document.getElementById('dateSelectors').style.display = mode === 'date' ? '' : 'none';
+      document.getElementById('weekSelectors').style.display = mode === 'week' ? '' : 'none';
+      document.getElementById('periodSelectors').style.display = mode === 'period' ? '' : 'none';
+      document.getElementById('compareResults').style.display = 'none';
+    });
+  });
+
+  // ---------- Compare button ----------
+
+  document.getElementById('compareBtn').addEventListener('click', function() {
+    var mode = getMode();
+    var strategy = getStrategy();
+    var selA, selB;
+
+    if (mode === 'date') {
+      var aVal = document.getElementById('sideADate').value;
+      var bVal = document.getElementById('sideBDate').value;
+      if (!aVal || !bVal) { alert('Please select two dates.'); return; }
+      selA = parseInt(aVal, 10);
+      selB = parseInt(bVal, 10);
+    } else if (mode === 'week') {
+      selA = document.getElementById('sideAWeek').value;
+      selB = document.getElementById('sideBWeek').value;
+      if (!selA || !selB) { alert('Please select two weeks.'); return; }
+    } else {
+      selA = { start: document.getElementById('periodAStart').value, end: document.getElementById('periodAEnd').value };
+      selB = { start: document.getElementById('periodBStart').value, end: document.getElementById('periodBEnd').value };
+      if (!selA.start || !selA.end || !selB.start || !selB.end) { alert('Please fill in both date ranges.'); return; }
+    }
+
+    var snapA = resolveSnapshot(mode, selA, strategy);
+    var snapB = resolveSnapshot(mode, selB, strategy);
+    if (!snapA || !snapB) { alert('No measurement data found for one or both selections.'); return; }
+
+    var resolvedA = snapA.last || snapA;
+    var resolvedB = snapB.last || snapB;
+    var deltas = computeDeltas(resolvedA, resolvedB);
+    var weightA = findWeightNear(resolvedA);
+    var weightB = findWeightNear(resolvedB);
+
+    resolvedA._weight = weightA;
+    resolvedB._weight = weightB;
+
+    lastSideA = resolvedA;
+    lastSideB = resolvedB;
+    lastDeltas = deltas;
+
+    document.getElementById('colLabelA').textContent = formatDate(resolvedA.date);
+    document.getElementById('colLabelB').textContent = formatDate(resolvedB.date);
+
+    renderSummary(resolvedA, resolvedB, deltas, weightA, weightB);
+    renderTable(resolvedA, resolvedB, deltas);
+    renderCharts(resolvedA, resolvedB, deltas);
+
+    document.getElementById('compareResults').style.display = 'block';
+  });
+
+  // ---------- Init ----------
+
+  // Fetch weight data once when Compare tab becomes visible
+  var weightFetched = false;
+  document.getElementById('compare-tab').addEventListener('shown.bs.tab', function() {
+    if (!weightFetched) {
+      weightFetched = true;
+      fetch('{% url "weight_data" %}')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+          weightItems = data.weight_data || [];
+        })
+        .catch(function() {});
+    }
+    // Re-render charts if results are already showing (tab redraw)
+    if (lastSideA && lastSideB && lastDeltas && document.getElementById('compareResults').style.display !== 'none') {
+      renderCharts(lastSideA, lastSideB, lastDeltas);
+    }
+  });
+
+  populateDateSelects();
+  populateWeekSelects();
+  buildFieldFilter();
+
+})();
+// ========== End Compare Tab ==========
   </script>
 {% endblock %}
