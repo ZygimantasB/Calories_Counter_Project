@@ -2130,12 +2130,35 @@ def body_measurements_tracker(request):
 
         table_view = request.GET.get('table_view', 'false')
 
+        measurements_json = json.dumps([
+            {
+                'id': m.id,
+                'date': m.date.isoformat() if m.date else None,
+                'neck': float(m.neck) if m.neck else None,
+                'chest': float(m.chest) if m.chest else None,
+                'belly': float(m.belly) if m.belly else None,
+                'butt': float(m.butt) if m.butt else None,
+                'left_biceps': float(m.left_biceps) if m.left_biceps else None,
+                'right_biceps': float(m.right_biceps) if m.right_biceps else None,
+                'left_triceps': float(m.left_triceps) if m.left_triceps else None,
+                'right_triceps': float(m.right_triceps) if m.right_triceps else None,
+                'left_forearm': float(m.left_forearm) if m.left_forearm else None,
+                'right_forearm': float(m.right_forearm) if m.right_forearm else None,
+                'left_thigh': float(m.left_thigh) if m.left_thigh else None,
+                'right_thigh': float(m.right_thigh) if m.right_thigh else None,
+                'left_lower_leg': float(m.left_lower_leg) if m.left_lower_leg else None,
+                'right_lower_leg': float(m.right_lower_leg) if m.right_lower_leg else None,
+            }
+            for m in measurements
+        ])
+
         return render(request, 'count_calories_app/body_measurements_tracker.html', {
             'form': form,
             'measurements_with_arrows': measurements_with_arrows,  # Keep the full list for charts
             'page_obj': page_obj,  # Add paginated measurements
             'page_title': 'Body Measurements Tracker',
             'table_view': table_view,  # Pass table view state to template
+            'measurements_json': measurements_json,
         })
     except Exception as e:
         logger.error(f"Error in body_measurements_tracker: {str(e)}")
