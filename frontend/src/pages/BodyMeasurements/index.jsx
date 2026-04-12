@@ -19,6 +19,7 @@ import {
   LineChart as LineChartIcon,
   ChevronLeft,
   ChevronRight,
+  GitCompare,
 } from 'lucide-react';
 import {
   LineChart,
@@ -35,6 +36,7 @@ import {
 import { format, parseISO } from 'date-fns';
 import { Card, Button, Badge } from '../../components/ui';
 import { bodyMeasurementsApi } from '../../api';
+import CompareTab from './CompareTab.jsx';
 
 // All measurement fields matching the Django template
 const allMeasurements = {
@@ -449,6 +451,7 @@ export default function BodyMeasurements() {
             { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
             { id: 'history', label: 'History', icon: Calendar },
             { id: 'add', label: 'Add New', icon: Plus },
+            { id: 'compare', label: 'Compare', icon: GitCompare },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -873,6 +876,11 @@ export default function BodyMeasurements() {
             <Card title="Add New Measurements">
               {renderMeasurementForm(false)}
             </Card>
+          )}
+
+          {/* Compare Tab */}
+          {activeTab === 'compare' && (
+            <CompareTab measurements={measurements} />
           )}
         </>
       )}
