@@ -1,0 +1,46 @@
+<h2>Question 3: Which measurements show up in the comparison?</h2>
+<p class="subtitle">You have 14 measurement fields (neck, chest, belly, biceps, triceps, forearms, thighs, calves, butt). How should the Compare tab handle them?</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Show All (that have data)</h3>
+      <p>Automatically show every measurement that has a value recorded on both dates. No manual selection needed.</p>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Checkboxes — pick which ones to include</h3>
+      <p>A filter panel with checkboxes grouped by body area (Core, Arms, Legs). You tick the ones you care about before generating the comparison.</p>
+      <div style="margin-top:10px; background:#1e293b; border-radius:6px; padding:10px; font-size:12px; color:#94a3b8; line-height:2">
+        <strong style="color:#e2e8f0">Core</strong> &nbsp; ☑ Belly &nbsp; ☑ Chest &nbsp; ☐ Neck &nbsp; ☑ Butt<br>
+        <strong style="color:#e2e8f0">Arms</strong> &nbsp; ☑ Biceps &nbsp; ☐ Triceps &nbsp; ☐ Forearm<br>
+        <strong style="color:#e2e8f0">Legs</strong> &nbsp; ☑ Thigh &nbsp; ☐ Calf
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Show all, but include Weight too</h3>
+      <p>Show all measurements that have data, and also pull in weight from the Weight model so you can see body composition changes alongside circumference changes.</p>
+      <div style="margin-top:10px; background:#1e293b; border-radius:6px; padding:10px; font-size:12px; color:#94a3b8; line-height:1.8">
+        <span style="color:#fbbf24">⚖ Weight</span>: 113.6 kg → 101.82 kg &nbsp; <span style="color:#34d399">-11.78 ▼</span><br>
+        <span style="color:#38bdf8">📏 Belly</span>: 98.0 cm → 95.0 cm &nbsp; <span style="color:#34d399">-3.0 ▼</span><br>
+        <span style="color:#38bdf8">📏 Chest</span>: 114.0 cm → 115.7 cm &nbsp; <span style="color:#f87171">+1.7 ▲</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="d" onclick="toggleSelect(this)">
+    <div class="letter">D</div>
+    <div class="content">
+      <h3>All + Weight, with checkbox filter</h3>
+      <p>Include weight by default alongside all measurements, but give a checkbox panel to toggle individual fields on/off. Best of all worlds.</p>
+    </div>
+  </div>
+</div>

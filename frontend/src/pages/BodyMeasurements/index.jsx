@@ -33,8 +33,8 @@ import {
   Legend,
 } from 'recharts';
 import { format, parseISO } from 'date-fns';
-import { Card, Button, Badge } from '../components/ui';
-import { bodyMeasurementsApi } from '../api';
+import { Card, Button, Badge } from '../../components/ui';
+import { bodyMeasurementsApi } from '../../api';
 
 // All measurement fields matching the Django template
 const allMeasurements = {
