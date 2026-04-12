@@ -85,35 +85,7 @@ function DatePicker({ measurements, value, onChange, label }) {
 // WeekPicker sub-component
 // ---------------------------------------------------------------------------
 
-function WeekPicker({ measurements, value, onChange, label }) {
-  const weekGroups = useMemo(() => groupByWeek(measurements), [measurements]);
-
-  const sortedWeekKeys = useMemo(() =>
-    Object.keys(weekGroups).sort((a, b) => b.localeCompare(a)),
-  [weekGroups]);
-
-  function weekRangeLabel(weekKey) {
-    // weekKey is like "2025-W17"
-    const [yearStr, wStr] = weekKey.split('-W');
-    const year = parseInt(yearStr, 10);
-    const week = parseInt(wStr, 10);
-    // Build a date from year+week: find Monday of that ISO week
-    // Use a simple approach: Jan 4 is always in week 1 of its year
-    const jan4 = new Date(year, 0, 4);
-    const jan4DayOfWeek = jan4.getDay() === 0 ? 7 : jan4.getDay(); // Mon=1 … Sun=7
-    const mondayOfWeek1 = new Date(jan4);
-    mondayOfWeek1.setDate(jan4.getDate() - (jan4DayOfWeek - 1));
-    const monday = new Date(mondayOfWeek1);
-    monday.setDate(mondayOfWeek1.getDate() + (week - 1) * 7);
-    const sunday = new Date(monday);
-    sunday.setDate(monday.getDate() + 6);
-
-    const fmtMonday = format(monday, 'MMM d');
-    const fmtSunday = format(sunday, 'MMM d, yyyy');
-    const count = weekGroups[weekKey].length;
-    return `${fmtMonday}–${fmtSunday} (${count} ${count === 1 ? 'entry' : 'entries'})`;
-  }
-
+function WeekPicker({ weeks, value, onChange, label }) {
   return (
     <div className="flex flex-col gap-1">
       <label className="text-xs font-medium text-gray-400">{label}</label>
@@ -123,9 +95,9 @@ function WeekPicker({ measurements, value, onChange, label }) {
         className="bg-gray-700 border border-gray-600 text-gray-100 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
       >
         <option value="">-- Select week --</option>
-        {sortedWeekKeys.map((wk) => (
-          <option key={wk} value={wk}>
-            {weekRangeLabel(wk)}
+        {weeks.map((w) => (
+          <option key={w.key} value={w.key}>
+            {w.label} ({w.count} {w.count === 1 ? 'entry' : 'entries'})
           </option>
         ))}
       </select>
@@ -371,13 +343,29 @@ export default function CompareTab({ measurements }) {
   const [selectorB, setSelectorB] = useState(null);
   const [result,    setResult]    = useState(null);
   const [weightItems, setWeightItems] = useState([]);
+  const [weightLoading, setWeightLoading] = useState(true);
   const [enabled,   setEnabled]   = useState(buildInitialEnabled);
+
+  // Pre-compute weeks list from real measurement dates for WeekPicker
+  const weeks = useMemo(() => {
+    const weekGroups = groupByWeek(measurements);
+    return Object.entries(weekGroups)
+      .sort(([a], [b]) => b.localeCompare(a))
+      .map(([key, entries]) => {
+        // Use an actual measurement date to compute week boundaries correctly
+        const sampleDate = parseISO(entries[0].date);
+        const weekStart = format(startOfISOWeek(sampleDate), 'MMM d');
+        const weekEnd = format(endOfISOWeek(sampleDate), 'MMM d, yyyy');
+        return { key, label: `${weekStart}–${weekEnd}`, count: entries.length };
+      });
+  }, [measurements]);
 
   // Fetch weight items on mount
   useEffect(() => {
     weightApi.getWeightItems()
       .then((data) => setWeightItems(data?.items ?? []))
-      .catch(() => setWeightItems([]));
+      .catch(() => {})
+      .finally(() => setWeightLoading(false));
   }, []);
 
   // Reset selectors / result when mode changes
@@ -507,13 +495,13 @@ export default function CompareTab({ measurements }) {
       return (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <WeekPicker
-            measurements={measurements}
+            weeks={weeks}
             value={selectorA}
             onChange={setSelectorA}
             label="Side A"
           />
           <WeekPicker
-            measurements={measurements}
+            weeks={weeks}
             value={selectorB}
             onChange={setSelectorB}
             label="Side B"
@@ -599,14 +587,17 @@ export default function CompareTab({ measurements }) {
           {renderSelectorPair()}
 
           {/* Compare button */}
-          <div>
+          <div className="flex items-center">
             <Button
               onClick={handleCompare}
-              disabled={!canCompare}
+              disabled={!canCompare || weightLoading}
               icon={GitCompare}
             >
               Compare
             </Button>
+            {weightLoading && (
+              <span className="text-xs text-gray-500 ml-2">Loading weight data...</span>
+            )}
           </div>
         </div>
       </Card>
