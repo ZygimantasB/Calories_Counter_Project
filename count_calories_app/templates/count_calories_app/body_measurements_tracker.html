@@ -1788,7 +1788,7 @@
     var snapB = resolveSnapshot(mode, selB, strategy);
     if (!snapA || !snapB) { alert('No measurement data found for one or both selections.'); return; }
 
-    var resolvedA = snapA.last || snapA;
+    var resolvedA = snapA.first || snapA;
     var resolvedB = snapB.last || snapB;
     var deltas = computeDeltas(resolvedA, resolvedB);
     var weightA = findWeightNear(resolvedA);
