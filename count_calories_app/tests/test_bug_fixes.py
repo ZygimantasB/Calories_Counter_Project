@@ -371,13 +371,14 @@ class SettingsAPITDEEFieldTestCase(TestCase):
 
 
 class DailyAveragesDayCountTestCase(TestCase):
-    """Bug #14: Off-by-one error in daily averages day count."""
+    """Daily averages divide by days that actually have entries (days_logged),
+    matching analytics/month-compare. Skipped days are excluded."""
 
     def setUp(self):
         self.client = Client()
         self.now = timezone.now()
 
-        # Create food items across several days
+        # Create food items across 7 distinct days
         for i in range(7):
             FoodItem.objects.create(
                 product_name=f'Food Day {i}',
@@ -388,19 +389,18 @@ class DailyAveragesDayCountTestCase(TestCase):
                 consumed_at=self.now - timedelta(days=i)
             )
 
-    def test_days_7_shows_7_days_average(self):
-        """?days=7 should show 'Daily Averages (7 days)', not 8."""
+    def test_days_7_shows_7_days_logged(self):
+        """?days=7 with 7 days of entries shows '7 days logged'."""
         response = self.client.get(reverse('food_tracker'), {'days': '7'})
         content = response.content.decode()
-        self.assertIn('7 days', content)
-        self.assertNotIn('8 days', content)
+        self.assertIn('7 days logged', content)
 
-    def test_days_30_shows_30_days_average(self):
-        """?days=30 should show 'Daily Averages (30 days)', not 31."""
+    def test_days_30_uses_days_logged_not_calendar_days(self):
+        """?days=30 with only 7 days of entries shows '7 days logged', not 30."""
         response = self.client.get(reverse('food_tracker'), {'days': '30'})
         content = response.content.decode()
-        self.assertIn('30 days', content)
-        self.assertNotIn('31 days', content)
+        self.assertIn('7 days logged', content)
+        self.assertNotIn('30 days logged', content)
 
 
 class SettingsPageAutoMacrosDisplayTestCase(TestCase):

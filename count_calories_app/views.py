@@ -200,7 +200,10 @@ def get_nutrition_data(request):
     start_date_str = request.GET.get('start_date')
     end_date_str = request.GET.get('end_date')
     days_param = request.GET.get('days')
-    now = timezone.now()
+    # Use local time so calendar boundaries (today/week/month) match the user's
+    # timezone rather than UTC. Without this, "This Month" misses entries from
+    # early-morning hours of the 1st (UTC offset shifts the boundary).
+    now = timezone.localtime(timezone.now())
     start_date = now
     end_date = None
 
@@ -321,7 +324,10 @@ def food_tracker(request):
     start_date_str = request.GET.get('start_date')
     end_date_str = request.GET.get('end_date')
     days_param = request.GET.get('days')
-    now = timezone.now()
+    # Use local time so calendar boundaries (today/week/month) match the user's
+    # timezone rather than UTC. Without this, "This Month" misses entries from
+    # early-morning hours of the 1st (UTC offset shifts the boundary).
+    now = timezone.localtime(timezone.now())
     start_date = now
     end_date = None
     selected_date = None
