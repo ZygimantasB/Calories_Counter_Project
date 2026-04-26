@@ -509,29 +509,19 @@ def food_tracker(request):
 
     averages = {}
     if show_averages and food_items.exists():
-        from datetime import datetime
-        end_date_obj = end_date.date() if hasattr(end_date, 'date') else end_date
+        # Match analytics/month-compare: divide by days that actually have entries,
+        # not by elapsed calendar days. Skipped days (no entries) are excluded.
+        days_logged = food_items.annotate(
+            consumed_date=TruncDate('consumed_at')
+        ).values('consumed_date').distinct().count()
 
-        # Handle "all" case where start_date is None
-        if start_date is None:
-            # Get the earliest food item date
-            earliest_food = food_items.order_by('consumed_at').first()
-            if earliest_food and earliest_food.consumed_at:
-                start_date_obj = earliest_food.consumed_at.date()
-            else:
-                start_date_obj = end_date_obj
-        else:
-            start_date_obj = start_date.date() if hasattr(start_date, 'date') else start_date
-
-        days_in_range = (end_date_obj - start_date_obj).days + 1
-
-        if days_in_range > 0:
+        if days_logged > 0:
             averages = {
-                'avg_calories': round(totals['total_calories'] / days_in_range, 1),
-                'avg_fat': round(totals['total_fat'] / days_in_range, 1),
-                'avg_carbohydrates': round(totals['total_carbohydrates'] / days_in_range, 1),
-                'avg_protein': round(totals['total_protein'] / days_in_range, 1),
-                'days_in_range': days_in_range
+                'avg_calories': round(totals['total_calories'] / days_logged, 1),
+                'avg_fat': round(totals['total_fat'] / days_logged, 1),
+                'avg_carbohydrates': round(totals['total_carbohydrates'] / days_logged, 1),
+                'avg_protein': round(totals['total_protein'] / days_logged, 1),
+                'days_logged': days_logged
             }
 
             # Gram-based percentages (by weight)
