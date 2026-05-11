@@ -14,11 +14,9 @@ from .forms import FoodItemForm, WeightForm, ExerciseForm, WorkoutSessionForm, W
 from .services import GeminiService
 import logging
 import json
-import google.generativeai as genai
 import os
 import csv
 from django.conf import settings
-from google.api_core.exceptions import GoogleAPICallError, PermissionDenied, Unauthenticated, InvalidArgument, FailedPrecondition
 
 logger = logging.getLogger('count_calories_app')
 

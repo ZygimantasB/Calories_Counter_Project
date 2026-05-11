@@ -260,7 +260,7 @@ class ExternalAPIErrorHandlingTestCase(TestCase):
     @patch('count_calories_app.services.genai')
     def test_gemini_api_configuration_error(self, mock_genai):
         """Test handling of Gemini API configuration errors."""
-        mock_genai.configure.side_effect = Exception('API key invalid')
+        mock_genai.Client.side_effect = Exception('API key invalid')
 
         url = reverse('gemini_nutrition')
         response = self.client.post(

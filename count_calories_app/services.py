@@ -1,8 +1,8 @@
 import json
 import logging
-import google.generativeai as genai
+from google import genai
+from google.genai import errors
 from django.conf import settings
-from google.api_core.exceptions import GoogleAPICallError, PermissionDenied, Unauthenticated, InvalidArgument, FailedPrecondition
 
 logger = logging.getLogger('count_calories_app')
 
@@ -21,8 +21,7 @@ class GeminiService:
             logger.error("Gemini API key is not configured on the server")
             return {'success': False, 'error': 'Gemini API key is not configured on the server', 'status': 500}
 
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-2.5-flash')
+        client = genai.Client(api_key=api_key)
 
         prompt = f"""
         You are a nutrition expert. Analyze this food description: "{food_name}"
@@ -35,7 +34,7 @@ class GeminiService:
         - Lithuanian or foreign language food names, identify the foods and provide accurate values
         - No specific quantity, assume a typical serving size for that food
 
-        For complex meals like "italiÅ¡kas kapotos viÅ¡tienos maltinukas, Å¡vieÅ¾iÅ¾ darÅ¾oviÅ³ salotos, virtas bulguras (iLunch)",
+        For complex meals like "itališkas kapotos vištienos maltinukas, šviežiž daržovių salotos, virtas bulguras (iLunch)",
         break it down into components:
         - Italian chicken cutlet/meatballs
         - Fresh vegetable salad
@@ -61,14 +60,13 @@ class GeminiService:
         """
 
         try:
-            response = model.generate_content(prompt)
-        except (Unauthenticated, PermissionDenied) as e:
-            logger.error(f"Gemini authentication error: {e}")
-            return {'success': False, 'error': 'Invalid or unauthorized Gemini API key. Please check your API key configuration.', 'code': 'invalid_api_key', 'status': 401}
-        except GoogleAPICallError as e:
-            # Check if it's an API key validation error (400 status)
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=prompt,
+            )
+        except errors.APIError as e:
             error_message = str(e)
-            if "API_KEY_INVALID" in error_message or "API key not valid" in error_message:
+            if e.code in (401, 403) or "API_KEY_INVALID" in error_message or "API key not valid" in error_message:
                 logger.error(f"Invalid Gemini API key: {e}")
                 return {
                     'success': False,
@@ -76,10 +74,6 @@ class GeminiService:
                     'code': 'invalid_api_key',
                     'status': 401
                 }
-            else:
-                logger.error(f"Gemini API error: {e}")
-                return {'success': False, 'error': 'Gemini service error. Please try again later.', 'code': 'gemini_api_error', 'status': 502}
-        except (InvalidArgument, FailedPrecondition) as e:
             logger.error(f"Gemini API error: {e}")
             return {'success': False, 'error': 'Gemini service error. Please try again later.', 'code': 'gemini_api_error', 'status': 502}
 
