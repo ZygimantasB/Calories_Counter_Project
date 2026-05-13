@@ -407,6 +407,7 @@ function YearlyTrendsTab() {
   );
 
   const yearButtons = [
+    { value: 'all', label: 'All Time' },
     { value: 'last12', label: 'Last 12 Months' },
     { value: String(currentYear), label: String(currentYear) },
     { value: String(currentYear - 1), label: String(currentYear - 1) },
@@ -957,7 +958,7 @@ export default function Analytics() {
         {[
           { value: 'overview', label: 'Overview', icon: BarChart3 },
           { value: 'month_compare', label: 'Month Compare', icon: GitCompare },
-          { value: 'yearly_trends', label: 'Yearly Trends', icon: TrendingUp },
+          { value: 'yearly_trends', label: 'Trends', icon: TrendingUp },
           { value: 'product_compare', label: 'Product Compare', icon: Search },
         ].map(({ value, label, icon: Icon }) => (
           <button
@@ -978,7 +979,7 @@ export default function Analytics() {
       {/* Month Compare Tab */}
       {activeTab === 'month_compare' && <MonthCompareTab />}
 
-      {/* Yearly Trends Tab */}
+      {/* Trends Tab */}
       {activeTab === 'yearly_trends' && <YearlyTrendsTab />}
 
       {/* Product Compare Tab */}
