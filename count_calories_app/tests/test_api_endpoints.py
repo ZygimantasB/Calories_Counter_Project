@@ -615,11 +615,103 @@ class GeminiNutritionAPITestCase(TestCase):
         }
         
         response = self.client.post(
-            self.url, 
+            self.url,
             json.dumps({'food_name': 'apple'}),
             content_type='application/json'
         )
-        
+
         self.assertEqual(response.status_code, 500)
         data = json.loads(response.content)
         self.assertEqual(data['error'], 'Service error')
+
+
+class YearlyTrendsAllModeAPITestCase(TestCase):
+    """Tests for /api/react/analytics/yearly-trends/?year=all"""
+
+    def setUp(self):
+        self.client = Client()
+        self.url = reverse('api_yearly_trends')
+        self.now = timezone.now()
+
+    def test_all_mode_returns_200_with_months_key(self):
+        """?year=all returns 200 and a 'months' array."""
+        response = self.client.get(self.url, {'year': 'all'})
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn('months', data)
+        self.assertIsInstance(data['months'], list)
+
+    def test_all_mode_with_no_data_returns_current_month(self):
+        """Empty database → 'months' contains exactly one entry: the current month."""
+        response = self.client.get(self.url, {'year': 'all'})
+        data = response.json()
+        self.assertEqual(len(data['months']), 1)
+        self.assertEqual(data['months'][0]['year'], self.now.year)
+        # month_name uses calendar.month_abbr — verify the month index by reconstructing
+        import calendar
+        self.assertEqual(data['months'][0]['month_name'], calendar.month_abbr[self.now.month])
+
+    def test_all_mode_spans_from_first_entry_to_current_month(self):
+        """With an entry 95 days ago, months[0] is that month and months[-1] is current month."""
+        three_months_ago = self.now - timedelta(days=95)
+        FoodItem.objects.create(
+            product_name='Old',
+            calories=Decimal('400'),
+            protein=Decimal('30'),
+            carbohydrates=Decimal('40'),
+            fat=Decimal('10'),
+            consumed_at=three_months_ago,
+        )
+
+        response = self.client.get(self.url, {'year': 'all'})
+        months = response.json()['months']
+
+        import calendar
+        self.assertEqual(months[0]['year'], three_months_ago.year)
+        self.assertEqual(months[0]['month_name'], calendar.month_abbr[three_months_ago.month])
+        self.assertEqual(months[-1]['year'], self.now.year)
+        self.assertEqual(months[-1]['month_name'], calendar.month_abbr[self.now.month])
+        # First month has data
+        self.assertGreater(months[0]['days_logged'], 0)
+
+    def test_all_mode_no_month_gaps(self):
+        """All Time months are contiguous (no gaps between first entry and current month)."""
+        five_months_ago = self.now - timedelta(days=155)
+        FoodItem.objects.create(
+            product_name='Old',
+            calories=Decimal('500'),
+            protein=Decimal('20'),
+            carbohydrates=Decimal('60'),
+            fat=Decimal('15'),
+            consumed_at=five_months_ago,
+        )
+
+        response = self.client.get(self.url, {'year': 'all'})
+        months = response.json()['months']
+
+        # Walk through; each entry's `month` field is 'YYYY-MM' — verify consecutive
+        prev_year, prev_month = None, None
+        for entry in months:
+            year_str, month_str = entry['month'].split('-')
+            cur_year, cur_month = int(year_str), int(month_str)
+            if prev_year is not None:
+                expected_month = prev_month + 1
+                expected_year = prev_year
+                if expected_month == 13:
+                    expected_month = 1
+                    expected_year += 1
+                self.assertEqual(
+                    (cur_year, cur_month), (expected_year, expected_month),
+                    f"Gap between ({prev_year}, {prev_month}) and ({cur_year}, {cur_month})"
+                )
+            prev_year, prev_month = cur_year, cur_month
+
+    def test_existing_modes_still_work(self):
+        """Regression check: year=last12 and year=2026 still return 200."""
+        response = self.client.get(self.url, {'year': 'last12'})
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('months', response.json())
+
+        response = self.client.get(self.url, {'year': str(self.now.year)})
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('months', response.json())

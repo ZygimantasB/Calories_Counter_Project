@@ -6203,7 +6203,7 @@ def api_month_compare(request):
 
 @require_http_methods(["GET"])
 def api_yearly_trends(request):
-    """Get monthly trends data for yearly view"""
+    """Get monthly trends data for the React trends view (last12 / specific year / all time)."""
     import calendar
     year_param = request.GET.get('year', 'last12')
     now = timezone.now()
@@ -6214,6 +6214,20 @@ def api_yearly_trends(request):
         for i in range(11, -1, -1):
             dt = now - timedelta(days=i*30)
             months.append((dt.year, dt.month))
+    elif year_param == 'all':
+        # Every month from the user's first FoodItem entry through the current month
+        first_entry = FoodItem.objects.order_by('consumed_at').values_list('consumed_at', flat=True).first()
+        if first_entry:
+            months = []
+            y, m = first_entry.year, first_entry.month
+            while (y, m) <= (now.year, now.month):
+                months.append((y, m))
+                m += 1
+                if m == 13:
+                    m = 1
+                    y += 1
+        else:
+            months = [(now.year, now.month)]
     else:
         year = int(year_param)
         months = [(year, m) for m in range(1, 13)]
