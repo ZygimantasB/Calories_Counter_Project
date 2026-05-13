@@ -702,5 +702,101 @@ class WorkoutTableViewTestCase(TestCase):
         self.assertTemplateUsed(response, 'count_calories_app/workout_table.html')
 
 
+class MonthTrendsViewTestCase(TestCase):
+    """Tests for the /analytics/trends/ page (month_trends view)."""
+
+    def setUp(self):
+        self.client = Client()
+        self.url = reverse('month_trends')
+        self.now = timezone.now()
+
+    def test_default_mode_returns_200(self):
+        """Default (last12) mode renders correctly."""
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'count_calories_app/month_trends.html')
+
+    def test_all_mode_returns_200(self):
+        """?mode=all returns 200."""
+        response = self.client.get(self.url, {'mode': 'all'})
+        self.assertEqual(response.status_code, 200)
+
+    def test_all_mode_context_mode_value(self):
+        """?mode=all puts 'all' in the template context so the button can highlight."""
+        response = self.client.get(self.url, {'mode': 'all'})
+        self.assertEqual(response.context['mode'], 'all')
+
+    def test_all_mode_with_no_data_falls_back_to_current_month(self):
+        """Empty database → All Time view shows just the current month, doesn't crash."""
+        response = self.client.get(self.url, {'mode': 'all'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context['monthly_data']), 1)
+        self.assertEqual(response.context['monthly_data'][0]['year'], self.now.year)
+        self.assertEqual(response.context['monthly_data'][0]['month'], self.now.month)
+
+    def test_all_mode_spans_from_first_entry_to_current_month(self):
+        """With entries spanning multiple months, All Time covers every month inclusive."""
+        # Seed an entry 3 months ago
+        three_months_ago = self.now - timedelta(days=95)
+        FoodItem.objects.create(
+            product_name='Old Food',
+            calories=Decimal('400'),
+            protein=Decimal('30'),
+            carbohydrates=Decimal('40'),
+            fat=Decimal('10'),
+            consumed_at=three_months_ago,
+        )
+
+        response = self.client.get(self.url, {'mode': 'all'})
+        monthly_data = response.context['monthly_data']
+
+        # First entry should be the month of the seeded entry
+        self.assertEqual(monthly_data[0]['year'], three_months_ago.year)
+        self.assertEqual(monthly_data[0]['month'], three_months_ago.month)
+
+        # Last entry should be the current month
+        self.assertEqual(monthly_data[-1]['year'], self.now.year)
+        self.assertEqual(monthly_data[-1]['month'], self.now.month)
+
+        # The seeded month should be marked as having data
+        self.assertTrue(monthly_data[0]['has_data'])
+
+    def test_all_mode_no_month_gaps(self):
+        """All Time produces a contiguous month sequence (no gaps even if some months are empty)."""
+        # Seed entries in two non-adjacent months: 4 months ago and now
+        four_months_ago = self.now - timedelta(days=125)
+        FoodItem.objects.create(
+            product_name='Old',
+            calories=Decimal('500'),
+            protein=Decimal('20'),
+            carbohydrates=Decimal('60'),
+            fat=Decimal('15'),
+            consumed_at=four_months_ago,
+        )
+        FoodItem.objects.create(
+            product_name='Now',
+            calories=Decimal('600'),
+            protein=Decimal('25'),
+            carbohydrates=Decimal('70'),
+            fat=Decimal('18'),
+            consumed_at=self.now,
+        )
+
+        response = self.client.get(self.url, {'mode': 'all'})
+        monthly_data = response.context['monthly_data']
+
+        # Walk through monthly_data and verify each entry is exactly one month after the previous
+        for i in range(1, len(monthly_data)):
+            prev_y, prev_m = monthly_data[i - 1]['year'], monthly_data[i - 1]['month']
+            cur_y, cur_m = monthly_data[i]['year'], monthly_data[i]['month']
+            expected_m = prev_m + 1
+            expected_y = prev_y
+            if expected_m == 13:
+                expected_m = 1
+                expected_y += 1
+            self.assertEqual(
+                (cur_y, cur_m), (expected_y, expected_m),
+                f"Gap detected between {(prev_y, prev_m)} and {(cur_y, cur_m)}",
+            )
 
 

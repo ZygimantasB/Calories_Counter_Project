@@ -5460,6 +5460,20 @@ def month_trends(request):
     # Build the list of (year, month) pairs to analyse
     if mode == 'year':
         months_to_analyze = [(selected_year, m) for m in range(1, 13)]
+    elif mode == 'all':
+        # Every month from the user's first FoodItem entry through the current month
+        if first_entry:
+            months_to_analyze = []
+            y, m = first_entry.year, first_entry.month
+            while (y, m) <= (now.year, now.month):
+                months_to_analyze.append((y, m))
+                m += 1
+                if m == 13:
+                    m = 1
+                    y += 1
+        else:
+            # No entries yet — show just the current month
+            months_to_analyze = [(now.year, now.month)]
     else:  # last12 — rolling window ending this month
         months_to_analyze = []
         y, m = now.year, now.month
