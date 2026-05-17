@@ -17,6 +17,7 @@ nul
 agents
 skills
 *.png
+.python-version
 
 
 ### PyCharm+iml template
@@ -1245,3 +1246,4 @@ fabric.properties
 .idea/caches/build_file_checksums.ser
 
 .superpowers/
+!/.python-version
