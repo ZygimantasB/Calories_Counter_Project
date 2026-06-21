@@ -435,3 +435,38 @@ class SettingsPageAutoMacrosDisplayTestCase(TestCase):
         # The stale 2000 default should NOT appear as a form input value
         # (it may appear elsewhere on the page, so we check specifically in input context)
         self.assertNotIn(f'value="2000"', content)
+
+
+class QuickAddProductNameEscapingTestCase(TestCase):
+    """Bug: product names with '&' get progressively HTML-escaped on quick-add.
+
+    Root cause: food_tracker.html rendered `product_name: "{{ item.product_name }}"`
+    inside a JS string. Django HTML-autoescaping turns `&` into `&amp;`, so the
+    quick-add form re-submitted `SUN&amp;SEA`, which was saved verbatim. Each
+    round-trip escaped again -> `&amp;amp;...`. Fix: use the `|escapejs` filter so
+    the JS string carries the raw value (`\\u0026`), not an HTML entity.
+    """
+
+    def setUp(self):
+        self.client = Client()
+        FoodItem.objects.create(
+            product_name='Tunai SUN&SEA savo sultyse 80 g.',
+            calories=Decimal('100'),
+            consumed_at=timezone.now(),
+        )
+
+    def test_quick_add_js_does_not_html_escape_ampersand(self):
+        response = self.client.get(reverse('food_tracker'))
+        self.assertEqual(response.status_code, 200)
+        content = response.content.decode()
+        # Isolate the quick-add JS data line that feeds the re-add POST form.
+        js_lines = [ln for ln in content.splitlines()
+                    if 'product_name:' in ln and 'SEA' in ln]
+        self.assertEqual(len(js_lines), 1, "expected one quick-add JS data line")
+        js_line = js_lines[0]
+        # The JS string must NOT carry an HTML entity (that gets re-saved and
+        # re-escaped on every quick-add round-trip).
+        self.assertNotIn('&amp;', js_line)
+        # escapejs encodes '&' as the JS unicode escape \\u0026, which the browser
+        # parses back to a literal '&' before POSTing it.
+        self.assertIn('SUN\\u0026SEA', js_line)

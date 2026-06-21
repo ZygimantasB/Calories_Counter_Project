@@ -1,6 +1,11 @@
 .env
+.env.*
 .idea
 db.sqlite3
+db.sqlite3.*
+db.sqlite3-journal
+*.bak
+*.bak-*
 *.xml
 *.jpg
 calories_counter/

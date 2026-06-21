@@ -757,7 +757,7 @@
         {% for item in recent_items %}
           {
             id: {{ item.id }},
-            product_name: "{{ item.product_name }}",
+            product_name: "{{ item.product_name|escapejs }}",
             calories: {{ item.calories }},
             fat: {{ item.fat }},
             carbohydrates: {{ item.carbohydrates }},
