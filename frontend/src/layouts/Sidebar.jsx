@@ -11,7 +11,6 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  Home,
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -93,18 +92,6 @@ export default function Sidebar() {
         ))}
       </nav>
 
-      {/* Footer - Back to Django */}
-      <div className="absolute bottom-0 left-0 right-0 p-3 border-t border-gray-800">
-        <a
-          href="/"
-          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-gray-400 hover:bg-gray-800 hover:text-gray-200 ${
-            collapsed ? 'justify-center' : ''
-          }`}
-        >
-          <Home className="w-5 h-5 text-gray-500" />
-          {!collapsed && <span>Back to Classic View</span>}
-        </a>
-      </div>
     </aside>
   );
 }

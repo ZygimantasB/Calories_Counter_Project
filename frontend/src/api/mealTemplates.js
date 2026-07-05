@@ -1,22 +1,11 @@
-import apiClient from './client';
+// Offline meal-templates API: same exports/signatures, backed by local SQLite.
+import * as mealTemplates from '../logic/mealTemplates';
 
 export const mealTemplatesApi = {
-  list: async () => {
-    const response = await apiClient.get('/api/react/meal-templates/');
-    return response.data;
-  },
-  save: async (name, date = null) => {
-    const response = await apiClient.post('/api/react/meal-templates/add/', { name, ...(date && { date }) });
-    return response.data;
-  },
-  apply: async (templateId) => {
-    const response = await apiClient.post(`/api/react/meal-templates/${templateId}/log/`);
-    return response.data;
-  },
-  delete: async (templateId) => {
-    const response = await apiClient.delete(`/api/react/meal-templates/${templateId}/delete/`);
-    return response.data;
-  },
+  list: () => mealTemplates.list(),
+  save: (name, date = null) => mealTemplates.save(name, date),
+  apply: (templateId) => mealTemplates.apply(templateId),
+  delete: (templateId) => mealTemplates.remove(templateId),
 };
 
 export default mealTemplatesApi;

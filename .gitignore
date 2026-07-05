@@ -1252,3 +1252,23 @@ fabric.properties
 
 .superpowers/
 !/.python-version
+
+# ── Personal data — NEVER commit (contains your food/weight/body history) ──
+*.sqlite3
+*.sqlite3-*
+db_backup.sqlite3
+# Bundled seed for the Android app is generated from your DB via
+# `node frontend/scripts/build-seed.mjs`; it holds personal data, keep it out of git.
+frontend/src/assets/seed/seed.json
+
+# ── Android / Capacitor build & signing artifacts ──
+*.apk
+*.aab
+*.keystore
+*.jks
+android_calories_app/local.properties
+android_calories_app/.gradle/
+android_calories_app/app/build/
+android_calories_app/build/
+android_calories_app/.idea/
+android_calories_app/capacitor-cordova-android-plugins/

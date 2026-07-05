@@ -1,100 +1,78 @@
-import apiClient from './client';
+// Offline workout API: same exports/signatures, backed by local SQLite.
+import * as workoutLogic from '../logic/workout';
+import { workoutRepo } from '../db/repositories/workoutRepo';
+
+function normalizeDate(value) {
+  if (!value) return new Date().toISOString();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [y, m, d] = value.split('-').map(Number);
+    return new Date(y, m - 1, d, 12, 0, 0).toISOString();
+  }
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString();
+}
+function numOrNull(v) { return v === '' || v == null ? null : Number(v); }
 
 export const workoutApi = {
-  // Get workout sessions for React frontend
-  getWorkouts: async (params = {}) => {
-    const response = await apiClient.get('/api/react/workouts/', { params });
-    return response.data;
-  },
+  getWorkouts: (params = {}) => workoutLogic.listWorkoutsWithStats(params),
+  getExercises: () => workoutLogic.exerciseLibrary(),
+  getWorkoutFrequency: (/* days */) => workoutLogic.workoutFrequency(),
+  getExerciseProgress: (exerciseId = null) => workoutLogic.exerciseProgress(exerciseId),
+  getWorkoutTables: () => workoutLogic.workoutTables(),
 
-  // Get exercises for React frontend
-  getExercises: async () => {
-    const response = await apiClient.get('/api/react/exercises/');
-    return response.data;
-  },
-
-  // Get workout frequency data
-  getWorkoutFrequency: async (days = 90) => {
-    const response = await apiClient.get('/api/workout-frequency/', {
-      params: { days },
-    });
-    return response.data;
-  },
-
-  // Get exercise progress data
-  getExerciseProgress: async (exerciseId = null) => {
-    const url = exerciseId
-      ? `/api/exercise-progress/${exerciseId}/`
-      : '/api/exercise-progress/';
-    const response = await apiClient.get(url);
-    return response.data;
-  },
-
-  // Get workout tables
-  getWorkoutTables: async () => {
-    const response = await apiClient.get('/api/react/workout-tables/');
-    return response.data;
-  },
-
-  // Save workout table
   saveWorkoutTable: async (tableData) => {
-    const response = await apiClient.post('/api/react/workout-tables/add/', tableData);
-    return response.data;
+    const name = tableData.name || 'Workout Table';
+    const data = JSON.stringify(tableData.data ?? {});
+    if (tableData.id) {
+      await workoutRepo.tableUpdate(tableData.id, { name, table_data: data });
+      return { success: true, id: tableData.id };
+    }
+    const id = await workoutRepo.tableInsert({ name, table_data: data, created_at: new Date().toISOString() });
+    return { success: true, id };
   },
+  deleteWorkoutTable: async (tableId) => { await workoutRepo.tableRemove(tableId); return { success: true }; },
 
-  // Delete workout table
-  deleteWorkoutTable: async (tableId) => {
-    const response = await apiClient.delete(`/api/react/workout-tables/${tableId}/delete/`);
-    return response.data;
-  },
-
-  // Add a new workout session
   add: async (data) => {
-    const response = await apiClient.post('/api/react/workouts/add/', data);
-    return response.data;
+    const id = await workoutRepo.insertSession({ name: data.name ?? 'Workout', date: normalizeDate(data.date), notes: data.notes ?? '' });
+    return { success: true, id };
   },
-
-  // Update an existing workout session
   update: async (id, data) => {
-    const response = await apiClient.put(`/api/react/workouts/${id}/update/`, data);
-    return response.data;
+    const fields = {};
+    if ('name' in data) fields.name = data.name;
+    if ('notes' in data) fields.notes = data.notes;
+    if ('date' in data) fields.date = normalizeDate(data.date);
+    await workoutRepo.updateSession(id, fields);
+    return { success: true };
   },
+  delete: async (id) => { await workoutRepo.removeSession(id); return { success: true }; },
 
-  // Delete a workout session
-  delete: async (id) => {
-    const response = await apiClient.delete(`/api/react/workouts/${id}/delete/`);
-    return response.data;
-  },
-
-  // Add an exercise to a workout session
   addExercise: async (workoutId, data) => {
-    const response = await apiClient.post(`/api/react/workouts/${workoutId}/exercises/add/`, data);
-    return response.data;
+    const id = await workoutRepo.insertWorkoutExercise({
+      workout_id: workoutId, exercise_id: data.exercise_id,
+      sets: data.sets ?? 1, reps: data.reps ?? 1,
+      weight: data.weight ? numOrNull(data.weight) : null, notes: data.notes ?? '',
+    });
+    return { success: true, id };
   },
-
-  // Update an exercise within a workout session
   updateExercise: async (workoutId, exerciseId, data) => {
-    const response = await apiClient.put(`/api/react/workouts/${workoutId}/exercises/${exerciseId}/update/`, data);
-    return response.data;
+    const fields = {};
+    for (const f of ['sets', 'reps', 'notes']) if (f in data) fields[f] = data[f];
+    if ('weight' in data) fields.weight = data.weight ? numOrNull(data.weight) : null;
+    await workoutRepo.updateWorkoutExercise(exerciseId, workoutId, fields);
+    return { success: true };
   },
-
-  // Delete an exercise from a workout session
   deleteExercise: async (workoutId, exerciseId) => {
-    const response = await apiClient.delete(`/api/react/workouts/${workoutId}/exercises/${exerciseId}/delete/`);
-    return response.data;
+    await workoutRepo.removeWorkoutExercise(exerciseId, workoutId);
+    return { success: true };
   },
 
-  // Add a new exercise to the library
   addExerciseToLibrary: async (data) => {
-    const response = await apiClient.post('/api/react/exercises/add/', data);
-    return response.data;
+    const name = String(data.name ?? '').trim();
+    if (!name) return { success: false, message: 'Exercise name is required' };
+    const id = await workoutRepo.libraryInsert({ name, muscle_group: data.muscle_group ?? '', description: data.description ?? '' });
+    return { success: true, id };
   },
-
-  // Delete an exercise from the library
-  deleteExerciseFromLibrary: async (id) => {
-    const response = await apiClient.delete(`/api/react/exercises/${id}/delete/`);
-    return response.data;
-  },
+  deleteExerciseFromLibrary: async (id) => { await workoutRepo.libraryRemove(id); return { success: true }; },
 };
 
 export default workoutApi;

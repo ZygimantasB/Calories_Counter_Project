@@ -1,43 +1,32 @@
-import apiClient from './client';
+// Offline weight API: same exports/signatures as before, backed by local SQLite.
+import * as weightLogic from '../logic/weight';
+import { weightRepo } from '../db/repositories/weightRepo';
 
 export const weightApi = {
-  // Get weight items for React frontend
-  getWeightItems: async (params = {}) => {
-    const response = await apiClient.get('/api/react/weight-items/', { params });
-    return response.data;
-  },
+  getWeightItems: (params = {}) => weightLogic.listWithStats(params),
 
-  // Add a weight entry
   addWeight: async (weightData) => {
-    const response = await apiClient.post('/api/react/weight-items/add/', weightData);
-    return response.data;
-  },
-
-  // Delete a weight entry
-  deleteWeight: async (weightId) => {
-    const response = await apiClient.delete(`/api/react/weight-items/${weightId}/delete/`);
-    return response.data;
-  },
-
-  // Update a weight entry
-  update: async (id, data) => {
-    const response = await apiClient.put(`/api/react/weight-items/${id}/update/`, data);
-    return response.data;
-  },
-
-  // Get weight data for charts (legacy endpoint)
-  getWeightData: async (days = 365) => {
-    const response = await apiClient.get('/api/weight-data/', {
-      params: { days },
+    const id = await weightRepo.insert({
+      weight: weightData.weight,
+      notes: weightData.notes ?? '',
+      recorded_at: weightData.recorded_at || new Date().toISOString(),
     });
-    return response.data;
+    return { success: true, id };
   },
 
-  // Get weight-calories correlation
-  getWeightCaloriesCorrelation: async () => {
-    const response = await apiClient.get('/api/weight-calories-correlation/');
-    return response.data;
+  deleteWeight: async (weightId) => {
+    await weightRepo.remove(weightId);
+    return { success: true };
   },
+
+  update: async (id, data) => {
+    await weightRepo.update(id, data);
+    return { success: true, message: 'Weight entry updated' };
+  },
+
+  getWeightData: (days = 365) => weightLogic.weightData({ days }),
+
+  getWeightCaloriesCorrelation: (page = 1) => weightLogic.correlation(page),
 };
 
 export default weightApi;

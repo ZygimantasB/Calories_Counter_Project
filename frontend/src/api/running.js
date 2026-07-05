@@ -1,37 +1,36 @@
-import apiClient from './client';
+// Offline running API: same exports/signatures, backed by local SQLite.
+import * as runningLogic from '../logic/running';
+import { runningRepo } from '../db/repositories/runningRepo';
 
 export const runningApi = {
-  // Get running sessions for React frontend
-  getRunningItems: async (params = {}) => {
-    const response = await apiClient.get('/api/react/running-items/', { params });
-    return response.data;
-  },
+  getRunningItems: (params = {}) => runningLogic.listWithStats(params),
 
-  // Add a running session
   addSession: async (sessionData) => {
-    const response = await apiClient.post('/api/react/running-items/add/', sessionData);
-    return response.data;
-  },
-
-  // Update a running session
-  update: async (id, data) => {
-    const response = await apiClient.put(`/api/react/running-items/${id}/update/`, data);
-    return response.data;
-  },
-
-  // Delete a running session
-  delete: async (id) => {
-    const response = await apiClient.delete(`/api/react/running-items/${id}/delete/`);
-    return response.data;
-  },
-
-  // Get running data for charts (legacy endpoint)
-  getRunningData: async (days = 365) => {
-    const response = await apiClient.get('/api/running-data/', {
-      params: { days },
+    const id = await runningRepo.insert({
+      date: runningLogic.normalizeDate(sessionData.date),
+      distance: sessionData.distance,
+      duration_seconds: runningLogic.parseDurationField(sessionData.duration),
+      notes: sessionData.notes ?? '',
     });
-    return response.data;
+    return { success: true, id };
   },
+
+  update: async (id, data) => {
+    const fields = {};
+    if ('date' in data) fields.date = runningLogic.normalizeDate(data.date);
+    if ('distance' in data) fields.distance = data.distance;
+    if ('duration' in data) fields.duration_seconds = runningLogic.parseDurationField(data.duration);
+    if ('notes' in data) fields.notes = data.notes ?? '';
+    await runningRepo.update(id, fields);
+    return { success: true };
+  },
+
+  delete: async (id) => {
+    await runningRepo.remove(id);
+    return { success: true };
+  },
+
+  getRunningData: (days = 365) => runningLogic.runningData({ days }),
 };
 
 export default runningApi;
