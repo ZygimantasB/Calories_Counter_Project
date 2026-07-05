@@ -1,10 +1,10 @@
 import re
 
 PATTERNS = {
-    'OpenAI API Key': r'sk-proj-[a-zA-Z0-9]{156}|sk-[a-zA-Z0-9]{48}',
-    'Google API Key': r'AIzaSy[a-zA-Z0-9\-_]{33}',
-    'GitHub Token': r'ghp_[a-zA-Z0-9]{36}|github_pat_[a-zA-Z0-9_]{82}',
-    'AWS Access Key ID': r'AKIA[0-9A-Z]{16}',
+    'OpenAI API Key': r'\b(?:sk-proj-[a-zA-Z0-9]{156}|sk-[a-zA-Z0-9]{48})\b',
+    'Google API Key': r'\bAIzaSy[a-zA-Z0-9\-_]{33}\b',
+    'GitHub Token': r'\b(?:ghp_[a-zA-Z0-9]{36}|github_pat_[a-zA-Z0-9_]{82})\b',
+    'AWS Access Key ID': r'\bAKIA[0-9A-Z]{16}\b',
     'Private Key': r'-----BEGIN [A-Z ]*PRIVATE KEY-----',
     'Database Connection': r'(mongodb(?:\+srv)?|postgresql|postgres|mysql|sqlite|redis|mssql):\/\/[^\s\'"]+'
 }
