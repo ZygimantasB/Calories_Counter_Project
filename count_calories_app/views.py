@@ -3812,9 +3812,22 @@ def api_search_all_foods(request):
 def api_weight_items(request):
     """Get weight entries for React frontend"""
     days = request.GET.get('days', '365')
+    start_date_str = request.GET.get('start_date')
+    end_date_str = request.GET.get('end_date')
     now = timezone.now()
 
-    if days == 'all':
+    if start_date_str and end_date_str:
+        # Explicit date range (custom range / this week / this month)
+        from datetime import datetime
+        try:
+            start = timezone.make_aware(datetime.strptime(start_date_str, '%Y-%m-%d'))
+            end = timezone.make_aware(
+                datetime.strptime(end_date_str, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
+            )
+            weights = Weight.objects.filter(recorded_at__gte=start, recorded_at__lte=end)
+        except ValueError:
+            weights = Weight.objects.filter(recorded_at__gte=now - timedelta(days=365))
+    elif days == 'all':
         weights = Weight.objects.all()
     else:
         try:
