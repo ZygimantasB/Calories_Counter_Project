@@ -35,8 +35,11 @@ import {
 } from 'recharts';
 import { format, parseISO } from 'date-fns';
 import { Card, Button, Badge } from '../../components/ui';
-import { bodyMeasurementsApi } from '../../api';
+import { bodyMeasurementsApi, settingsApi } from '../../api';
 import CompareTab from './CompareTab.jsx';
+import BodyCompositionCards from './BodyCompositionCards.jsx';
+import SymmetrySection from './SymmetrySection.jsx';
+import { changeQuality } from './bodyComposition';
 
 // All measurement fields matching the Django template
 const allMeasurements = {
@@ -79,8 +82,11 @@ export default function BodyMeasurements() {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingMeasurement, setEditingMeasurement] = useState(null);
   const [selectedMetric, setSelectedMetric] = useState('all');
+  const [metricGroup, setMetricGroup] = useState('all'); // all | core | arms | legs
+  const [normalize, setNormalize] = useState(false); // show % change vs first point
   const [chartType, setChartType] = useState('line');
   const [timeRange, setTimeRange] = useState(365);
+  const [settings, setSettings] = useState(null);
   const [historyView, setHistoryView] = useState('timeline'); // 'timeline' or 'table'
   const [currentPage, setCurrentPage] = useState(1);
   const [formData, setFormData] = useState({});
@@ -108,9 +114,26 @@ export default function BodyMeasurements() {
     fetchMeasurements();
   }, [fetchMeasurements]);
 
+  // Fetch profile settings once (for body-fat: height + gender)
+  useEffect(() => {
+    settingsApi
+      .getSettings()
+      .then((data) => setSettings(data.profile || data))
+      .catch((err) => console.error('Error fetching settings:', err));
+  }, []);
+
   // Get latest measurement
   const latestMeasurement = measurements[0] || {};
   const previousMeasurement = measurements[1] || {};
+
+  // Change of a field across the whole loaded range (oldest -> latest)
+  const getRangeChange = (field) => {
+    const withField = measurements.filter((m) => m[field] != null);
+    if (withField.length < 2) return null;
+    const latest = withField[0][field];
+    const oldest = withField[withField.length - 1][field];
+    return parseFloat((latest - oldest).toFixed(1));
+  };
 
   // Calculate change between measurements
   const getChange = (field) => {
@@ -120,18 +143,21 @@ export default function BodyMeasurements() {
     return parseFloat((current - previous).toFixed(1));
   };
 
-  // Get trend icon
-  const getTrendIcon = (change) => {
-    if (change === null || change === 0) return <Minus className="w-4 h-4 text-gray-400" />;
-    if (change > 0) return <TrendingUp className="w-4 h-4 text-green-400" />;
-    return <TrendingDown className="w-4 h-4 text-red-400" />;
+  // Goal-aware trend color: "good" changes are green regardless of direction
+  // (e.g. a smaller waist or a bigger biceps).
+  const getTrendColor = (field, change) => {
+    const quality = changeQuality(field, change);
+    if (quality === 'good') return 'text-green-400';
+    if (quality === 'bad') return 'text-red-400';
+    return 'text-gray-400';
   };
 
-  // Get trend color
-  const getTrendColor = (change) => {
-    if (change === null || change === 0) return 'text-gray-400';
-    if (change > 0) return 'text-green-400';
-    return 'text-red-400';
+  // Arrow points up/down by direction; color reflects good/bad for that field.
+  const getTrendIcon = (field, change) => {
+    if (change === null || change === 0) return <Minus className="w-4 h-4 text-gray-400" />;
+    const color = getTrendColor(field, change);
+    const Icon = change > 0 ? TrendingUp : TrendingDown;
+    return <Icon className={`w-4 h-4 ${color}`} />;
   };
 
   // Prepare chart data
@@ -253,14 +279,39 @@ export default function BodyMeasurements() {
     const ChartComponent = chartType === 'line' ? LineChart : BarChart;
     const DataComponent = chartType === 'line' ? Line : Bar;
 
-    const metricsToShow = selectedMetric === 'all'
-      ? Object.keys(allMeasurements)
-      : [selectedMetric];
+    // A specific metric overrides the group; otherwise show the selected group.
+    const metricsToShow = selectedMetric !== 'all'
+      ? [selectedMetric]
+      : Object.keys(allMeasurements).filter(
+          (k) => metricGroup === 'all' || allMeasurements[k].group === metricGroup
+        );
+
+    // Optionally normalize each metric to % change from its first value in range
+    let data = chartData;
+    if (normalize) {
+      const baselines = {};
+      metricsToShow.forEach((key) => {
+        const firstPoint = chartData.find((d) => d[key] != null);
+        baselines[key] = firstPoint ? firstPoint[key] : null;
+      });
+      data = chartData.map((d) => {
+        const row = { date: d.date };
+        metricsToShow.forEach((key) => {
+          const base = baselines[key];
+          row[key] = d[key] != null && base
+            ? Math.round(((d[key] / base) - 1) * 1000) / 10
+            : null;
+        });
+        return row;
+      });
+    }
+
+    const unit = normalize ? '%' : 'cm';
 
     return (
       <div className="h-80">
         <ResponsiveContainer width="100%" height="100%">
-          <ChartComponent data={chartData}>
+          <ChartComponent data={data}>
             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
             <XAxis
               dataKey="date"
@@ -275,9 +326,11 @@ export default function BodyMeasurements() {
               axisLine={false}
               tickLine={false}
               tick={{ fill: '#9ca3af', fontSize: 12 }}
-              label={{ value: 'cm', angle: -90, position: 'insideLeft', fill: '#9ca3af' }}
+              tickFormatter={normalize ? (v) => `${v > 0 ? '+' : ''}${v}%` : undefined}
+              label={{ value: unit, angle: -90, position: 'insideLeft', fill: '#9ca3af' }}
             />
             <Tooltip
+              formatter={(value, name) => [`${value}${unit}`, name]}
               contentStyle={{
                 backgroundColor: '#1f2937',
                 border: '1px solid #374151',
@@ -285,7 +338,7 @@ export default function BodyMeasurements() {
               }}
               labelStyle={{ color: '#f3f4f6' }}
             />
-            {selectedMetric === 'all' && <Legend />}
+            {metricsToShow.length > 1 && <Legend />}
             {metricsToShow.map((key) => (
               <DataComponent
                 key={key}
@@ -553,8 +606,50 @@ export default function BodyMeasurements() {
                   </div>
                 }
               >
+                {/* Group presets + normalize toggle */}
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      { id: 'all', label: 'All' },
+                      { id: 'core', label: 'Core' },
+                      { id: 'arms', label: 'Arms' },
+                      { id: 'legs', label: 'Legs' },
+                    ].map((g) => (
+                      <button
+                        key={g.id}
+                        onClick={() => {
+                          setMetricGroup(g.id);
+                          setSelectedMetric('all');
+                        }}
+                        disabled={selectedMetric !== 'all'}
+                        className={`px-3 py-1 text-xs font-medium rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                          selectedMetric === 'all' && metricGroup === g.id
+                            ? 'bg-primary-500 text-white'
+                            : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                        }`}
+                      >
+                        {g.label}
+                      </button>
+                    ))}
+                  </div>
+                  <label className="flex items-center gap-2 text-xs text-gray-400 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={normalize}
+                      onChange={(e) => setNormalize(e.target.checked)}
+                      className="rounded border-gray-600 bg-gray-700 text-primary-500 focus:ring-primary-500"
+                    />
+                    Normalize (% change from start)
+                  </label>
+                </div>
                 {renderChart()}
               </Card>
+
+              {/* Body composition + symmetry */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <BodyCompositionCards measurements={measurements} settings={settings} />
+                <SymmetrySection latest={latestMeasurement.date ? latestMeasurement : null} />
+              </div>
 
               {/* Latest Measurements */}
               {latestMeasurement.date && (
@@ -574,6 +669,7 @@ export default function BodyMeasurements() {
                           .map(([key, config]) => {
                             const value = latestMeasurement[key];
                             const change = getChange(key);
+                            const rangeChange = getRangeChange(key);
                             return (
                               <div key={key} className="flex items-center justify-between">
                                 <span className="text-sm text-gray-400">{config.label}</span>
@@ -581,9 +677,17 @@ export default function BodyMeasurements() {
                                   <span className="font-medium text-gray-100">
                                     {value ? `${value} cm` : '--'}
                                   </span>
+                                  {rangeChange !== null && rangeChange !== 0 && (
+                                    <span
+                                      className={`text-xs tabular-nums ${getTrendColor(key, rangeChange)}`}
+                                      title="Change over selected range"
+                                    >
+                                      {rangeChange > 0 ? '+' : ''}{rangeChange}
+                                    </span>
+                                  )}
                                   {change !== null && (
-                                    <span className={`flex items-center text-xs ${getTrendColor(change)}`}>
-                                      {getTrendIcon(change)}
+                                    <span className={`flex items-center text-xs ${getTrendColor(key, change)}`}>
+                                      {getTrendIcon(key, change)}
                                     </span>
                                   )}
                                 </div>
@@ -604,6 +708,7 @@ export default function BodyMeasurements() {
                           .map(([key, config]) => {
                             const value = latestMeasurement[key];
                             const change = getChange(key);
+                            const rangeChange = getRangeChange(key);
                             return (
                               <div key={key} className="flex items-center justify-between">
                                 <span className="text-sm text-gray-400">{config.label}</span>
@@ -611,9 +716,17 @@ export default function BodyMeasurements() {
                                   <span className="font-medium text-gray-100">
                                     {value ? `${value} cm` : '--'}
                                   </span>
+                                  {rangeChange !== null && rangeChange !== 0 && (
+                                    <span
+                                      className={`text-xs tabular-nums ${getTrendColor(key, rangeChange)}`}
+                                      title="Change over selected range"
+                                    >
+                                      {rangeChange > 0 ? '+' : ''}{rangeChange}
+                                    </span>
+                                  )}
                                   {change !== null && (
-                                    <span className={`flex items-center text-xs ${getTrendColor(change)}`}>
-                                      {getTrendIcon(change)}
+                                    <span className={`flex items-center text-xs ${getTrendColor(key, change)}`}>
+                                      {getTrendIcon(key, change)}
                                     </span>
                                   )}
                                 </div>
@@ -634,6 +747,7 @@ export default function BodyMeasurements() {
                           .map(([key, config]) => {
                             const value = latestMeasurement[key];
                             const change = getChange(key);
+                            const rangeChange = getRangeChange(key);
                             return (
                               <div key={key} className="flex items-center justify-between">
                                 <span className="text-sm text-gray-400">{config.label}</span>
@@ -641,9 +755,17 @@ export default function BodyMeasurements() {
                                   <span className="font-medium text-gray-100">
                                     {value ? `${value} cm` : '--'}
                                   </span>
+                                  {rangeChange !== null && rangeChange !== 0 && (
+                                    <span
+                                      className={`text-xs tabular-nums ${getTrendColor(key, rangeChange)}`}
+                                      title="Change over selected range"
+                                    >
+                                      {rangeChange > 0 ? '+' : ''}{rangeChange}
+                                    </span>
+                                  )}
                                   {change !== null && (
-                                    <span className={`flex items-center text-xs ${getTrendColor(change)}`}>
-                                      {getTrendIcon(change)}
+                                    <span className={`flex items-center text-xs ${getTrendColor(key, change)}`}>
+                                      {getTrendIcon(key, change)}
                                     </span>
                                   )}
                                 </div>
@@ -732,8 +854,8 @@ export default function BodyMeasurements() {
                                       <span className="flex items-center gap-1 text-gray-100">
                                         {value ? `${value} cm` : '--'}
                                         {change !== null && (
-                                          <span className={getTrendColor(change)}>
-                                            {getTrendIcon(change)}
+                                          <span className={getTrendColor(key, change)}>
+                                            {getTrendIcon(key, change)}
                                           </span>
                                         )}
                                       </span>
