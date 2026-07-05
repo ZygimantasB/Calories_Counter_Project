@@ -1152,17 +1152,39 @@
           setupScrollableChart(chartInner, scrollHint, data.labels.length);
 
           const ctx = document.getElementById('caloriesTrendChart').getContext('2d');
+          // Grams per macro, for tooltips
+          const gramsByMacro = {
+            'Protein': data.protein_grams || [],
+            'Carbs': data.carbs_grams || [],
+            'Fat': data.fat_grams || []
+          };
           new Chart(ctx, {
             type: 'bar',
             data: {
               labels: data.labels,
-              datasets: [{
-                label: 'Calories (kcal)',
-                data: data.data,
-                backgroundColor: 'rgba(75, 192, 192, 0.7)',
-                borderColor: 'rgba(75, 192, 192, 1)',
-                borderWidth: 1
-              }]
+              datasets: [
+                {
+                  label: 'Protein',
+                  data: data.protein_calories,
+                  backgroundColor: 'rgba(255, 99, 132, 0.75)',
+                  borderColor: 'rgba(255, 99, 132, 1)',
+                  borderWidth: 1
+                },
+                {
+                  label: 'Carbs',
+                  data: data.carbs_calories,
+                  backgroundColor: 'rgba(54, 162, 235, 0.75)',
+                  borderColor: 'rgba(54, 162, 235, 1)',
+                  borderWidth: 1
+                },
+                {
+                  label: 'Fat',
+                  data: data.fat_calories,
+                  backgroundColor: 'rgba(255, 206, 86, 0.75)',
+                  borderColor: 'rgba(255, 206, 86, 1)',
+                  borderWidth: 1
+                }
+              ]
             },
             options: {
               responsive: true,
@@ -1170,12 +1192,14 @@
               scales: {
                 y: {
                   beginAtZero: true,
+                  stacked: true,
                   title: {
                     display: true,
                     text: 'Calories (kcal)'
                   }
                 },
                 x: {
+                  stacked: true,
                   title: {
                     display: true,
                     text: 'Date'
@@ -1188,11 +1212,12 @@
               },
               plugins: {
                 legend: {
-                  display: false
+                  display: true,
+                  position: 'top'
                 },
                 title: {
                   display: true,
-                  text: 'Daily Calorie Intake (' + data.labels.length + ' days)'
+                  text: 'Daily Calorie Intake by Macro (' + data.labels.length + ' days)'
                 },
                 tooltip: {
                   callbacks: {
@@ -1200,7 +1225,20 @@
                       return tooltipItems[0].label;
                     },
                     label: function(context) {
-                      return context.parsed.y + ' kcal';
+                      const grams = (gramsByMacro[context.dataset.label] || [])[context.dataIndex];
+                      const kcal = Math.round(context.parsed.y);
+                      let line = context.dataset.label + ': ' + kcal + ' kcal';
+                      if (grams !== undefined) {
+                        line += ' (' + grams + ' g)';
+                      }
+                      return line;
+                    },
+                    footer: function(tooltipItems) {
+                      let total = 0;
+                      tooltipItems.forEach(function(item) {
+                        total += item.parsed.y;
+                      });
+                      return 'Total: ' + Math.round(total) + ' kcal';
                     }
                   }
                 }

@@ -1062,16 +1062,31 @@ def get_calories_trend_data(request):
     daily_calories = food_items.annotate(
         day=TruncDate('consumed_at')
     ).values('day').annotate(
-        total_calories=Sum('calories')
+        total_calories=Sum('calories'),
+        total_protein=Sum('protein'),
+        total_carbs=Sum('carbohydrates'),
+        total_fat=Sum('fat')
     ).order_by('day')
 
     # Build response with both formats for compatibility
     daily_list = list(daily_calories)
 
+    # Calories contributed by each macro (Atwater factors: 4/4/9 kcal per gram).
+    # Used to color the calorie bars by macronutrient (stacked bar chart).
+    def _kcal(value, factor):
+        return round(float(value or 0) * factor, 1)
+
     calories_data = {
         # Format for Django Chart.js templates (labels + data arrays)
         'labels': [item['day'].strftime('%Y-%m-%d') for item in daily_list],
         'data': [float(item['total_calories']) for item in daily_list],
+        # Per-macro calorie breakdown for stacked/colored bar chart
+        'protein_calories': [_kcal(item['total_protein'], 4) for item in daily_list],
+        'carbs_calories': [_kcal(item['total_carbs'], 4) for item in daily_list],
+        'fat_calories': [_kcal(item['total_fat'], 9) for item in daily_list],
+        'protein_grams': [round(float(item['total_protein'] or 0), 1) for item in daily_list],
+        'carbs_grams': [round(float(item['total_carbs'] or 0), 1) for item in daily_list],
+        'fat_grams': [round(float(item['total_fat'] or 0), 1) for item in daily_list],
         # Format for React frontend (array of objects)
         'trend': [
             {
