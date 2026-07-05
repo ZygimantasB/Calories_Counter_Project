@@ -131,5 +131,18 @@ class TestSecretsMatcher(unittest.TestCase):
         text_db_prefix = "db = 'somepostgresql://user:pass@localhost:5432/db'"
         self.assertEqual(scan_text(text_db_prefix), [])
 
+    def test_entropy_high(self):
+        from scan_secrets import calculate_entropy
+        # Random password string has high entropy
+        self.assertGreater(calculate_entropy("f48h2ndK#9a!df"), 3.0)
+        # Normal words have low entropy
+        self.assertLess(calculate_entropy("password"), 3.0)
+
+    def test_assignment_scanner(self):
+        from scan_secrets import scan_text_entropy
+        text = "db_password = 'rAnd0m#StRiNg!LeAk'"
+        results = scan_text_entropy(text)
+        self.assertTrue(any(r['type'] == 'Potential Secret Assignment' for r in results))
+
 if __name__ == '__main__':
     unittest.main()
