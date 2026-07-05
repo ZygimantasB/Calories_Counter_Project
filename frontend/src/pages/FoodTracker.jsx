@@ -308,10 +308,66 @@ export default function FoodTracker() {
   // Totals now come from API (includes all items, not just paginated)
 
   const macrosPieData = [
-    { name: 'Protein', value: totals.protein * 4, color: MACRO_COLORS.protein },
-    { name: 'Carbs', value: totals.carbs * 4, color: MACRO_COLORS.carbs },
-    { name: 'Fat', value: totals.fat * 9, color: MACRO_COLORS.fat },
+    { name: 'Protein', value: totals.protein * 4, grams: totals.protein, color: MACRO_COLORS.protein },
+    { name: 'Carbs', value: totals.carbs * 4, grams: totals.carbs, color: MACRO_COLORS.carbs },
+    { name: 'Fat', value: totals.fat * 9, grams: totals.fat, color: MACRO_COLORS.fat },
   ];
+  // Sum of macro-derived calories (protein*4 + carbs*4 + fat*9). The slice
+  // proportions (and therefore percentages) come from this.
+  const macroCalTotal = macrosPieData.reduce((sum, e) => sum + e.value, 0);
+  // Scale the displayed kcal so the donut matches the recorded Daily Calories
+  // total. Percentages are unchanged (uniform scaling); center + legend kcal now
+  // sum to the recorded total instead of the 4/4/9 macro-math total.
+  const calScale = macroCalTotal ? totals.calories / macroCalTotal : 0;
+  const sliceKcal = (entry) => Math.round(entry.value * calScale);
+
+  // Draw each slice's percentage on its arc
+  const renderMacroPercent = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+    if (percent < 0.06) return null; // skip tiny slivers to avoid clutter
+    const RADIAN = Math.PI / 180;
+    const radius = innerRadius + (outerRadius - innerRadius) / 2;
+    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+    return (
+      <text
+        x={x}
+        y={y}
+        fill="#fff"
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontSize={11}
+        fontWeight={600}
+      >
+        {`${Math.round(percent * 100)}%`}
+      </text>
+    );
+  };
+
+  const MacroPieTooltip = ({ active, payload }) => {
+    if (!active || !payload || payload.length === 0) return null;
+    const d = payload[0].payload;
+    const pct = macroCalTotal ? Math.round((d.value / macroCalTotal) * 100) : 0;
+    return (
+      <div
+        style={{
+          backgroundColor: '#1f2937',
+          border: '1px solid #374151',
+          borderRadius: '8px',
+          padding: '8px 12px',
+          fontSize: '12px',
+          color: '#e5e7eb',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600, marginBottom: 2 }}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: d.color, display: 'inline-block' }} />
+          {d.name}
+        </div>
+        <div>{Math.round(d.grams)} g</div>
+        <div>{sliceKcal(d).toLocaleString()} kcal</div>
+        <div style={{ color: '#9ca3af' }}>{pct}% of calories</div>
+      </div>
+    );
+  };
 
   // Filter food items by search query
   const filteredFoodItems = foodItems.filter((item) =>
@@ -775,43 +831,58 @@ export default function FoodTracker() {
 
             {/* Macro Pie Chart */}
             <Card title="Calorie Distribution">
-              <div className="h-48">
+              <div className="relative h-56">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
                       data={macrosPieData}
                       cx="50%"
                       cy="50%"
-                      innerRadius={50}
-                      outerRadius={70}
+                      innerRadius={58}
+                      outerRadius={84}
                       dataKey="value"
                       strokeWidth={0}
+                      label={renderMacroPercent}
+                      labelLine={false}
                     >
                       {macrosPieData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Tooltip
-                      formatter={(value) => [`${Math.round(value)} kcal`, '']}
-                      contentStyle={{
-                        backgroundColor: '#1f2937',
-                        border: '1px solid #374151',
-                        borderRadius: '8px',
-                      }}
-                    />
+                    <Tooltip content={<MacroPieTooltip />} />
                   </PieChart>
                 </ResponsiveContainer>
+                {/* Center total */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-2xl font-bold text-white leading-none">
+                    {Math.round(totals.calories).toLocaleString()}
+                  </span>
+                  <span className="text-xs text-gray-400 mt-1">kcal</span>
+                </div>
               </div>
-              <div className="flex justify-center gap-4 mt-2">
-                {macrosPieData.map((entry) => (
-                  <div key={entry.name} className="flex items-center gap-1.5">
-                    <div
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: entry.color }}
-                    />
-                    <span className="text-xs text-gray-400">{entry.name}</span>
-                  </div>
-                ))}
+              {/* Rich legend: grams · kcal · % per macro */}
+              <div className="mt-3 space-y-1.5">
+                {macrosPieData.map((entry) => {
+                  const pct = macroCalTotal ? Math.round((entry.value / macroCalTotal) * 100) : 0;
+                  return (
+                    <div key={entry.name} className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <div
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: entry.color }}
+                        />
+                        <span className="text-gray-300">{entry.name}</span>
+                      </div>
+                      <span className="text-gray-400">
+                        {Math.round(entry.grams)} g
+                        <span className="text-gray-600"> · </span>
+                        {sliceKcal(entry).toLocaleString()} kcal
+                        <span className="text-gray-600"> · </span>
+                        <span className="text-gray-300 font-medium">{pct}%</span>
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </Card>
           </div>
