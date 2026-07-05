@@ -1,10 +1,8 @@
-// Offline analytics API: same exports/signatures, backed by local SQLite.
-import { getAnalytics, monthCompare, yearlyTrends } from '../logic/analytics';
+import { Capacitor } from '@capacitor/core';
+const isOffline = import.meta.env.BASE_URL === './' || import.meta.env.VITE_OFFLINE === 'true' || import.meta.env.MODE === 'test';
 
-export const analyticsApi = {
-  getAnalytics: (params = {}) => getAnalytics(params),
-  getMonthCompare: (monthA, monthB) => monthCompare(monthA, monthB),
-  getYearlyTrends: (year = 'last12') => yearlyTrends(year),
-};
+import analyticsOffline from './analytics.offline';
+import analyticsOnline from './analytics.online';
 
+export const analyticsApi = isOffline ? analyticsOffline : analyticsOnline;
 export default analyticsApi;

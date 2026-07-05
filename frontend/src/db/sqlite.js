@@ -13,9 +13,29 @@ let initPromise = null;
 
 async function ensureWebStore() {
   if (Capacitor.getPlatform() !== 'web') return;
+
+  // jeep-sqlite fetches the sql.js wasm from an absolute "/assets/sql-wasm.wasm",
+  // but under Django it is served at BASE_URL + "assets/sql-wasm.wasm"
+  // (e.g. /static/react/assets/…). Redirect just that one request so the
+  // browser-side database can initialise.
+  if (!window.__sqlWasmShim) {
+    window.__sqlWasmShim = true;
+    const wasmUrl = new URL(`${import.meta.env.BASE_URL}assets/sql-wasm.wasm`, window.location.origin).href;
+    const origFetch = window.fetch.bind(window);
+    window.fetch = (input, init) => {
+      const url = typeof input === 'string' ? input : input?.url;
+      if (url && url.includes('sql-wasm.wasm') && !url.includes(import.meta.env.BASE_URL)) {
+        return origFetch(wasmUrl, init);
+      }
+      return origFetch(input, init);
+    };
+  }
+
   // jeep-sqlite provides a WASM SQLite + IndexedDB-backed store in the browser.
-  const { defineCustomElements } = await import('jeep-sqlite/loader');
-  defineCustomElements(window);
+  const { JeepSqlite } = await import('jeep-sqlite/dist/components/jeep-sqlite');
+  if (!customElements.get('jeep-sqlite')) {
+    customElements.define('jeep-sqlite', JeepSqlite);
+  }
   if (!document.querySelector('jeep-sqlite')) {
     const el = document.createElement('jeep-sqlite');
     document.body.appendChild(el);

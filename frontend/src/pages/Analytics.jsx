@@ -44,6 +44,7 @@ import {
 import { format, parseISO } from 'date-fns';
 import { Card, Badge, Button, ProgressBar } from '../components/ui';
 import { analyticsApi, foodApi } from '../api';
+import { useSettings } from '../context/SettingsContext';
 
 const COLORS = {
   primary: '#0ea5e9',
@@ -821,8 +822,9 @@ function ProductCompareTab() {
 }
 
 export default function Analytics() {
+  const { defaultRange } = useSettings();
   const [activeTab, setActiveTab] = useState('overview');
-  const [timeRange, setTimeRange] = useState('90');
+  const [timeRange, setTimeRange] = useState(String(defaultRange || 90));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [data, setData] = useState(null);

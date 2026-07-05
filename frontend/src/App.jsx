@@ -1,4 +1,5 @@
 import { HashRouter as Router, Routes, Route } from 'react-router-dom';
+import { SettingsProvider } from './context/SettingsContext';
 import MainLayout from './layouts/MainLayout';
 import {
   Dashboard,
@@ -14,6 +15,7 @@ import {
 
 function App() {
   return (
+    <SettingsProvider>
     <Router>
       <Routes>
         <Route path="/" element={<MainLayout />}>
@@ -29,6 +31,7 @@ function App() {
         </Route>
       </Routes>
     </Router>
+    </SettingsProvider>
   );
 }
 

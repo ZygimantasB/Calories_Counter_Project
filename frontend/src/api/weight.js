@@ -1,32 +1,8 @@
-// Offline weight API: same exports/signatures as before, backed by local SQLite.
-import * as weightLogic from '../logic/weight';
-import { weightRepo } from '../db/repositories/weightRepo';
+import { Capacitor } from '@capacitor/core';
+const isOffline = import.meta.env.BASE_URL === './' || import.meta.env.VITE_OFFLINE === 'true' || import.meta.env.MODE === 'test';
 
-export const weightApi = {
-  getWeightItems: (params = {}) => weightLogic.listWithStats(params),
+import weightOffline from './weight.offline';
+import weightOnline from './weight.online';
 
-  addWeight: async (weightData) => {
-    const id = await weightRepo.insert({
-      weight: weightData.weight,
-      notes: weightData.notes ?? '',
-      recorded_at: weightData.recorded_at || new Date().toISOString(),
-    });
-    return { success: true, id };
-  },
-
-  deleteWeight: async (weightId) => {
-    await weightRepo.remove(weightId);
-    return { success: true };
-  },
-
-  update: async (id, data) => {
-    await weightRepo.update(id, data);
-    return { success: true, message: 'Weight entry updated' };
-  },
-
-  getWeightData: (days = 365) => weightLogic.weightData({ days }),
-
-  getWeightCaloriesCorrelation: (page = 1) => weightLogic.correlation(page),
-};
-
+export const weightApi = isOffline ? weightOffline : weightOnline;
 export default weightApi;

@@ -31,10 +31,45 @@
   100% { transform: translateY(0); opacity: 1; }
 }
 
-/* Dark theme base - applied to html */
+/* Dark theme base - applied to html (JS stamps data-theme; default is dark) */
 html {
   color-scheme: dark;
 }
+
+/* ── Light theme ──────────────────────────────────────────────────────────
+   Tailwind v4 emits colors as var(--color-*). Flipping the neutral ramp under
+   [data-theme="light"] recolors the entire app (all pages) with no component
+   edits: dark backgrounds (gray-900/800/700) become light, light text
+   (gray-100/200) becomes dark. A few overloaded utilities (text-white on
+   buttons, bg-white outline buttons) are corrected explicitly below. */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --color-gray-950: oklch(98.5% .002 247.839);
+  --color-gray-900: oklch(96.7% .003 264.542);
+  --color-gray-800: oklch(92.8% .006 264.531);
+  --color-gray-700: oklch(87.2% .01 258.338);
+  --color-gray-600: oklch(70.7% .022 261.325);
+  --color-gray-500: oklch(55.1% .027 264.364);
+  --color-gray-400: oklch(44.6% .03 256.802);
+  --color-gray-300: oklch(37.3% .034 259.733);
+  --color-gray-200: oklch(27.8% .033 256.848);
+  --color-gray-100: oklch(21% .034 264.665);
+  --color-gray-50: oklch(13% .028 261.692);
+}
+
+/* Headings/body that use text-white should read dark on light surfaces … */
+:root[data-theme="light"] .text-white { color: var(--color-gray-100); }
+/* … but keep white text on solid coloured buttons/badges (same element). */
+:root[data-theme="light"] .bg-primary-500.text-white,
+:root[data-theme="light"] .bg-primary-600.text-white,
+:root[data-theme="light"] .bg-red-500.text-white,
+:root[data-theme="light"] .bg-red-600.text-white,
+:root[data-theme="light"] .bg-green-500.text-white,
+:root[data-theme="light"] .bg-green-600.text-white,
+:root[data-theme="light"] [class*="from-primary-5"].text-white,
+:root[data-theme="light"] [class*="from-primary-6"].text-white { color: #fff; }
+/* Outline buttons keep a readable dark label on their white background. */
+:root[data-theme="light"] .bg-white.text-gray-700 { color: #374151; }
 
 body {
   @apply bg-gray-900 text-gray-100 font-sans antialiased;

@@ -1,11 +1,8 @@
-// Offline meal-templates API: same exports/signatures, backed by local SQLite.
-import * as mealTemplates from '../logic/mealTemplates';
+import { Capacitor } from '@capacitor/core';
+const isOffline = import.meta.env.BASE_URL === './' || import.meta.env.VITE_OFFLINE === 'true' || import.meta.env.MODE === 'test';
 
-export const mealTemplatesApi = {
-  list: () => mealTemplates.list(),
-  save: (name, date = null) => mealTemplates.save(name, date),
-  apply: (templateId) => mealTemplates.apply(templateId),
-  delete: (templateId) => mealTemplates.remove(templateId),
-};
+import mealTemplatesOffline from './mealTemplates.offline';
+import mealTemplatesOnline from './mealTemplates.online';
 
+export const mealTemplatesApi = isOffline ? mealTemplatesOffline : mealTemplatesOnline;
 export default mealTemplatesApi;
