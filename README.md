@@ -47,6 +47,7 @@
 - **Food Diary** — Log meals with comprehensive nutritional data
 - **AI Food Assistant** — Instant macro lookup powered by Google Gemini AI
 - **Macronutrient Analysis** — Track calories, protein, carbohydrates, and fat
+- **Calorie Intake by Macro** — Calorie trend colored by protein / carbs / fat, plus a calorie-distribution donut with per-macro breakdown
 - **Quick-Add Items** — Save and reuse frequently eaten foods (ordered by frequency)
 - **Hide from Quick List** — Keep your quick-add list clean
 - **Copy Previous Day** — Duplicate all meals from any past date to today
@@ -93,10 +94,16 @@
 
 ### ⚖️ Weight & Body Stats
 - **Weight Journal** — Daily weight log with trend analysis
+- **Period Filter** — This Week/Month, 7/30/90 days, 6 months, 1 year, all-time, or a custom date range
+- **Cumulative Weight Change** — Net gain/loss area chart, colored green (loss) / red (gain)
 - **Calories vs Weight Correlation** — Chart showing how intake affects weight
 - **Stability Score** — Weight volatility analysis
 - **Body Measurements** — Track neck, chest, waist, hips, biceps, thighs, and more
-- **Measurement Charts** — Per-measurement trend charts
+- **Body Composition** — Estimated body-fat % (US Navy), waist-to-hip and waist-to-height ratios with trend
+- **Left/Right Symmetry** — Limb imbalance analysis for biceps, triceps, forearms, thighs, and calves
+- **Goal-aware Trends** — A smaller waist or a bigger muscle reads as progress (green), not just "up/down"
+- **Measurement Charts** — Per-measurement trends with Core/Arms/Legs grouping and a normalized (% change) view
+- **Measurement History** — Expandable summary cards with per-metric change, plus a full data table
 - **CSV Export** — Export all body measurement data
 
 </td>
