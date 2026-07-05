@@ -140,6 +140,7 @@ export default function FoodTracker() {
   const [aiQuery, setAiQuery] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState(null);
+  const [aiError, setAiError] = useState('');
   const [showAiSearch, setShowAiSearch] = useState(false);
 
   // Add food form
@@ -403,6 +404,8 @@ export default function FoodTracker() {
     if (!aiQuery.trim()) return;
     try {
       setAiLoading(true);
+      setAiError('');
+      setAiResult(null);
       const result = await foodApi.getGeminiNutrition(aiQuery);
       if (result && result.success) {
         setAiResult(result);
@@ -418,6 +421,7 @@ export default function FoodTracker() {
       }
     } catch (err) {
       console.error('AI search error:', err);
+      setAiError(err?.message || 'AI lookup failed. Please try again.');
     } finally {
       setAiLoading(false);
     }
@@ -1318,6 +1322,12 @@ export default function FoodTracker() {
                     )}
                     Analyze with AI
                   </Button>
+
+                  {aiError && (
+                    <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 mb-4 text-sm text-red-300">
+                      {aiError}
+                    </div>
+                  )}
 
                   {aiResult && (
                     <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/30 mb-4">

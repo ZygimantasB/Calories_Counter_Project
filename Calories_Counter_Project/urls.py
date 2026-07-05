@@ -4,11 +4,14 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic import TemplateView
 from django.http import HttpResponse
+from django.views.decorators.csrf import ensure_csrf_cookie
 import os
 
 
+@ensure_csrf_cookie
 def serve_react_app(request):
-    """Serve the React app's index.html"""
+    """Serve the React app's index.html (also seeds the csrftoken cookie so the
+    SPA can send X-CSRFToken on CSRF-protected POSTs like the AI nutrition lookup)."""
     react_index_path = os.path.join(settings.BASE_DIR, 'static', 'react', 'index.html')
     try:
         with open(react_index_path, 'r', encoding='utf-8') as f:
