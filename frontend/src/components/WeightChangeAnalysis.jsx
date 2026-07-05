@@ -1,13 +1,13 @@
 import { format, parseISO } from 'date-fns';
 import {
-  BarChart,
-  Bar,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Cell,
+  ReferenceLine,
 } from 'recharts';
 import { Card } from './ui';
 
@@ -27,18 +27,46 @@ export default function WeightChangeAnalysis({ stats, entries }) {
     trendColor = 'text-red-400';
   }
 
-  // Compute day-to-day changes from entries (entries are newest-first, reverse for chronological)
+  // Cumulative change from the first weigh-in in the window (baseline = 0).
+  // entries are newest-first, so reverse for chronological order.
   const chronological = [...entries].reverse();
-  const changeData = [];
-  for (let i = 1; i < chronological.length; i++) {
-    const change = parseFloat(
-      (chronological[i].weight - chronological[i - 1].weight).toFixed(2)
+  const baseline = chronological.length > 0 ? chronological[0].weight : 0;
+  const cumData = chronological.map((e) => ({
+    date: format(parseISO(e.recorded_at), 'MMM dd'),
+    weight: e.weight,
+    cum: parseFloat((e.weight - baseline).toFixed(2)),
+  }));
+
+  // Split-color offset: red above baseline (net gain), green below (net loss).
+  const cumValues = cumData.map((d) => d.cum);
+  const cumMax = Math.max(0, ...cumValues);
+  const cumMin = Math.min(0, ...cumValues);
+  const gradientOffset =
+    cumMax <= 0 ? 0 : cumMin >= 0 ? 1 : cumMax / (cumMax - cumMin);
+
+  const CumTooltip = ({ active, payload }) => {
+    if (!active || !payload || payload.length === 0) return null;
+    const d = payload[0].payload;
+    const gained = d.cum > 0;
+    return (
+      <div
+        style={{
+          backgroundColor: '#1f2937',
+          border: '1px solid #374151',
+          borderRadius: '8px',
+          padding: '8px 12px',
+          fontSize: '12px',
+          color: '#e5e7eb',
+        }}
+      >
+        <div style={{ fontWeight: 600, marginBottom: 2 }}>{d.date}</div>
+        <div>{Number(d.weight).toFixed(1)} kg</div>
+        <div style={{ color: gained ? '#f87171' : '#4ade80' }}>
+          {gained ? '+' : ''}{d.cum.toFixed(2)} kg since start
+        </div>
+      </div>
     );
-    changeData.push({
-      date: format(parseISO(chronological[i].recorded_at), 'MMM dd'),
-      change,
-    });
-  }
+  };
 
   return (
     <Card title="Weight Change Analysis" subtitle="Last 90 Days">
@@ -64,31 +92,43 @@ export default function WeightChangeAnalysis({ stats, entries }) {
         </div>
       </div>
 
-      {/* Weight Changes bar chart */}
+      {/* Cumulative weight change area chart */}
       <div>
         <h4 className="text-sm font-medium text-gray-400 mb-3">
-          Weight Changes Between Measurements
+          Cumulative Weight Change{' '}
+          <span className="text-gray-500 font-normal">(net kg since start)</span>
         </h4>
-        {changeData.length > 0 ? (
+        {cumData.length > 1 ? (
           <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={changeData}>
+            <AreaChart data={cumData}>
+              <defs>
+                <linearGradient id="cumFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset={gradientOffset} stopColor="#ef4444" stopOpacity={0.5} />
+                  <stop offset={gradientOffset} stopColor="#22c55e" stopOpacity={0.5} />
+                </linearGradient>
+                <linearGradient id="cumStroke" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset={gradientOffset} stopColor="#ef4444" stopOpacity={1} />
+                  <stop offset={gradientOffset} stopColor="#22c55e" stopOpacity={1} />
+                </linearGradient>
+              </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
               <XAxis dataKey="date" stroke="#9ca3af" fontSize={12} />
-              <YAxis stroke="#9ca3af" fontSize={12} tickFormatter={(v) => `${v > 0 ? '+' : ''}${v}`} />
-              <Tooltip
-                formatter={(value) => [`${value > 0 ? '+' : ''}${value} kg`, 'Change']}
-                contentStyle={{
-                  backgroundColor: '#1f2937',
-                  border: '1px solid #374151',
-                  borderRadius: '8px',
-                }}
+              <YAxis
+                stroke="#9ca3af"
+                fontSize={12}
+                tickFormatter={(v) => `${v > 0 ? '+' : ''}${v}`}
               />
-              <Bar dataKey="change">
-                {changeData.map((entry, i) => (
-                  <Cell key={i} fill={entry.change > 0 ? '#ef4444' : '#22c55e'} />
-                ))}
-              </Bar>
-            </BarChart>
+              <Tooltip content={<CumTooltip />} />
+              <ReferenceLine y={0} stroke="#6b7280" strokeWidth={1.5} />
+              <Area
+                type="monotone"
+                dataKey="cum"
+                stroke="url(#cumStroke)"
+                strokeWidth={2}
+                fill="url(#cumFill)"
+                baseValue={0}
+              />
+            </AreaChart>
           </ResponsiveContainer>
         ) : (
           <div className="h-40 flex items-center justify-center text-gray-500 text-sm">
