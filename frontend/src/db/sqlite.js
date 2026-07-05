@@ -14,6 +14,7 @@ let initPromise = null;
 async function ensureWebStore() {
   if (Capacitor.getPlatform() !== 'web') return;
 
+  console.log('[SQLite DB] Running on Web. Setting up WASM shim and custom elements...');
   // jeep-sqlite fetches the sql.js wasm from an absolute "/assets/sql-wasm.wasm",
   // but under Django it is served at BASE_URL + "assets/sql-wasm.wasm"
   // (e.g. /static/react/assets/…). Redirect just that one request so the
@@ -34,14 +35,18 @@ async function ensureWebStore() {
   // jeep-sqlite provides a WASM SQLite + IndexedDB-backed store in the browser.
   const { JeepSqlite } = await import('jeep-sqlite/dist/components/jeep-sqlite');
   if (!customElements.get('jeep-sqlite')) {
+    console.log('[SQLite DB] Defining custom element <jeep-sqlite>...');
     customElements.define('jeep-sqlite', JeepSqlite);
   }
   if (!document.querySelector('jeep-sqlite')) {
+    console.log('[SQLite DB] Mounting <jeep-sqlite> host element...');
     const el = document.createElement('jeep-sqlite');
     document.body.appendChild(el);
   }
   await customElements.whenDefined('jeep-sqlite');
+  console.log('[SQLite DB] Initializing SQLite Web Store...');
   await sqlite.initWebStore();
+  console.log('[SQLite DB] SQLite Web Store initialized successfully.');
 }
 
 async function openConnection() {
@@ -67,15 +72,35 @@ async function runSchema(conn) {
 export function initDb() {
   if (initPromise) return initPromise;
   initPromise = (async () => {
-    await ensureWebStore();
-    db = await openConnection();
-    await db.open();
-    await runSchema(db);
-    await seedIfEmpty(db);
-    if (Capacitor.getPlatform() === 'web') {
-      await sqlite.saveToStore(DB_NAME);
+    try {
+      console.log('[SQLite DB] Beginning database initialization...');
+      await ensureWebStore();
+      
+      console.log('[SQLite DB] Opening SQLite connection...');
+      db = await openConnection();
+      await db.open();
+      console.log('[SQLite DB] SQLite connection opened successfully.');
+
+      console.log('[SQLite DB] Applying schema statements...');
+      await runSchema(db);
+      console.log('[SQLite DB] Schema applied successfully.');
+
+      console.log('[SQLite DB] Seeding default database data if empty...');
+      await seedIfEmpty(db);
+      console.log('[SQLite DB] Seeding checked/completed.');
+
+      if (Capacitor.getPlatform() === 'web') {
+        console.log('[SQLite DB] Saving IndexedDB SQLite state to store...');
+        await sqlite.saveToStore(DB_NAME);
+      }
+      
+      console.log('[SQLite DB] Database fully initialized and ready!');
+      return db;
+    } catch (err) {
+      console.error('[SQLite DB] CRITICAL: Database initialization failed:', err);
+      initPromise = null; // allow retry on subsequent calls
+      throw err;
     }
-    return db;
   })();
   return initPromise;
 }
