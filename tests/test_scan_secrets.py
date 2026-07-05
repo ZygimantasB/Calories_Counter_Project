@@ -27,6 +27,18 @@ class TestSecretsMatcher(unittest.TestCase):
         results = scan_text(text)
         self.assertTrue(any(r['type'] == 'Database Connection' for r in results))
 
+        # Case-insensitivity support
+        text_caps = "db = 'POSTGRESQL://user:pass@localhost:5432/db'"
+        results_caps = scan_text(text_caps)
+        self.assertTrue(any(r['type'] == 'Database Connection' for r in results_caps))
+        self.assertEqual(results_caps[0]['matched_value'], 'POSTGRESQL://user:pass@localhost:5432/db')
+
+        # MariaDB support
+        text_mariadb = "db = 'mariadb://user:pass@localhost:3306/db'"
+        results_mariadb = scan_text(text_mariadb)
+        self.assertTrue(any(r['type'] == 'Database Connection' for r in results_mariadb))
+        self.assertEqual(results_mariadb[0]['matched_value'], 'mariadb://user:pass@localhost:3306/db')
+
     def test_github_token(self):
         # Test ghp_ format
         text_ghp = "github_token = 'ghp_123456789012345678901234567890123456'"
@@ -41,10 +53,17 @@ class TestSecretsMatcher(unittest.TestCase):
         self.assertEqual(results_pat[0]['matched_value'], 'github_pat_1234567890123456789012345678901234567890123456789012345678901234567890123456789012')
 
     def test_aws_key(self):
+        # AKIA prefix
         text = "aws_key = 'AKIA1234567890ABCDEF'"
         results = scan_text(text)
         self.assertTrue(any(r['type'] == 'AWS Access Key ID' for r in results))
         self.assertEqual(results[0]['matched_value'], 'AKIA1234567890ABCDEF')
+
+        # ASIA prefix
+        text_asia = "aws_key = 'ASIA1234567890ABCDEF'"
+        results_asia = scan_text(text_asia)
+        self.assertTrue(any(r['type'] == 'AWS Access Key ID' for r in results_asia))
+        self.assertEqual(results_asia[0]['matched_value'], 'ASIA1234567890ABCDEF')
 
     def test_empty_input(self):
         self.assertEqual(scan_text(""), [])
@@ -101,6 +120,16 @@ class TestSecretsMatcher(unittest.TestCase):
 
         text_aws_suffix = "AKIA1234567890ABCDEFxyz"
         self.assertEqual(scan_text(text_aws_suffix), [])
+
+        text_aws_asia_prefix = "abcASIA1234567890ABCDEF"
+        self.assertEqual(scan_text(text_aws_asia_prefix), [])
+
+        text_aws_asia_suffix = "ASIA1234567890ABCDEFxyz"
+        self.assertEqual(scan_text(text_aws_asia_suffix), [])
+
+        # Database connection embedded in longer words should not match
+        text_db_prefix = "db = 'somepostgresql://user:pass@localhost:5432/db'"
+        self.assertEqual(scan_text(text_db_prefix), [])
 
 if __name__ == '__main__':
     unittest.main()
