@@ -1,24 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Ruler,
   Plus,
   TrendingDown,
   TrendingUp,
   Minus,
   Calendar,
-  Edit2,
-  Trash2,
   X,
   Download,
   Loader2,
   AlertCircle,
   Check,
-  LayoutGrid,
-  Table,
   BarChart3,
-  LineChart as LineChartIcon,
-  ChevronLeft,
-  ChevronRight,
   GitCompare,
 } from 'lucide-react';
 import {
@@ -39,6 +31,7 @@ import { bodyMeasurementsApi, settingsApi } from '../../api';
 import CompareTab from './CompareTab.jsx';
 import BodyCompositionCards from './BodyCompositionCards.jsx';
 import SymmetrySection from './SymmetrySection.jsx';
+import HistorySection from './HistorySection.jsx';
 import { changeQuality } from './bodyComposition';
 
 // All measurement fields matching the Django template
@@ -71,8 +64,6 @@ const timeRanges = [
   { label: 'All Time', value: 'all' },
 ];
 
-const ITEMS_PER_PAGE = 10;
-
 export default function BodyMeasurements() {
   const [measurements, setMeasurements] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -87,8 +78,6 @@ export default function BodyMeasurements() {
   const [chartType, setChartType] = useState('line');
   const [timeRange, setTimeRange] = useState(365);
   const [settings, setSettings] = useState(null);
-  const [historyView, setHistoryView] = useState('timeline'); // 'timeline' or 'table'
-  const [currentPage, setCurrentPage] = useState(1);
   const [formData, setFormData] = useState({});
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(null);
@@ -168,13 +157,6 @@ export default function BodyMeasurements() {
       return acc;
     }, {}),
   }));
-
-  // Pagination
-  const totalPages = Math.ceil(measurements.length / ITEMS_PER_PAGE);
-  const paginatedMeasurements = measurements.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  );
 
   // Handle form input change
   const handleFormChange = (field, value) => {
@@ -782,215 +764,15 @@ export default function BodyMeasurements() {
 
           {/* History Tab */}
           {activeTab === 'history' && (
-            <div className="space-y-4">
-              <Card
-                title="Measurement History"
-                action={
-                  <Button
-                    variant={historyView === 'table' ? 'primary' : 'outline'}
-                    size="sm"
-                    onClick={() => setHistoryView(historyView === 'timeline' ? 'table' : 'timeline')}
-                  >
-                    {historyView === 'timeline' ? (
-                      <>
-                        <Table className="w-4 h-4 mr-2" />
-                        Toggle Table View
-                      </>
-                    ) : (
-                      <>
-                        <LayoutGrid className="w-4 h-4 mr-2" />
-                        Toggle Timeline View
-                      </>
-                    )}
-                  </Button>
-                }
-                padding={false}
-              >
-                {measurements.length > 0 ? (
-                  <>
-                    {historyView === 'timeline' ? (
-                      // Timeline View
-                      <div className="divide-y divide-gray-700">
-                        {paginatedMeasurements.map((measurement, index) => {
-                          const prevMeasurement = measurements[measurements.indexOf(measurement) + 1];
-                          return (
-                            <div key={measurement.id} className="p-4 hover:bg-gray-700/30">
-                              <div className="flex items-center justify-between mb-3">
-                                <h5 className="font-semibold text-gray-100">
-                                  {format(parseISO(measurement.date), 'MMMM d, yyyy')}
-                                </h5>
-                                <div className="flex gap-1">
-                                  <button
-                                    onClick={() => openEditModal(measurement)}
-                                    className="px-3 py-1 text-sm rounded bg-primary-600 text-white hover:bg-primary-500"
-                                  >
-                                    <Edit2 className="w-3 h-3 inline mr-1" />
-                                    Edit
-                                  </button>
-                                  <button
-                                    onClick={() => handleDeleteMeasurement(measurement.id)}
-                                    disabled={deleting === measurement.id}
-                                    className="px-3 py-1 text-sm rounded bg-red-600 text-white hover:bg-red-500 disabled:opacity-50"
-                                  >
-                                    {deleting === measurement.id ? (
-                                      <Loader2 className="w-3 h-3 inline animate-spin" />
-                                    ) : (
-                                      <>
-                                        <Trash2 className="w-3 h-3 inline mr-1" />
-                                        Delete
-                                      </>
-                                    )}
-                                  </button>
-                                </div>
-                              </div>
-                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                                {['chest', 'belly', 'left_biceps', 'right_biceps'].map((key) => {
-                                  const value = measurement[key];
-                                  const prevValue = prevMeasurement?.[key];
-                                  const change = value && prevValue ? parseFloat((value - prevValue).toFixed(1)) : null;
-                                  return (
-                                    <div key={key} className="flex items-center justify-between bg-gray-700/30 rounded px-3 py-2">
-                                      <span className="text-gray-400">{allMeasurements[key]?.label}:</span>
-                                      <span className="flex items-center gap-1 text-gray-100">
-                                        {value ? `${value} cm` : '--'}
-                                        {change !== null && (
-                                          <span className={getTrendColor(key, change)}>
-                                            {getTrendIcon(key, change)}
-                                          </span>
-                                        )}
-                                      </span>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      // Table View
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead className="bg-gray-700/50 border-b border-gray-700">
-                            <tr>
-                              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Date</th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Neck</th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Chest</th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Belly</th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Biceps (L/R)</th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Triceps (L/R)</th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Forearm (L/R)</th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Thigh (L/R)</th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Calf (L/R)</th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Butt</th>
-                              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-400 uppercase">Actions</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-700">
-                            {paginatedMeasurements.map((m) => (
-                              <tr key={m.id} className="hover:bg-gray-700/30">
-                                <td className="px-4 py-3 font-medium text-gray-100">
-                                  {format(parseISO(m.date), 'yyyy-MM-dd')}
-                                </td>
-                                <td className="px-4 py-3 text-gray-300">{m.neck || '--'}</td>
-                                <td className="px-4 py-3 text-gray-300">{m.chest || '--'}</td>
-                                <td className="px-4 py-3 text-gray-300">{m.belly || '--'}</td>
-                                <td className="px-4 py-3 text-gray-300">
-                                  {m.left_biceps || '--'}/{m.right_biceps || '--'}
-                                </td>
-                                <td className="px-4 py-3 text-gray-300">
-                                  {m.left_triceps || '--'}/{m.right_triceps || '--'}
-                                </td>
-                                <td className="px-4 py-3 text-gray-300">
-                                  {m.left_forearm || '--'}/{m.right_forearm || '--'}
-                                </td>
-                                <td className="px-4 py-3 text-gray-300">
-                                  {m.left_thigh || '--'}/{m.right_thigh || '--'}
-                                </td>
-                                <td className="px-4 py-3 text-gray-300">
-                                  {m.left_lower_leg || '--'}/{m.right_lower_leg || '--'}
-                                </td>
-                                <td className="px-4 py-3 text-gray-300">{m.butt || '--'}</td>
-                                <td className="px-4 py-3 text-right">
-                                  <div className="flex items-center justify-end gap-1">
-                                    <button
-                                      onClick={() => openEditModal(m)}
-                                      className="p-1.5 rounded-lg hover:bg-gray-600 text-gray-400 hover:text-gray-200"
-                                    >
-                                      <Edit2 className="w-4 h-4" />
-                                    </button>
-                                    <button
-                                      onClick={() => handleDeleteMeasurement(m.id)}
-                                      disabled={deleting === m.id}
-                                      className="p-1.5 rounded-lg hover:bg-red-500/20 text-gray-400 hover:text-red-400"
-                                    >
-                                      {deleting === m.id ? (
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                      ) : (
-                                        <Trash2 className="w-4 h-4" />
-                                      )}
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-
-                    {/* Pagination */}
-                    {totalPages > 1 && (
-                      <div className="flex items-center justify-center gap-2 p-4 border-t border-gray-700">
-                        <button
-                          onClick={() => setCurrentPage(1)}
-                          disabled={currentPage === 1}
-                          className="px-3 py-1 rounded bg-gray-700 text-gray-300 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          First
-                        </button>
-                        <button
-                          onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                          disabled={currentPage === 1}
-                          className="px-3 py-1 rounded bg-gray-700 text-gray-300 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <ChevronLeft className="w-4 h-4" />
-                        </button>
-                        <span className="px-4 py-1 text-gray-300">
-                          Page {currentPage} of {totalPages}
-                        </span>
-                        <button
-                          onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                          disabled={currentPage === totalPages}
-                          className="px-3 py-1 rounded bg-gray-700 text-gray-300 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <ChevronRight className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => setCurrentPage(totalPages)}
-                          disabled={currentPage === totalPages}
-                          className="px-3 py-1 rounded bg-gray-700 text-gray-300 hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          Last
-                        </button>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <div className="p-8 text-center text-gray-500">
-                    <p>No measurements recorded yet</p>
-                    <Button
-                      variant="ghost"
-                      icon={Plus}
-                      onClick={() => setActiveTab('add')}
-                      className="mt-4"
-                    >
-                      Add your first measurement
-                    </Button>
-                  </div>
-                )}
-              </Card>
-            </div>
+            <HistorySection
+              measurements={measurements}
+              allMeasurements={allMeasurements}
+              settings={settings}
+              onEdit={openEditModal}
+              onDelete={handleDeleteMeasurement}
+              deleting={deleting}
+              onAddNew={() => setActiveTab('add')}
+            />
           )}
 
           {/* Add New Tab */}
