@@ -1018,7 +1018,10 @@ def get_calories_trend_data(request):
     selected_date_str = request.GET.get('date')
     time_range = request.GET.get('range', 'today')
 
-    end_date = timezone.now().replace(hour=23, minute=59, second=59, microsecond=999999)
+    # Use local time so day boundaries line up with TruncDate's local-day
+    # grouping below. Using UTC here truncates the earliest day for users
+    # ahead of UTC (their local-midnight rows are stored as the prior UTC day).
+    end_date = timezone.localtime().replace(hour=23, minute=59, second=59, microsecond=999999)
     start_date = end_date - timedelta(days=30)  # Default 30 days
 
     # Handle days parameter
@@ -1106,7 +1109,10 @@ def get_macros_trend_data(request):
     selected_date_str = request.GET.get('date')
     time_range = request.GET.get('range', 'today')
 
-    end_date = timezone.now().replace(hour=23, minute=59, second=59, microsecond=999999)
+    # Use local time so day boundaries line up with TruncDate's local-day
+    # grouping below. Using UTC here truncates the earliest day for users
+    # ahead of UTC (their local-midnight rows are stored as the prior UTC day).
+    end_date = timezone.localtime().replace(hour=23, minute=59, second=59, microsecond=999999)
     start_date = end_date - timedelta(days=30)  # Default 30 days
 
     # Handle days parameter

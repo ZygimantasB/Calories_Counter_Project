@@ -470,3 +470,58 @@ class QuickAddProductNameEscapingTestCase(TestCase):
         # escapejs encodes '&' as the JS unicode escape \\u0026, which the browser
         # parses back to a literal '&' before POSTing it.
         self.assertIn('SUN\\u0026SEA', js_line)
+
+
+class TrendFirstDayTruncationTestCase(TestCase):
+    """Bug: the earliest day in the calories/macros trend is truncated.
+
+    The trend endpoints derived the start boundary from ``timezone.now()``
+    (a UTC datetime) with ``.replace(hour=23, ...)``, then grouped rows by
+    ``TruncDate`` which buckets by the *local* calendar day. In a timezone
+    ahead of UTC (e.g. Europe/Vilnius, UTC+3), food logged at local midnight
+    of the first day is stored as 21:00 UTC the previous day, so it fell
+    *before* the start boundary and was dropped — collapsing the first day's
+    total to a fraction of its real value.
+    """
+
+    def setUp(self):
+        self.client = Client()
+        # Local midnight of the earliest day a 30-day window should include.
+        # Earliest day a 30-day window shows: today and the 29 days before it.
+        now_local = timezone.localtime()
+        first_day = (now_local - timedelta(days=29)).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        self.first_day_date = first_day.date().strftime('%Y-%m-%d')
+        # Three items across the first day, incl. one at local midnight.
+        for hour, cals in ((0, 700), (12, 1200), (20, 1300)):
+            FoodItem.objects.create(
+                product_name=f'First-day food {hour}',
+                calories=Decimal(cals),
+                protein=Decimal('10'),
+                carbohydrates=Decimal('20'),
+                fat=Decimal('5'),
+                consumed_at=first_day.replace(hour=hour),
+            )
+
+    def test_calories_trend_first_day_is_complete(self):
+        response = self.client.get(
+            reverse('calories_trend_data'), {'days': '30'}
+        )
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertIn(self.first_day_date, data['labels'],
+                      "earliest day missing from trend labels")
+        idx = data['labels'].index(self.first_day_date)
+        # 700 + 1200 + 1300 must all be counted, not just the late entries.
+        self.assertEqual(data['data'][idx], 3200.0)
+
+    def test_macros_trend_first_day_is_complete(self):
+        response = self.client.get(
+            reverse('macros_trend_data'), {'days': '30'}
+        )
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.content)
+        self.assertIn(self.first_day_date, data['labels'])
+        idx = data['labels'].index(self.first_day_date)
+        self.assertEqual(data['protein'][idx], 30.0)
