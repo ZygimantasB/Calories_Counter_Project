@@ -6,6 +6,37 @@ from django.conf import settings
 
 logger = logging.getLogger('count_calories_app')
 
+# Atwater factors: the energy each macronutrient contributes per gram.
+ATWATER = {'protein': 4, 'carbohydrates': 4, 'fat': 9}
+
+# Alcohol, fibre and sugar alcohols all break Atwater legitimately, so only
+# flag a discrepancy that is both proportionally and absolutely large.
+ATWATER_TOLERANCE_RATIO = 0.25
+ATWATER_TOLERANCE_KCAL = 30
+
+
+def check_nutrition_plausibility(data):
+    """Return a list of human-readable warnings about suspicious AI values.
+
+    Warnings never block a lookup -- they tell the user to double-check.
+    """
+    warnings = []
+
+    macro_calories = sum(
+        data[field] * factor for field, factor in ATWATER.items()
+    )
+    stated = data['calories']
+    if stated > 0:
+        gap = abs(macro_calories - stated)
+        if gap > max(stated * ATWATER_TOLERANCE_RATIO, ATWATER_TOLERANCE_KCAL):
+            warnings.append(
+                f'Macros add up to {macro_calories:g} kcal but {stated:g} kcal '
+                f'was reported - one of these is wrong.'
+            )
+
+    return warnings
+
+
 class GeminiService:
     @staticmethod
     def get_nutrition_info(food_name):
@@ -94,12 +125,21 @@ class GeminiService:
 
             for field in ['calories', 'fat', 'carbohydrates', 'protein']:
                 nutrition_data[field] = float(nutrition_data[field])
+                if nutrition_data[field] < 0:
+                    raise ValueError(f"Negative {field}: {nutrition_data[field]}")
 
             return {
                 'success': True,
-                'data': nutrition_data
+                'data': nutrition_data,
+                'warnings': check_nutrition_plausibility(nutrition_data),
             }
 
         except (json.JSONDecodeError, ValueError) as e:
             logger.error(f"Error parsing Gemini response: {e}, Response: {response_text}")
+            if 'Negative' in str(e):
+                return {
+                    'success': False,
+                    'error': 'The AI returned negative nutrition values, which is impossible. Please try again.',
+                    'status': 502,
+                }
             return {'success': False, 'error': 'Failed to parse nutritional information from AI response', 'status': 500}

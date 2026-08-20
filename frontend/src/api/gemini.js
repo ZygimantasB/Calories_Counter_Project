@@ -65,5 +65,8 @@ export async function getGeminiNutrition(query) {
     protein: round1(d.protein),
     carbs: round1(d.carbohydrates ?? d.carbs),
     fat: round1(d.fat),
+    // Server-side plausibility checks: macros that contradict the stated
+    // calories, or values that disagree with how this food was logged before.
+    warnings: Array.isArray(payload.warnings) ? payload.warnings : [],
   };
 }

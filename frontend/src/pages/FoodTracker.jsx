@@ -1330,6 +1330,19 @@ export default function FoodTracker() {
                     </div>
                   )}
 
+                  {aiResult?.warnings?.length > 0 && (
+                    <div className="mb-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/40">
+                      <p className="text-sm font-medium text-amber-400">
+                        Check these numbers before saving
+                      </p>
+                      <ul className="mt-1 space-y-1">
+                        {aiResult.warnings.map((warning) => (
+                          <li key={warning} className="text-xs text-amber-200/80">{warning}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
                   {aiResult && (
                     <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/30 mb-4">
                       <div className="flex items-center gap-2 mb-2">

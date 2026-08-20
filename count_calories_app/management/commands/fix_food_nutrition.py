@@ -18,6 +18,7 @@ Rows are only ever updated, never deleted.
 """
 
 import json
+import re
 from collections import defaultdict
 from decimal import Decimal, InvalidOperation
 
@@ -102,6 +103,71 @@ def _most_precise(profiles):
     return max(profiles.items(), key=lambda kv: (_precision(kv[0]), kv[1]))[0]
 
 
+
+# Physical limits. Pure fat is the most energy-dense thing edible, at 900
+# kcal/100g; nothing real exceeds it.
+MAX_KCAL_PER_100G = 900
+ATWATER = (('protein', 4), ('carbohydrates', 4), ('fat', 9))
+GRAMS_IN_NAME = re.compile(r'(\d+(?:[.,]\d+)?)\s*g\b', re.IGNORECASE)
+
+
+def _stated_grams(name):
+    """Total grams a product name declares, or None if it declares none.
+
+    Names often list components ('lašiniai 80 g. 150 g. juoda duona'), so the
+    weights are summed -- taking only the first would understate the portion
+    and raise a false alarm about energy density.
+    """
+    found = GRAMS_IN_NAME.findall(name)
+    if not found:
+        return None
+    total = sum(float(g.replace(',', '.')) for g in found)
+    return total or None
+
+
+def audit_nutrition():
+    """Physics-based problems in the current data, grouped by kind."""
+    impossible, atwater, density = [], [], []
+
+    seen = set()
+    for item in FoodItem.objects.all().only('product_name', *NUTRITION_FIELDS):
+        key = (item.product_name, _profile(item))
+        if key in seen:
+            continue
+        seen.add(key)
+
+        name = item.product_name
+        cal = float(item.calories or 0)
+        macros = {f: float(getattr(item, f) or 0) for f, _ in ATWATER}
+        rows = FoodItem.objects.filter(product_name=name, **{
+            f: getattr(item, f) for f in NUTRITION_FIELDS
+        }).count()
+
+        if cal > 0:
+            for field, factor in ATWATER:
+                energy = macros[field] * factor
+                if energy > cal * 1.10:
+                    impossible.append((name, rows,
+                                       f'{field} alone is {energy:.0f} kcal, '
+                                       f'more than the {cal:.0f} kcal stated'))
+
+            macro_total = sum(macros[f] * factor for f, factor in ATWATER)
+            if abs(macro_total - cal) > max(cal * 0.25, 30):
+                atwater.append((name, rows,
+                                f'macros total {macro_total:.0f} kcal but '
+                                f'{cal:.0f} kcal is stated'))
+
+            grams = _stated_grams(name)
+            if grams and grams >= 10:
+                per_100 = cal / grams * 100
+                if per_100 > MAX_KCAL_PER_100G:
+                    density.append((name, rows,
+                                    f'{per_100:.0f} kcal/100g, above the '
+                                    f'{MAX_KCAL_PER_100G} kcal/100g of pure fat'))
+
+    return {'impossible': impossible, 'atwater': atwater, 'density': density}
+
+
 class Command(BaseCommand):
     help = 'Normalize nutrition values for food entries sharing a product name.'
 
@@ -115,6 +181,9 @@ class Command(BaseCommand):
                             help='Report what would change without writing.')
         parser.add_argument('--list-conflicts', action='store_true',
                             help='List names logged with divergent nutrition.')
+        parser.add_argument('--audit', action='store_true',
+                            help='Report values that are implausible on their own '
+                                 'terms, whether or not they conflict.')
         parser.add_argument('--fix-rounding-drift', action='store_true',
                             help='Collapse variants that differ only by display '
                                  'rounding onto their most precise value.')
@@ -122,6 +191,8 @@ class Command(BaseCommand):
                             help='Machine-readable output for --list-conflicts.')
 
     def handle(self, *args, **options):
+        if options['audit']:
+            return self._audit(options['json'])
         if options['list_conflicts']:
             return self._list_conflicts(options['json'])
         if options['fix_rounding_drift']:
@@ -238,3 +309,33 @@ class Command(BaseCommand):
                     cal, prot, fat, carb = profile
                     self.stdout.write(
                         f'      {n:>5} rows | {cal} kcal | P {prot}g | F {fat}g | C {carb}g')
+
+    def _audit(self, as_json):
+        findings = audit_nutrition()
+        if as_json:
+            self.stdout.write(json.dumps(findings, indent=2))
+            return
+
+        headings = (
+            ('impossible', 'Physically impossible (a macro outweighs the whole food)'),
+            ('density', 'Impossible energy density'),
+            ('atwater', 'Macros disagree with stated calories'),
+        )
+        total = sum(len(findings[key]) for key, _ in headings)
+        if not total:
+            self.stdout.write(self.style.SUCCESS(
+                'No implausible nutrition values found.'))
+            return
+
+        for key, heading in headings:
+            entries = findings[key]
+            if not entries:
+                continue
+            self.stdout.write(f'\n{heading}: {len(entries)}')
+            for name, rows, why in sorted(entries, key=lambda e: -e[1]):
+                self.stdout.write(f'  [{rows:>3} rows] {name}')
+                self.stdout.write(f'              {why}')
+
+        self.stdout.write(self.style.WARNING(
+            f'\n{total} finding(s). Amino-acid supplements legitimately carry '
+            f'calories without labelled macros, so review before changing anything.'))

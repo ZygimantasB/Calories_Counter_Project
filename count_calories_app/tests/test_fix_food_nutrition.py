@@ -162,3 +162,58 @@ class FixRoundingDriftTestCase(TestCase):
             product_name='morkos 60 g.', calories=Decimal('25')
         ).count()
         self.assertEqual(still_rounded, 2)
+
+
+class AuditImplausibleNutritionTestCase(TestCase):
+    """--audit finds values that are wrong on their own terms.
+
+    --list-conflicts only sees foods that disagree with *themselves*. A food
+    logged 200 times at one consistently wrong value looks perfectly clean to
+    it. These checks are physics-based instead: they need no second opinion.
+    """
+
+    def _run(self, *args):
+        out = StringIO()
+        call_command('fix_food_nutrition', '--audit', *args, stdout=out)
+        return out.getvalue()
+
+    def _food(self, name, cal, p, f, c):
+        FoodItem.objects.create(
+            product_name=name, calories=Decimal(str(cal)), protein=Decimal(str(p)),
+            fat=Decimal(str(f)), carbohydrates=Decimal(str(c)),
+            consumed_at=timezone.now(),
+        )
+
+    def test_flags_a_macro_that_alone_exceeds_stated_calories(self):
+        self._food('Impossible protein', 100, 40, 0, 0)  # 40g protein = 160 kcal
+        output = self._run()
+        self.assertIn('Impossible protein', output)
+        self.assertIn('protein', output.lower())
+
+    def test_flags_macros_that_contradict_stated_calories(self):
+        self._food('Omletas', 278, 19.4, 6, 1.2)  # macros = 136 kcal
+        output = self._run()
+        self.assertIn('Omletas', output)
+        self.assertIn('136', output)
+
+    def test_flags_energy_density_above_pure_fat(self):
+        self._food('Dešra 100 g', 1761, 23.1, 36.4, 12.9)  # 1761 kcal/100g
+        output = self._run()
+        self.assertIn('Dešra 100 g', output)
+        self.assertIn('900', output)
+
+    def test_sums_multiple_weights_in_one_name(self):
+        """'lašiniai 80 g. 150 g. juoda duona' weighs 230g, not 80g."""
+        self._food('lašiniai 80 g. 150 g. juoda duona', 960, 10, 90, 30)
+        output = self._run()
+        self.assertNotIn('kcal/100g', output)
+
+    def test_plausible_data_is_not_flagged(self):
+        self._food('Bananas (1)', 105, 1.3, 0.4, 27)
+        output = self._run()
+        self.assertIn('Bananas (1)', output.replace('Bananas (1)', '')) if False else None
+        self.assertNotIn('Bananas (1)', output)
+
+    def test_reports_a_clean_bill_when_nothing_is_wrong(self):
+        self._food('Bananas (1)', 105, 1.3, 0.4, 27)
+        self.assertIn('No implausible', self._run())

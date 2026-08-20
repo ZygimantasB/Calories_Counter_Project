@@ -283,6 +283,47 @@ def get_nutrition_data(request):
 
     return JsonResponse(nutrition_data)
 
+# A lookup that disagrees with history by more than this is worth flagging.
+HISTORY_DISAGREEMENT_RATIO = 0.25
+HISTORY_FIELD_MAP = (
+    ('calories', 'calories', 'kcal'),
+    ('protein', 'protein', 'g protein'),
+    ('fat', 'fat', 'g fat'),
+    ('carbohydrates', 'carbohydrates', 'g carbs'),
+)
+
+
+def check_against_history(food_name, nutrition):
+    """Warn when an AI lookup contradicts what this food was last logged as.
+
+    A model can return internally consistent but factually wrong numbers -- a
+    banana at 15g protein balances against 168.5 kcal perfectly well. Comparing
+    against the user's own history is what catches that.
+    """
+    previous = FoodItem.objects.filter(
+        product_name=food_name
+    ).order_by('-consumed_at', '-id').first()
+    if previous is None:
+        return []
+
+    warnings = []
+    for ai_field, model_field, unit in HISTORY_FIELD_MAP:
+        was = getattr(previous, model_field)
+        if was is None:
+            continue
+        was = float(was)
+        now = float(nutrition[ai_field])
+        baseline = max(abs(was), abs(now))
+        if baseline == 0:
+            continue
+        if abs(now - was) / baseline > HISTORY_DISAGREEMENT_RATIO:
+            warnings.append(
+                f'{food_name} was previously logged at {was:g} {unit}, '
+                f'but the AI now says {now:g} - please double-check.'
+            )
+    return warnings
+
+
 def get_gemini_nutrition(request):
     """
     API endpoint to get nutritional information from Gemini AI
@@ -297,6 +338,12 @@ def get_gemini_nutrition(request):
         result = GeminiService.get_nutrition_info(food_name)
 
         if result['success']:
+            result['warnings'] = (
+                result.get('warnings', [])
+                + check_against_history(food_name, result['data'])
+            )
+            for warning in result['warnings']:
+                logger.warning(f"Suspicious AI nutrition for {food_name!r}: {warning}")
             return JsonResponse(result)
         else:
             response_data = {'error': result.get('error')}
@@ -309,12 +356,6 @@ def get_gemini_nutrition(request):
     except Exception as e:
         logger.error(f"Unexpected error in get_gemini_nutrition: {e}")
         return JsonResponse({'error': 'An unexpected error occurred'}, status=500)
-
-    except Exception as e:
-        logger.error(f"Error getting nutrition from Gemini: {e}")
-        return JsonResponse({
-            'error': 'Failed to get nutritional information'
-        }, status=500)
 
 def food_tracker(request):
     time_range = request.GET.get('range')
