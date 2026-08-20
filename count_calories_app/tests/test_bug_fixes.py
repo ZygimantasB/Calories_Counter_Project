@@ -525,3 +525,156 @@ class TrendFirstDayTruncationTestCase(TestCase):
         self.assertIn(self.first_day_date, data['labels'])
         idx = data['labels'].index(self.first_day_date)
         self.assertEqual(data['protein'][idx], 30.0)
+
+
+class QuickAddAveragedNutritionTestCase(TestCase):
+    """Bug: quick-add / search invent nutrition values that were never logged.
+
+    ``api_quick_add_foods`` and ``api_search_all_foods`` grouped rows by
+    ``product_name`` and returned ``Avg()`` of every historical row. When the
+    same name had been logged with different nutrition (e.g. an AI lookup
+    returned different numbers on a later day), the blended average was a value
+    that had never been true for any entry.
+
+    Worse, tapping the quick-add tile *saves* that blend as a new FoodItem,
+    which then feeds the next average -- a self-reinforcing corruption loop.
+
+    Real case: 'Bananas (1)' had 152 rows at 15g protein and 68 rows at 0.3g.
+    The tile showed (152*15 + 68*0.3) / 220 = 10.5g protein, and 11 rows were
+    then written to the database at that fabricated value.
+
+    Fix: return the *most recently logged* row's actual values.
+    """
+
+    def setUp(self):
+        self.client = Client()
+        now = timezone.now()
+        # Older, larger profile logged many times.
+        for i in range(5):
+            FoodItem.objects.create(
+                product_name='Bananas (1)',
+                calories=Decimal('168.5'),
+                protein=Decimal('15'),
+                fat=Decimal('0.5'),
+                carbohydrates=Decimal('26'),
+                consumed_at=now - timedelta(days=30 + i),
+            )
+        # Newer, corrected profile logged once -- this is the truth.
+        FoodItem.objects.create(
+            product_name='Bananas (1)',
+            calories=Decimal('105'),
+            protein=Decimal('1.3'),
+            fat=Decimal('0.4'),
+            carbohydrates=Decimal('27'),
+            consumed_at=now - timedelta(days=1),
+        )
+
+    def test_quick_add_returns_latest_entry_not_average(self):
+        response = self.client.get(reverse('api_quick_add_foods'))
+        self.assertEqual(response.status_code, 200)
+        food = next(f for f in json.loads(response.content)['foods']
+                    if f['name'] == 'Bananas (1)')
+        # The average would be protein (5*15 + 1.3)/6 = 12.7 -- a value no
+        # entry ever had. The latest actual entry is 1.3.
+        self.assertEqual(food['protein'], 1.3)
+        self.assertEqual(food['calories'], 105)
+        self.assertEqual(food['fat'], 0.4)
+        self.assertEqual(food['carbs'], 27.0)
+
+    def test_search_returns_latest_entry_not_average(self):
+        response = self.client.get(reverse('api_search_all_foods'), {'q': 'Banana'})
+        self.assertEqual(response.status_code, 200)
+        result = next(r for r in json.loads(response.content)['results']
+                      if r['name'] == 'Bananas (1)')
+        self.assertEqual(result['protein'], 1.3)
+        self.assertEqual(result['calories'], 105)
+        self.assertEqual(result['fat'], 0.4)
+        self.assertEqual(result['carbs'], 27.0)
+
+    def test_search_without_query_returns_latest_entry_not_average(self):
+        response = self.client.get(reverse('api_search_all_foods'))
+        self.assertEqual(response.status_code, 200)
+        result = next(r for r in json.loads(response.content)['results']
+                      if r['name'] == 'Bananas (1)')
+        self.assertEqual(result['protein'], 1.3)
+        self.assertEqual(result['calories'], 105)
+
+    def test_quick_add_values_are_stable_when_readded(self):
+        """Re-adding from quick-add must not drift the next quick-add value."""
+        first = next(f for f in json.loads(
+            self.client.get(reverse('api_quick_add_foods')).content
+        )['foods'] if f['name'] == 'Bananas (1)')
+
+        # Simulate the user tapping the tile: the displayed values get saved.
+        FoodItem.objects.create(
+            product_name='Bananas (1)',
+            calories=Decimal(str(first['calories'])),
+            protein=Decimal(str(first['protein'])),
+            fat=Decimal(str(first['fat'])),
+            carbohydrates=Decimal(str(first['carbs'])),
+            consumed_at=timezone.now(),
+        )
+
+        second = next(f for f in json.loads(
+            self.client.get(reverse('api_quick_add_foods')).content
+        )['foods'] if f['name'] == 'Bananas (1)')
+        self.assertEqual(second, first)
+
+
+class QuickAddRoundingDriftTestCase(TestCase):
+    """Bug: quick-add rounded values for display, and the UI saved the rounded number.
+
+    ``api_quick_add_foods`` returned round(calories) / round(macro, 1). The
+    React tile renders exactly what it receives and posts the same object back,
+    so every tap replaced 24.6 kcal / 0.54g protein with 25 kcal / 0.5g -- a
+    second, permanently degraded variant of the same food. Rounding belongs in
+    the display layer, not in the payload that gets written back.
+    """
+
+    def setUp(self):
+        self.client = Client()
+        FoodItem.objects.create(
+            product_name='morkos 60 g.',
+            calories=Decimal('24.6'),
+            protein=Decimal('0.54'),
+            fat=Decimal('0.12'),
+            carbohydrates=Decimal('5.76'),
+            consumed_at=timezone.now(),
+        )
+
+    def test_quick_add_preserves_exact_values(self):
+        response = self.client.get(reverse('api_quick_add_foods'))
+        food = next(f for f in json.loads(response.content)['foods']
+                    if f['name'] == 'morkos 60 g.')
+        self.assertEqual(food['calories'], 24.6)
+        self.assertEqual(food['protein'], 0.54)
+        self.assertEqual(food['fat'], 0.12)
+        self.assertEqual(food['carbs'], 5.76)
+
+    def test_search_preserves_exact_values(self):
+        response = self.client.get(reverse('api_search_all_foods'), {'q': 'morkos'})
+        result = next(r for r in json.loads(response.content)['results']
+                      if r['name'] == 'morkos 60 g.')
+        self.assertEqual(result['calories'], 24.6)
+        self.assertEqual(result['protein'], 0.54)
+
+    def test_quick_add_roundtrip_creates_no_new_variant(self):
+        """Saving what quick-add returned must reproduce the original row exactly."""
+        food = next(f for f in json.loads(
+            self.client.get(reverse('api_quick_add_foods')).content
+        )['foods'] if f['name'] == 'morkos 60 g.')
+
+        FoodItem.objects.create(
+            product_name=food['name'],
+            calories=Decimal(str(food['calories'])),
+            protein=Decimal(str(food['protein'])),
+            fat=Decimal(str(food['fat'])),
+            carbohydrates=Decimal(str(food['carbs'])),
+            consumed_at=timezone.now(),
+        )
+
+        variants = {
+            (i.calories, i.protein, i.fat, i.carbohydrates)
+            for i in FoodItem.objects.filter(product_name='morkos 60 g.')
+        }
+        self.assertEqual(len(variants), 1, f'quick-add created a new variant: {variants}')

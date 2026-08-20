@@ -38,14 +38,20 @@ vi.mock('../../db/sqlite', async () => {
   };
 });
 
+// Row counts come from the seed itself: the point is that the offline stack
+// sees every seeded row, not that the seed has one particular size.
+const seedData = (await import('../../assets/seed/seed.json')).default;
+const SEEDED_FOODS = seedData.food_item.length;
+const SEEDED_WEIGHTS = seedData.weight.length;
+
 const foods = await import('../foods');
 const weightLogic = await import('../weight');
 const { buildDashboard } = await import('../dashboard');
 
 describe('offline stack against real seeded data', () => {
-  it('food list totals cover all 4848 seeded items', async () => {
+  it('food list totals cover every seeded item', async () => {
     const res = await foods.listWithTotals({ days: 'all', per_page: 50 });
-    expect(res.pagination.total_items).toBe(4848);
+    expect(res.pagination.total_items).toBe(SEEDED_FOODS);
     expect(res.items.length).toBe(50);
     expect(res.totals.calories).toBeGreaterThan(0);
   });
@@ -64,9 +70,9 @@ describe('offline stack against real seeded data', () => {
     expect(res.total).toBe(res.results.length);
   });
 
-  it('weight list covers all 411 entries with stats', async () => {
+  it('weight list covers every seeded entry with stats', async () => {
     const res = await weightLogic.listWithStats({ days: 'all' });
-    expect(res.items.length).toBe(411);
+    expect(res.items.length).toBe(SEEDED_WEIGHTS);
     expect(res.stats.current).toBeGreaterThan(0);
     expect(res.stats.bmi).toBeGreaterThan(0);
     expect(typeof res.stats.change_rate).toBe('number');

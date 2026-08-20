@@ -76,22 +76,52 @@ export async function listWithTotals(params = {}) {
 }
 
 // ---- shared name-grouping ----
+/** True if `r` was logged more recently than `cur` (id breaks timestamp ties). */
+function isNewer(r, cur) {
+  if (!cur) return true;
+  if (r.consumed_at !== cur.consumed_at) return (r.consumed_at || '') > (cur.consumed_at || '');
+  return (Number(r.id) || 0) > (Number(cur.id) || 0);
+}
+
 function groupByName(rows) {
   const map = new Map();
   for (const r of rows) {
     let g = map.get(r.product_name);
     if (!g) {
-      g = { name: r.product_name, count: 0, cal: 0, prot: 0, carb: 0, fat: 0, last: null };
+      g = { name: r.product_name, count: 0, cal: 0, prot: 0, carb: 0, fat: 0, last: null, latest: null };
       map.set(r.product_name, g);
     }
     g.count += 1;
+    // Running sums are real totals (api_top_foods); `latest` is the row whose
+    // values quick-add/search must report.
     g.cal += Number(r.calories) || 0;
     g.prot += Number(r.protein) || 0;
     g.carb += Number(r.carbohydrates) || 0;
     g.fat += Number(r.fat) || 0;
+    if (isNewer(r, g.latest)) g.latest = r;
     if (!g.last || r.consumed_at > g.last) g.last = r.consumed_at;
   }
   return [...map.values()];
+}
+
+/**
+ * Nutrition for a group: the most recently logged row's actual values.
+ *
+ * Averaging across every row sharing a name fabricates values that were never
+ * logged, and quick-add re-saves what it displays, so the fabricated value
+ * feeds the next average. Mirrors _annotate_latest_nutrition in views.py.
+ */
+function latestNutrition(g) {
+  const r = g.latest || {};
+  // Deliberately unrounded: the quick-add tile posts back the values it is
+  // given, so rounding here would overwrite 24.6 kcal with 25 and leave a
+  // permanently degraded second variant. Rounding is the display layer's job.
+  return {
+    calories: Number(r.calories) || 0,
+    protein: Number(r.protein) || 0,
+    carbs: Number(r.carbohydrates) || 0,
+    fat: Number(r.fat) || 0,
+  };
 }
 
 // ---- api_quick_add_foods ----
@@ -101,10 +131,7 @@ export async function quickAdd() {
   const foods = groups.map((g, i) => ({
     id: i + 1,
     name: g.name,
-    calories: round(g.cal / g.count),
-    protein: round(g.prot / g.count, 1),
-    carbs: round(g.carb / g.count, 1),
-    fat: round(g.fat / g.count, 1),
+    ...latestNutrition(g),
   }));
   return { foods };
 }
@@ -118,10 +145,7 @@ export async function search(query = '', limit = 20) {
   const groups = groupByName(rows).sort((a, b) => b.count - a.count).slice(0, lim);
   const results = groups.map((g) => ({
     name: g.name,
-    calories: round(g.cal / g.count),
-    protein: round(g.prot / g.count, 1),
-    carbs: round(g.carb / g.count, 1),
-    fat: round(g.fat / g.count, 1),
+    ...latestNutrition(g),
     count: g.count,
     last_used: g.last || null,
   }));

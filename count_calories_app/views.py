@@ -3,7 +3,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from datetime import timedelta
 from decimal import Decimal
-from django.db.models import Sum, Count, Avg, Max, Min
+from django.db.models import Sum, Count, Avg, Max, Min, OuterRef, Subquery
 from django.http import JsonResponse, HttpResponse
 from django.contrib import messages
 from django.core.paginator import Paginator
@@ -3732,17 +3732,49 @@ def api_delete_food(request, food_id):
         return JsonResponse({'success': False, 'error': 'Failed to delete food item. Please try again.'}, status=400)
 
 
+def _annotate_latest_nutrition(grouped, base_queryset):
+    """Attach the most recently logged nutrition values to a name-grouped queryset.
+
+    Averaging nutrition across every row sharing a product_name fabricates
+    values that were never logged (and, because quick-add re-saves what it
+    displays, the fabricated value then feeds the next average). The newest
+    actual entry for the name is the only value the user really recorded.
+    """
+    latest = base_queryset.filter(
+        product_name=OuterRef('product_name')
+    ).order_by('-consumed_at', '-id')
+
+    return grouped.annotate(
+        latest_calories=Subquery(latest.values('calories')[:1]),
+        latest_protein=Subquery(latest.values('protein')[:1]),
+        latest_carbs=Subquery(latest.values('carbohydrates')[:1]),
+        latest_fat=Subquery(latest.values('fat')[:1]),
+    )
+
+
+def _nutrition_payload(row):
+    """Exact numeric nutrition values from an annotated row (never Decimal/None).
+
+    Deliberately unrounded: the quick-add tile posts back the very values it
+    was given, so rounding here would write 25 kcal over a 24.6 kcal entry and
+    leave a permanently degraded second variant of the food. Rounding is the
+    display layer's job.
+    """
+    return {
+        'calories': float(row['latest_calories'] or 0),
+        'protein': float(row['latest_protein'] or 0),
+        'carbs': float(row['latest_carbs'] or 0),
+        'fat': float(row['latest_fat'] or 0),
+    }
+
+
 @require_http_methods(["GET"])
 def api_quick_add_foods(request):
-    """Get recent foods for quick-add feature"""
-    recent_foods = FoodItem.objects.filter(
-        hide_from_quick_list=False
-    ).values('product_name').annotate(
-        count=Count('id'),
-        avg_calories=Avg('calories'),
-        avg_protein=Avg('protein'),
-        avg_carbs=Avg('carbohydrates'),
-        avg_fat=Avg('fat'),
+    """Get most-logged foods for quick-add, with their latest known nutrition."""
+    base = FoodItem.objects.filter(hide_from_quick_list=False)
+    recent_foods = _annotate_latest_nutrition(
+        base.values('product_name').annotate(count=Count('id')),
+        base,
     ).order_by('-count')[:15]
 
     # Transform to frontend-expected format
@@ -3751,10 +3783,7 @@ def api_quick_add_foods(request):
         foods.append({
             'id': i + 1,  # Generate an ID for display purposes
             'name': food['product_name'],
-            'calories': round(food['avg_calories'] or 0),
-            'protein': round(food['avg_protein'] or 0, 1),
-            'carbs': round(food['avg_carbs'] or 0, 1),
-            'fat': round(food['avg_fat'] or 0, 1),
+            **_nutrition_payload(food),
         })
 
     return JsonResponse({
@@ -3771,38 +3800,25 @@ def api_search_all_foods(request):
     except (ValueError, TypeError):
         limit = 20
 
-    if not query:
-        # Return most frequently logged foods if no query
-        foods = FoodItem.objects.values('product_name').annotate(
-            count=Count('id'),
-            avg_calories=Avg('calories'),
-            avg_protein=Avg('protein'),
-            avg_carbs=Avg('carbohydrates'),
-            avg_fat=Avg('fat'),
-            last_used=Max('consumed_at'),
-        ).order_by('-count')[:limit]
-    else:
+    base = FoodItem.objects.all()
+    if query:
         # Search by name (case-insensitive)
-        foods = FoodItem.objects.filter(
-            product_name__icontains=query
-        ).values('product_name').annotate(
+        base = base.filter(product_name__icontains=query)
+
+    foods = _annotate_latest_nutrition(
+        base.values('product_name').annotate(
             count=Count('id'),
-            avg_calories=Avg('calories'),
-            avg_protein=Avg('protein'),
-            avg_carbs=Avg('carbohydrates'),
-            avg_fat=Avg('fat'),
             last_used=Max('consumed_at'),
-        ).order_by('-count')[:limit]
+        ),
+        base,
+    ).order_by('-count')[:limit]
 
     # Transform to frontend-expected format
     results = []
     for food in foods:
         results.append({
             'name': food['product_name'],
-            'calories': round(food['avg_calories'] or 0),
-            'protein': round(food['avg_protein'] or 0, 1),
-            'carbs': round(food['avg_carbs'] or 0, 1),
-            'fat': round(food['avg_fat'] or 0, 1),
+            **_nutrition_payload(food),
             'count': food['count'],
             'last_used': food['last_used'].isoformat() if food['last_used'] else None,
         })

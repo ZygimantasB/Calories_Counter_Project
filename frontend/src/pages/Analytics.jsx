@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { displayKcal, displayMacro } from '../utils/format';
 import {
   BarChart3,
   TrendingUp,
@@ -704,7 +705,7 @@ function ProductCompareTab() {
                           className="w-full text-left px-4 py-2.5 hover:bg-gray-700 transition-colors border-b border-gray-700 last:border-0"
                         >
                           <span className="text-sm text-gray-200">{food.name}</span>
-                          <span className="text-xs text-gray-500 ml-2">{food.calories} kcal · P:{food.protein}g · C:{food.carbs}g · F:{food.fat}g</span>
+                          <span className="text-xs text-gray-500 ml-2">{displayKcal(food.calories)} kcal · P:{displayMacro(food.protein)}g · C:{displayMacro(food.carbs)}g · F:{displayMacro(food.fat)}g</span>
                         </button>
                       ))}
                     </div>
@@ -757,25 +758,25 @@ function ProductCompareTab() {
                       <span className="text-sm text-gray-400 flex items-center gap-1.5">
                         <Flame className="w-3.5 h-3.5 text-orange-400" /> Calories
                       </span>
-                      <span className="font-bold text-orange-400">{product.calories} kcal</span>
+                      <span className="font-bold text-orange-400">{displayKcal(product.calories)} kcal</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-400 flex items-center gap-1.5">
                         <Beef className="w-3.5 h-3.5 text-red-400" /> Protein
                       </span>
-                      <span className="font-bold text-red-400">{product.protein}g</span>
+                      <span className="font-bold text-red-400">{displayMacro(product.protein)}g</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-400 flex items-center gap-1.5">
                         <Zap className="w-3.5 h-3.5 text-blue-400" /> Carbs
                       </span>
-                      <span className="font-bold text-blue-400">{product.carbs}g</span>
+                      <span className="font-bold text-blue-400">{displayMacro(product.carbs)}g</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-400 flex items-center gap-1.5">
                         <Scale className="w-3.5 h-3.5 text-yellow-400" /> Fat
                       </span>
-                      <span className="font-bold text-yellow-400">{product.fat}g</span>
+                      <span className="font-bold text-yellow-400">{displayMacro(product.fat)}g</span>
                     </div>
                     <div className="flex justify-between items-center border-t border-gray-700 pt-3">
                       <span className="text-sm text-gray-400 flex items-center gap-1.5">

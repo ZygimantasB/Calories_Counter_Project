@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { displayKcal, displayMacro } from '../utils/format';
 import {
   Plus,
   Search,
@@ -631,7 +632,7 @@ export default function FoodTracker() {
                           {food.name}
                         </div>
                         <div className="text-sm text-gray-400">
-                          {food.calories} kcal · P: {food.protein}g · C: {food.carbs}g · F: {food.fat}g
+                          {displayKcal(food.calories)} kcal · P: {displayMacro(food.protein)}g · C: {displayMacro(food.carbs)}g · F: {displayMacro(food.fat)}g
                         </div>
                         {food.count > 1 && (
                           <div className="text-xs text-gray-500">
@@ -997,9 +998,9 @@ export default function FoodTracker() {
                     <div className="text-sm font-medium text-gray-100 group-hover:text-primary-400 truncate">
                       {food.name}
                     </div>
-                    <div className="text-xs text-gray-500 mt-1">{food.calories} kcal</div>
+                    <div className="text-xs text-gray-500 mt-1">{displayKcal(food.calories)} kcal</div>
                     <div className="text-xs text-gray-600">
-                      P: {food.protein}g · C: {food.carbs}g · F: {food.fat}g
+                      P: {displayMacro(food.protein)}g · C: {displayMacro(food.carbs)}g · F: {displayMacro(food.fat)}g
                     </div>
                   </button>
                 ))}
@@ -1159,7 +1160,7 @@ export default function FoodTracker() {
                         >
                           <p className="text-gray-100">{food.name}</p>
                           {food.calories && (
-                            <p className="text-sm text-gray-500">{food.calories} kcal per 100g</p>
+                            <p className="text-sm text-gray-500">{displayKcal(food.calories)} kcal per 100g</p>
                           )}
                         </button>
                       ))}
