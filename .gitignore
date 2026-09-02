@@ -1272,3 +1272,6 @@ android_calories_app/app/build/
 android_calories_app/build/
 android_calories_app/.idea/
 android_calories_app/capacitor-cordova-android-plugins/
+
+# Claude Code worktrees (isolated workspaces, never committed)
+.claude/worktrees/
