@@ -1,0 +1,1 @@
+"""Statusline scripts package."""
