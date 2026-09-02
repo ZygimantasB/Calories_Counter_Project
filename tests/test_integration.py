@@ -292,7 +292,8 @@ def test_installer_fresh_install(tmp_path):
     assert saved_data["statusLine"]["type"] == "command"
     assert saved_data["statusLine"]["padding"] == 0
     assert saved_data["statusLine"]["enabled"] is True
-    assert "statusline_bridge.py" in saved_data["statusLine"]["command"]
+    assert saved_data["statusLine"]["command"].startswith('python3 "')
+    assert "statusline_bridge.py\"" in saved_data["statusLine"]["command"]
     assert "--ccstatusline" not in saved_data["statusLine"]["command"]
     assert result == saved_data
 
@@ -308,7 +309,7 @@ def test_installer_use_ccstatusline_flag(tmp_path):
     with open(target_file, "r", encoding="utf-8") as f:
         saved_data = json.load(f)
 
-    assert saved_data["statusLine"]["command"].endswith("--ccstatusline")
+    assert saved_data["statusLine"]["command"].endswith('statusline_bridge.py" --ccstatusline')
 
 
 def test_installer_preserves_existing_settings(tmp_path):

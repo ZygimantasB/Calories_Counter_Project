@@ -94,7 +94,7 @@ def install_statusline(
     path = Path(target_path).expanduser() if target_path else get_default_target_path()
     settings = load_settings(path)
 
-    cmd = f"python3 {BRIDGE_SCRIPT_PATH}"
+    cmd = f'python3 "{BRIDGE_SCRIPT_PATH}"'
     if use_ccstatusline:
         cmd += " --ccstatusline"
 

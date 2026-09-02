@@ -289,13 +289,31 @@ def test_render_statusline_branch_none():
     res_none = render_statusline(data_none, enable_color=False)
     lines_none = res_none.splitlines()
     assert "None" not in lines_none[0]
-    assert "⤹ " in lines_none[0]
+    assert "⤹" not in lines_none[0]
+    assert lines_none[0].endswith("Cost: $0.00")
 
     data_git_none = {"model": "claude", "git": {"branch": None}}
     res_git_none = render_statusline(data_git_none, enable_color=False)
     lines_git_none = res_git_none.splitlines()
     assert "None" not in lines_git_none[0]
-    assert "⤹ " in lines_git_none[0]
+    assert "⤹" not in lines_git_none[0]
+
+    data_empty = {"model": "claude", "branch": ""}
+    res_empty = render_statusline(data_empty, enable_color=False)
+    lines_empty = res_empty.splitlines()
+    assert "⤹" not in lines_empty[0]
+
+
+def test_render_statusline_non_dict_guard():
+    for non_dict in (None, "string_payload", 12345, [1, 2, 3], True):
+        res = render_statusline(non_dict, enable_color=False)
+        lines = res.splitlines()
+        assert len(lines) == 3
+        assert "Model:" in lines[0]
+        assert "Cost: $0.00" in lines[0]
+        assert "⤹" not in lines[0]
+        assert "Weekly: 0.0%" in lines[1]
+        assert lines[2].startswith("❯❯")
 
 
 def test_render_statusline_string_encoded_payload():

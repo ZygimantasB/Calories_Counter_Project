@@ -128,6 +128,9 @@ def render_statusline(data: Dict[str, Any], enable_color: bool = True) -> str:
     Returns:
         3-line formatted statusline string.
     """
+    if not isinstance(data, dict):
+        data = {}
+
     sep = f"{DARK_GRAY} | {RESET}" if enable_color else " | "
 
     # -------------------------------------------------------------------------
@@ -223,12 +226,18 @@ def render_statusline(data: Dict[str, Any], enable_color: bool = True) -> str:
     else:
         branch_disp = branch_str
 
-    if enable_color:
-        branch_part = f"{MAGENTA}⤹ {branch_disp}{RESET}"
+    if branch_disp:
+        if enable_color:
+            branch_part = f"{MAGENTA}⤹ {branch_disp}{RESET}"
+        else:
+            branch_part = f"⤹ {branch_disp}"
     else:
-        branch_part = f"⤹ {branch_disp}"
+        branch_part = ""
 
-    line1 = sep.join([model_part, context_part, cost_part, branch_part])
+    line1_parts = [model_part, context_part, cost_part]
+    if branch_part:
+        line1_parts.append(branch_part)
+    line1 = sep.join(line1_parts)
 
     # -------------------------------------------------------------------------
     # Line 2: Weekly | Weekly Reset | Block | Session | Out
