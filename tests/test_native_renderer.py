@@ -41,6 +41,16 @@ def test_format_tokens_none_and_negative():
     assert format_tokens(-100) == "0"
 
 
+def test_format_tokens_boundary_rounding():
+    assert format_tokens(1995) == "2k"
+    assert format_tokens(99950) == "100k"
+    assert format_tokens("1995") == "2k"
+    assert format_tokens("99950") == "100k"
+    assert format_tokens(1000) == "1k"
+    assert format_tokens(1049) == "1k"
+    assert format_tokens(1050) == "1.1k"
+
+
 # ============================================================================
 # render_progress_bar tests
 # ============================================================================
@@ -272,6 +282,85 @@ def test_render_statusline_nested_data():
     lines = result.splitlines()
     assert "Context: [██████  ] 150k/200k (75%)" in lines[0]
     assert "⤹ dev-branch" in lines[0]
+
+
+def test_render_statusline_branch_none():
+    data_none = {"model": "claude", "branch": None}
+    res_none = render_statusline(data_none, enable_color=False)
+    lines_none = res_none.splitlines()
+    assert "None" not in lines_none[0]
+    assert "⤹ " in lines_none[0]
+
+    data_git_none = {"model": "claude", "git": {"branch": None}}
+    res_git_none = render_statusline(data_git_none, enable_color=False)
+    lines_git_none = res_git_none.splitlines()
+    assert "None" not in lines_git_none[0]
+    assert "⤹ " in lines_git_none[0]
+
+
+def test_render_statusline_string_encoded_payload():
+    data = {
+        "model": "claude-3.7-sonnet",
+        "used_tokens": "218000",
+        "max_tokens": "1000000",
+        "context_percent": "22.0",
+        "cost": "12.38",
+        "branch": "main",
+        "weekly_percent": "20.0",
+        "weekly_reset": "401280",
+        "block": "9660",
+        "session": "1740",
+        "out": "149200",
+    }
+    result = render_statusline(data, enable_color=False)
+    lines = result.splitlines()
+    assert "Model: claude-3.7-sonnet" in lines[0]
+    assert "Context: [██      ] 218k/1.0M (22%)" in lines[0]
+    assert "Cost: $12.38" in lines[0]
+    assert "⤹ main" in lines[0]
+    assert "Weekly: 20.0%" in lines[1]
+    assert "Weekly Reset: 4d 15hr 28m" in lines[1]
+    assert "Block: 2hr 41m" in lines[1]
+    assert "Session: 29m" in lines[1]
+    assert "Out: 149.2k" in lines[1]
+
+
+def test_render_statusline_string_encoded_boundary_rounding():
+    data = {
+        "model": "claude-3.7-sonnet",
+        "used_tokens": "1995",
+        "max_tokens": "100000",
+        "cost": "0.50",
+        "out": "99950",
+    }
+    result = render_statusline(data, enable_color=False)
+    lines = result.splitlines()
+    assert "Context: [        ] 2k/100k (2%)" in lines[0]
+    assert "Out: 100k" in lines[1]
+
+
+def test_render_statusline_invalid_types_fallback():
+    data = {
+        "model": "test-model",
+        "used_tokens": "not_a_number",
+        "max_tokens": "invalid",
+        "context_percent": "bad_pct",
+        "cost": "free",
+        "branch": None,
+        "weekly_percent": "xyz",
+        "weekly_reset": None,
+        "block": None,
+        "session": None,
+        "out": "bad_tokens",
+    }
+    result = render_statusline(data, enable_color=False)
+    lines = result.splitlines()
+    assert "Model: test-model" in lines[0]
+    assert "Cost: $0.00" in lines[0]
+    assert "None" not in lines[0]
+    assert "Weekly: 0.0%" in lines[1]
+    assert "Session: 0m" in lines[1]
+    assert "Out: bad_tokens" in lines[1]
 
 
 def test_cli_execution_default():

@@ -26,12 +26,14 @@ def strip_ansi(text: str) -> str:
     return ANSI_REGEX.sub("", text)
 
 
-def format_tokens(n: Optional[int | float]) -> str:
+def format_tokens(n: Optional[int | float | str]) -> str:
     """
     Format token count into a human-readable string.
 
     Examples:
         500 -> "500"
+        1995 -> "2k"
+        99950 -> "100k"
         218000 -> "218k"
         149200 -> "149.2k"
         1000000 -> "1.0M"
@@ -54,7 +56,7 @@ def format_tokens(n: Optional[int | float]) -> str:
         val = num / 1_000
         formatted = f"{val:.1f}"
         if formatted.endswith(".0"):
-            return f"{int(val)}k"
+            return f"{int(round(val))}k"
         return f"{formatted}k"
     else:
         return str(int(num))
@@ -81,7 +83,7 @@ def render_progress_bar(percent: float, width: int = 8) -> str:
     return "█" * filled + " " * empty
 
 
-def format_duration(seconds: Optional[float | int]) -> str:
+def format_duration(seconds: Optional[float | int | str]) -> str:
     """
     Format duration in seconds into a human-readable string.
 
@@ -94,7 +96,7 @@ def format_duration(seconds: Optional[float | int]) -> str:
     if seconds is None:
         return "0m"
     try:
-        total_seconds = int(seconds)
+        total_seconds = int(float(seconds))
     except (ValueError, TypeError):
         return "0m"
 
@@ -149,16 +151,31 @@ def render_statusline(data: Dict[str, Any], enable_color: bool = True) -> str:
     if max_tokens is None:
         max_tokens = data.get("context_window") or data.get("context_max", 0)
 
+    try:
+        used_tokens_val = float(used_tokens) if used_tokens is not None else 0.0
+    except (ValueError, TypeError):
+        used_tokens_val = 0.0
+
+    try:
+        max_tokens_val = float(max_tokens) if max_tokens is not None else 0.0
+    except (ValueError, TypeError):
+        max_tokens_val = 0.0
+
     context_percent = data.get("context_percent")
     if context_percent is None and isinstance(data.get("context"), dict):
         context_percent = data["context"].get("percent")
-    if context_percent is None:
-        if max_tokens and max_tokens > 0 and used_tokens:
-            context_percent = (float(used_tokens) / float(max_tokens)) * 100.0
-        else:
-            context_percent = 0.0
 
-    pct_float = float(context_percent)
+    if context_percent is None:
+        if max_tokens_val > 0 and used_tokens_val > 0:
+            pct_float = (used_tokens_val / max_tokens_val) * 100.0
+        else:
+            pct_float = 0.0
+    else:
+        try:
+            pct_float = float(context_percent)
+        except (ValueError, TypeError):
+            pct_float = 0.0
+
     pct_int = int(round(pct_float))
     bar_str = render_progress_bar(pct_float, width=8)
 
@@ -169,8 +186,8 @@ def render_statusline(data: Dict[str, Any], enable_color: bool = True) -> str:
     else:
         bar_color = RED
 
-    used_fmt = format_tokens(used_tokens)
-    max_fmt = format_tokens(max_tokens)
+    used_fmt = format_tokens(used_tokens if used_tokens is not None else 0)
+    max_fmt = format_tokens(max_tokens if max_tokens is not None else 0)
 
     if enable_color:
         context_part = f"Context: [{bar_color}{bar_str}{RESET}] {used_fmt}/{max_fmt} ({pct_int}%)"
@@ -195,7 +212,11 @@ def render_statusline(data: Dict[str, Any], enable_color: bool = True) -> str:
         branch = data["git"].get("branch")
     if branch is None:
         branch = data.get("git_branch", "")
-    branch_str = str(branch)
+
+    if not branch:
+        branch_str = ""
+    else:
+        branch_str = str(branch)
 
     if len(branch_str) > 15:
         branch_disp = branch_str[:12] + "..."
@@ -230,9 +251,9 @@ def render_statusline(data: Dict[str, Any], enable_color: bool = True) -> str:
         weekly_reset = data.get("weekly_reset_seconds")
 
     if weekly_reset is not None:
-        if isinstance(weekly_reset, (int, float)):
-            reset_duration_str = format_duration(weekly_reset)
-        else:
+        try:
+            reset_duration_str = format_duration(float(weekly_reset))
+        except (ValueError, TypeError):
             reset_duration_str = str(weekly_reset)
     else:
         reset_duration_str = ""
@@ -250,9 +271,9 @@ def render_statusline(data: Dict[str, Any], enable_color: bool = True) -> str:
         block = data.get("block_duration") or data.get("block_seconds")
 
     if block is not None:
-        if isinstance(block, (int, float)):
-            block_str = format_duration(block)
-        else:
+        try:
+            block_str = format_duration(float(block))
+        except (ValueError, TypeError):
             block_str = str(block)
     else:
         block_str = ""
@@ -270,9 +291,9 @@ def render_statusline(data: Dict[str, Any], enable_color: bool = True) -> str:
         session = data.get("session_duration") or data.get("session_seconds")
 
     if session is not None:
-        if isinstance(session, (int, float)):
-            session_str = format_duration(session)
-        else:
+        try:
+            session_str = format_duration(float(session))
+        except (ValueError, TypeError):
             session_str = str(session)
     else:
         session_str = "0m"
@@ -287,9 +308,10 @@ def render_statusline(data: Dict[str, Any], enable_color: bool = True) -> str:
         out = data.get("output_tokens") or data.get("tokens_out")
 
     if out is not None:
-        if isinstance(out, (int, float)):
-            out_str = format_tokens(out)
-        else:
+        try:
+            out_val = float(out)
+            out_str = format_tokens(out_val)
+        except (ValueError, TypeError):
             out_str = str(out)
     else:
         out_str = "0"
