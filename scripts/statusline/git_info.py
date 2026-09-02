@@ -32,7 +32,7 @@ def get_git_status(cwd: Optional[str] = None) -> Dict[str, Any]:
             return dict(DEFAULT_STATUS)
 
         result = subprocess.run(
-            ["git", "status", "--porcelain=v2", "--branch"],
+            ["git", "--no-optional-locks", "status", "--porcelain=v2", "--branch"],
             cwd=target_dir,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
