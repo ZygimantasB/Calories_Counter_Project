@@ -7,6 +7,7 @@ import argparse
 from datetime import datetime, timezone
 import json
 import os
+import shutil
 import subprocess
 import sys
 from typing import Any, Dict, Optional
@@ -67,7 +68,9 @@ def _parse_resets_at(val: Any) -> Optional[int]:
         try:
             iso_str = val_str.replace("Z", "+00:00")
             dt = datetime.fromisoformat(iso_str)
-            now = datetime.now(dt.tzinfo if dt.tzinfo else timezone.utc)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            now = datetime.now(timezone.utc)
             delta = (dt - now).total_seconds()
             return max(0, int(delta))
         except Exception:
@@ -386,6 +389,12 @@ def run_bridge(
     if force_native or not use_ccstatusline:
         return render_statusline(normalized, enable_color=enable_color)
 
+    # Fast-path check for ccstatusline/npx binaries before attempting subprocess
+    ccstatusline_bin = shutil.which("ccstatusline")
+    npx_bin = shutil.which("npx")
+    if not ccstatusline_bin and not npx_bin:
+        return render_statusline(normalized, enable_color=enable_color)
+
     # Attempt ccstatusline bridge
     cc_payload = {
         "model": {
@@ -420,10 +429,11 @@ def run_bridge(
 
     try:
         input_json = json.dumps(cc_payload)
-        commands_to_try = [
-            ["ccstatusline"],
-            ["npx", "--no-install", "ccstatusline"],
-        ]
+        commands_to_try = []
+        if ccstatusline_bin:
+            commands_to_try.append(["ccstatusline"])
+        if npx_bin:
+            commands_to_try.append(["npx", "--no-install", "ccstatusline"])
 
         rendered = None
         for cmd in commands_to_try:
