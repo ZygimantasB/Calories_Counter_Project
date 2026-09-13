@@ -4,9 +4,9 @@
 
 ### Your Comprehensive Fitness & Nutrition Dashboard
 
-[![Python](https://img.shields.io/badge/Python-3.12-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
-[![Django](https://img.shields.io/badge/Django-5.2-092E20?style=for-the-badge&logo=django&logoColor=white)](https://www.djangoproject.com/)
-[![React](https://img.shields.io/badge/React-17-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://reactjs.org/)
+[![Python](https://img.shields.io/badge/Python-3.14-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+[![Django](https://img.shields.io/badge/Django-6.0-092E20?style=for-the-badge&logo=django&logoColor=white)](https://www.djangoproject.com/)
+[![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://reactjs.org/)
 [![Bootstrap](https://img.shields.io/badge/Bootstrap-5-7952B3?style=for-the-badge&logo=bootstrap&logoColor=white)](https://getbootstrap.com/)
 [![Chart.js](https://img.shields.io/badge/Chart.js-4-FF6384?style=for-the-badge&logo=chartdotjs&logoColor=white)](https://www.chartjs.org/)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
@@ -183,12 +183,12 @@ Compare two or three food products from your personal log history.
 ### Backend
 | Technology | Version | Purpose |
 |---|---|---|
-| **Python** | 3.12 | Runtime |
-| **Django** | 5.2 | Web framework |
+| **Python** | 3.14 (pinned; requires ≥3.13) | Runtime |
+| **Django** | 6.0 | Web framework |
 | **SQLite** | — | Database |
-| **Google Gemini AI** | 0.8 | Nutrition lookup |
+| **Google Gemini AI** | google-genai 2.0 | Nutrition lookup |
 | **python-decouple** | 3.8 | `.env` config |
-| **asgiref** | 3.9 | ASGI support |
+| **uv** | — | Dependency management (`pyproject.toml` + `uv.lock`) |
 
 </td>
 <td width="50%">
@@ -199,7 +199,7 @@ Compare two or three food products from your personal log history.
 | **Bootstrap 5** | Responsive UI |
 | **Chart.js 4** | Django-template charts |
 | **Font Awesome** | Icons |
-| **React 17** | SPA frontend |
+| **React 18** | SPA frontend (HashRouter) |
 | **Vite** | React build tool |
 | **Tailwind CSS v4** | React component styling |
 | **Recharts** | React charts |
@@ -226,7 +226,7 @@ The React app builds to `static/react/` and is served via a catch-all view for `
 
 | File | Description |
 |---|---|
-| `count_calories_app/views.py` | All view logic (~5 500 lines) |
+| `count_calories_app/views.py` | All view logic (~6 400 lines) |
 | `count_calories_app/models.py` | 11 database models |
 | `count_calories_app/services.py` | `GeminiService` — AI nutrition lookup |
 | `count_calories_app/urls.py` | URL routing |
