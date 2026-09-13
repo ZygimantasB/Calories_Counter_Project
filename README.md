@@ -267,7 +267,8 @@ Protein and fat are per-kg bodyweight. Carbs fill the remaining calories.
 
 ## 📋 Prerequisites
 
-- **Python 3.12+** — [Download](https://www.python.org/downloads/)
+- **Python 3.13+** (pinned to 3.14 via `.python-version`) — [Download](https://www.python.org/downloads/)
+- **uv** — [Install](https://docs.astral.sh/uv/getting-started/installation/) *(dependency manager; `pip` also works via `requirements.txt`)*
 - **Node.js 18+** — [Download](https://nodejs.org/) *(React frontend only)*
 - **Git** — [Download](https://git-scm.com/downloads)
 
@@ -282,21 +283,22 @@ git clone https://github.com/ZygimantasB/Calories_Counter_Project.git
 cd Calories_Counter_Project
 ```
 
-### 2. Virtual environment
+### 2. Install dependencies
+
+```bash
+uv sync
+```
+
+This creates `.venv/` and installs everything pinned in `uv.lock`. Prefer plain `pip`? Use the auto-generated `requirements.txt` instead:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate          # macOS / Linux
 # .venv\Scripts\activate           # Windows
-```
-
-### 3. Install dependencies
-
-```bash
 pip install -r requirements.txt
 ```
 
-### 4. Configure environment
+### 3. Configure environment
 
 ```bash
 cp .env.exemple .env   # or copy on Windows
@@ -312,24 +314,24 @@ GEMINI_API_KEY=your-gemini-api-key-here   # optional — needed for AI food look
 Generate a secret key:
 
 ```bash
-python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+uv run python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
 ```
 
 Get a free Gemini API key at [aistudio.google.com](https://aistudio.google.com/app/apikey).
 
-### 5. Database
+### 4. Database
 
 ```bash
-python manage.py migrate
+uv run python manage.py migrate
 ```
 
-### 6. Run
+### 5. Run
 
 ```bash
-python manage.py runserver
+uv run python manage.py runserver
 ```
 
-Open **http://127.0.0.1:8000/**
+Open **http://127.0.0.1:8000/** (substitute `.venv/bin/python` for `uv run python` if you installed with `pip` instead)
 
 ---
 
@@ -356,17 +358,19 @@ npm test
 
 ### React Pages
 
+React Router runs in hash mode, so every in-app route is under `/app/#/`:
+
 | Route | Page |
 |---|---|
-| `/app/` | Dashboard |
-| `/app/food-tracker` | Food Tracker |
-| `/app/weight` | Weight Tracker |
-| `/app/running` | Running Tracker |
-| `/app/workout` | Workout Tracker |
-| `/app/body-measurements` | Body Measurements |
-| `/app/top-foods` | Top Foods |
-| `/app/analytics` | Analytics |
-| `/app/settings` | Settings |
+| `/app/#/` | Dashboard |
+| `/app/#/food` | Food Tracker |
+| `/app/#/weight` | Weight Tracker |
+| `/app/#/running` | Running Tracker |
+| `/app/#/workout` | Workout Tracker |
+| `/app/#/body-measurements` | Body Measurements |
+| `/app/#/top-foods` | Top Foods |
+| `/app/#/analytics` | Analytics (Overview / Month Compare / Trends / Product Compare tabs) |
+| `/app/#/settings` | Settings |
 
 ---
 
@@ -425,7 +429,7 @@ Calories_Counter_Project/
 │   ├── services.py          # GeminiService — AI nutrition lookup
 │   ├── urls.py              # URL routing
 │   ├── templates/           # Django HTML templates
-│   └── tests/               # 369 unit tests (10 modules)
+│   └── tests/               # 561 unit tests (16 modules)
 ├── frontend/
 │   ├── src/                 # React source (JSX, Tailwind v4)
 │   ├── vite.config.js       # Builds to ../static/react/
@@ -443,16 +447,16 @@ Calories_Counter_Project/
 ### Running Tests
 
 ```bash
-# All 369 Django tests
-python manage.py test count_calories_app
+# All 561 Django tests
+uv run python manage.py test count_calories_app
 
 # Single module
-python manage.py test count_calories_app.tests.test_views
+uv run python manage.py test count_calories_app.tests.test_views
 
 # With verbosity
-python manage.py test count_calories_app --verbosity=2
+uv run python manage.py test count_calories_app --verbosity=2
 
-# React tests
+# React tests (126 tests, Vitest)
 cd frontend && npm test
 ```
 
@@ -496,6 +500,6 @@ This project is licensed under the **MIT License** — see the [LICENSE](LICENSE
 
 Made with ❤️ for health enthusiasts
 
-<sub>Last updated: 2026-02-22</sub>
+<sub>Last updated: 2026-09-13</sub>
 
 </div>
