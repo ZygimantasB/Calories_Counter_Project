@@ -6300,11 +6300,15 @@ def api_yearly_trends(request):
     now = timezone.now()
 
     if year_param == 'last12':
-        # Last 12 months
+        # Last 12 months (rolling window ending this month)
         months = []
-        for i in range(11, -1, -1):
-            dt = now - timedelta(days=i*30)
-            months.append((dt.year, dt.month))
+        y, m = now.year, now.month
+        for _ in range(12):
+            months.insert(0, (y, m))
+            m -= 1
+            if m == 0:
+                m = 12
+                y -= 1
     elif year_param == 'all':
         # Every month from the user's first FoodItem entry through the current month
         first_entry = FoodItem.objects.order_by('consumed_at').values_list('consumed_at', flat=True).first()

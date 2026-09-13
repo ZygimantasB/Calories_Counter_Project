@@ -380,7 +380,12 @@ export async function yearlyTrends(yearParam = 'last12') {
 
   let months = [];
   if (yearParam === 'last12') {
-    for (let i = 11; i >= 0; i--) { const dt = subDays(now, i * 30); months.push([dt.getFullYear(), dt.getMonth() + 1]); }
+    let y = now.getFullYear(), m = now.getMonth() + 1;
+    for (let i = 0; i < 12; i++) {
+      months.unshift([y, m]);
+      m -= 1;
+      if (m === 0) { m = 12; y -= 1; }
+    }
   } else if (yearParam === 'all') {
     const first = [...allFood].sort((a, b) => new Date(a.consumed_at) - new Date(b.consumed_at))[0];
     if (first) {
