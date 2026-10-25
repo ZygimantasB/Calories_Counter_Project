@@ -106,8 +106,8 @@ pages send `X-CSRFToken` from `getCookie('csrftoken')`).
   `{name, calories, protein, carbs, fat, is_product: true, product_id, servings_yield}` with
   per-serving macros; drop history entries whose name equals a product name (case-insensitive).
 - `api_search_all_foods` — include products whose name matches `q`, same shape, listed first.
-- Builder ingredient search reuses `/api/react/search-foods/` (React) and
-  `/api/food-autocomplete/` (Django). No new endpoint.
+- Builder ingredient search reuses `/api/react/search-foods/` in **both** frontends
+  (`/api/food-autocomplete/` returns names only, no macros). No new endpoint.
 
 ## 4. Django templates UI
 
@@ -118,7 +118,7 @@ pages send `X-CSRFToken` from `getCookie('csrftoken')`).
     buttons **Log** (servings input, default 1), **Edit**, **Delete** (Bootstrap modal confirm,
     no `confirm()`).
   - **Builder** (Bootstrap modal used for create and edit): name, "makes N servings",
-    ingredient rows [name (autocomplete from `/api/food-autocomplete/`, selecting fills macros),
+    ingredient rows [name (suggestions from `/api/react/search-foods/`, selecting fills macros),
     kcal, P, F, C, quantity, remove], "+ Add ingredient", **live totals panel**
     (whole batch + per serving). Save → `fetch` JSON to the API.
 - **`food_tracker.html`:** "My products" block beside quick-add: select + servings input +
@@ -133,11 +133,12 @@ pages send `X-CSRFToken` from `getCookie('csrftoken')`).
 - `frontend/src/pages/Products/`:
   - `Products.jsx` — list cards, Log (servings stepper, 0.5 steps), Edit, Delete (inline confirm).
   - `ProductBuilder.jsx` — form component (create/edit); ingredient rows with search-as-you-type
-    via `foodApi.searchFoods` (debounced) or manual entry; live totals via `productMath.js`.
+    via `foodApi.searchAllFoods` (debounced) or manual entry; live totals via `productMath.js`.
   - `productMath.js` — `ingredientTotals`, `perServing`, `scaled` (mirror of `products.py`).
 - `App.jsx`: route `products`. `layouts/Sidebar.jsx`: "My Products" item, omitted when offline.
-- `FoodTracker.jsx`: quick-add/search results with `is_product` show a "Recipe" badge and a
-  servings stepper; logging calls `productsApi.log(product_id, servings, date)` then refreshes.
+- `FoodTracker.jsx`: quick-add/search results with `is_product` show a "Recipe" badge;
+  clicking logs **1 serving** via `productsApi.log(product_id, 1, date)` then refreshes
+  (other amounts: servings stepper on the My Products page).
 - Finish with `npm run build` (output to `static/react/`).
 
 ## 6. Error handling
