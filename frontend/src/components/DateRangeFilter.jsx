@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 
-const presets = [
+const defaultPresets = [
   { label: 'Today', filter: { type: 'today' } },
   { label: 'This Week', filter: { type: 'range_name', name: 'week' } },
   { label: 'This Month', filter: { type: 'range_name', name: 'month' } },
@@ -22,7 +22,7 @@ function isPresetActive(value, preset) {
   return false;
 }
 
-export default function DateRangeFilter({ value, onChange, showDatePicker = true }) {
+export default function DateRangeFilter({ value, onChange, showDatePicker = true, presets = defaultPresets }) {
   const today = format(new Date(), 'yyyy-MM-dd');
   const [customStart, setCustomStart] = useState(value?.startDate || today);
   const [customEnd, setCustomEnd] = useState(value?.endDate || today);

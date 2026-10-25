@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { Card, Button } from '../components/ui';
 import { settingsApi } from '../api';
+import { useSettings } from '../context/SettingsContext';
 
 const SECTIONS = [
   { id: 'profile', label: 'Profile & Goals', icon: User },
@@ -37,6 +38,7 @@ const WEEKDAYS = [
 ];
 
 export default function Settings() {
+  const { setLocalTheme, reloadSettings } = useSettings();
   const [section, setSection] = useState('profile');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -93,6 +95,8 @@ export default function Settings() {
         }
       }
 
+      // Propagate saved prefs (theme, chart color, range, units…) app-wide.
+      await reloadSettings();
       setSuccess(`${sectionKey.charAt(0).toUpperCase() + sectionKey.slice(1)} settings saved successfully!`);
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
@@ -204,6 +208,7 @@ export default function Settings() {
                 settings={settings.appearance}
                 choices={choices}
                 onChange={updateAppearance}
+                onThemePreview={setLocalTheme}
                 onSave={() => handleSave('appearance')}
                 saving={saving}
               />
@@ -531,7 +536,7 @@ function ProfileSection({ settings, choices, recommendedMacros, onChange, onSave
   );
 }
 
-function AppearanceSection({ settings, choices, onChange, onSave, saving }) {
+function AppearanceSection({ settings, choices, onChange, onThemePreview, onSave, saving }) {
   const colorOptions = [
     { value: 'blue', color: '#3b82f6' },
     { value: 'green', color: '#10b981' },
@@ -554,14 +559,14 @@ function AppearanceSection({ settings, choices, onChange, onSave, saving }) {
         <h3 className="text-lg font-medium text-white">Theme</h3>
         <select
           value={settings.theme}
-          onChange={(e) => onChange('theme', e.target.value)}
+          onChange={(e) => { onChange('theme', e.target.value); onThemePreview?.(e.target.value); }}
           className="w-full max-w-xs bg-gray-700 border border-gray-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:ring-2 focus:ring-primary-500"
         >
           {choices?.themes?.map(opt => (
             <option key={opt.value} value={opt.value}>{opt.label}</option>
           ))}
         </select>
-        <p className="text-sm text-gray-500">Theme changes will apply to the traditional dashboard</p>
+        <p className="text-sm text-gray-500">Applies across the whole app instantly. "System" follows your device.</p>
       </div>
 
       {/* Chart Color */}

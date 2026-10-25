@@ -1,4 +1,5 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route } from 'react-router-dom';
+import { SettingsProvider } from './context/SettingsContext';
 import MainLayout from './layouts/MainLayout';
 import {
   Dashboard,
@@ -10,11 +11,13 @@ import {
   Analytics,
   TopFoods,
   Settings,
+  Products,
 } from './pages';
 
 function App() {
   return (
-    <Router basename="/app">
+    <SettingsProvider>
+    <Router>
       <Routes>
         <Route path="/" element={<MainLayout />}>
           <Route index element={<Dashboard />} />
@@ -25,10 +28,12 @@ function App() {
           <Route path="body-measurements" element={<BodyMeasurements />} />
           <Route path="analytics" element={<Analytics />} />
           <Route path="top-foods" element={<TopFoods />} />
+          <Route path="products" element={<Products />} />
           <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>
     </Router>
+    </SettingsProvider>
   );
 }
 

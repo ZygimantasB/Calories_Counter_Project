@@ -45,7 +45,26 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
-    console.error('API Error:', error.response?.data || error.message);
+    const { response, config } = error;
+    
+    console.group('%c[API Error Request Failure]', 'color: #f97316; font-weight: bold; font-size: 12px;');
+    console.error(`Failed Route: ${config?.method?.toUpperCase()} ${config?.url}`);
+    
+    if (response) {
+      console.error(`Status Code: ${response.status} (${response.statusText})`);
+      console.error('Response Data:', response.data);
+      if (response.status === 403) {
+        console.warn('Hint: This might be a CSRF verification failure. Check the csrftoken cookie.');
+      } else if (response.status === 401) {
+        console.warn('Hint: Authentication is required for this endpoint.');
+      }
+    } else if (error.request) {
+      console.error('No response received from server. This might be a CORS error, network disconnect, or backend server crash.');
+    } else {
+      console.error('Request setup error:', error.message);
+    }
+    
+    console.groupEnd();
     return Promise.reject(error);
   }
 );

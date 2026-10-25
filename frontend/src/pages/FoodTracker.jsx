@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { displayKcal, displayMacro } from '../utils/format';
 import {
   Plus,
   Search,
@@ -36,6 +37,7 @@ import CalorieTrendChart from '../components/CalorieTrendChart';
 import MacroTrendChart from '../components/MacroTrendChart';
 import EatingPatternChart from '../components/EatingPatternChart';
 import { foodApi, settingsApi } from '../api';
+import { productsApi } from '../api/products';
 
 const MACRO_COLORS = {
   protein: '#ef4444',
@@ -140,6 +142,7 @@ export default function FoodTracker() {
   const [aiQuery, setAiQuery] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState(null);
+  const [aiError, setAiError] = useState('');
   const [showAiSearch, setShowAiSearch] = useState(false);
 
   // Add food form
@@ -269,6 +272,11 @@ export default function FoodTracker() {
   // Quick add from database search
   const handleDbQuickAdd = async (food) => {
     try {
+      if (food.is_product) {
+        await productsApi.log(food.product_id, 1, format(selectedDate, 'yyyy-MM-dd'));
+        fetchFoodItems();
+        return;
+      }
       await foodApi.addFood({
         name: food.name,
         calories: food.calories || 0,
@@ -308,10 +316,66 @@ export default function FoodTracker() {
   // Totals now come from API (includes all items, not just paginated)
 
   const macrosPieData = [
-    { name: 'Protein', value: totals.protein * 4, color: MACRO_COLORS.protein },
-    { name: 'Carbs', value: totals.carbs * 4, color: MACRO_COLORS.carbs },
-    { name: 'Fat', value: totals.fat * 9, color: MACRO_COLORS.fat },
+    { name: 'Protein', value: totals.protein * 4, grams: totals.protein, color: MACRO_COLORS.protein },
+    { name: 'Carbs', value: totals.carbs * 4, grams: totals.carbs, color: MACRO_COLORS.carbs },
+    { name: 'Fat', value: totals.fat * 9, grams: totals.fat, color: MACRO_COLORS.fat },
   ];
+  // Sum of macro-derived calories (protein*4 + carbs*4 + fat*9). The slice
+  // proportions (and therefore percentages) come from this.
+  const macroCalTotal = macrosPieData.reduce((sum, e) => sum + e.value, 0);
+  // Scale the displayed kcal so the donut matches the recorded Daily Calories
+  // total. Percentages are unchanged (uniform scaling); center + legend kcal now
+  // sum to the recorded total instead of the 4/4/9 macro-math total.
+  const calScale = macroCalTotal ? totals.calories / macroCalTotal : 0;
+  const sliceKcal = (entry) => Math.round(entry.value * calScale);
+
+  // Draw each slice's percentage on its arc
+  const renderMacroPercent = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+    if (percent < 0.06) return null; // skip tiny slivers to avoid clutter
+    const RADIAN = Math.PI / 180;
+    const radius = innerRadius + (outerRadius - innerRadius) / 2;
+    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+    return (
+      <text
+        x={x}
+        y={y}
+        fill="#fff"
+        textAnchor="middle"
+        dominantBaseline="central"
+        fontSize={11}
+        fontWeight={600}
+      >
+        {`${Math.round(percent * 100)}%`}
+      </text>
+    );
+  };
+
+  const MacroPieTooltip = ({ active, payload }) => {
+    if (!active || !payload || payload.length === 0) return null;
+    const d = payload[0].payload;
+    const pct = macroCalTotal ? Math.round((d.value / macroCalTotal) * 100) : 0;
+    return (
+      <div
+        style={{
+          backgroundColor: '#1f2937',
+          border: '1px solid #374151',
+          borderRadius: '8px',
+          padding: '8px 12px',
+          fontSize: '12px',
+          color: '#e5e7eb',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 600, marginBottom: 2 }}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: d.color, display: 'inline-block' }} />
+          {d.name}
+        </div>
+        <div>{Math.round(d.grams)} g</div>
+        <div>{sliceKcal(d).toLocaleString()} kcal</div>
+        <div style={{ color: '#9ca3af' }}>{pct}% of calories</div>
+      </div>
+    );
+  };
 
   // Filter food items by search query
   const filteredFoodItems = foodItems.filter((item) =>
@@ -347,6 +411,8 @@ export default function FoodTracker() {
     if (!aiQuery.trim()) return;
     try {
       setAiLoading(true);
+      setAiError('');
+      setAiResult(null);
       const result = await foodApi.getGeminiNutrition(aiQuery);
       if (result && result.success) {
         setAiResult(result);
@@ -362,6 +428,7 @@ export default function FoodTracker() {
       }
     } catch (err) {
       console.error('AI search error:', err);
+      setAiError(err?.message || 'AI lookup failed. Please try again.');
     } finally {
       setAiLoading(false);
     }
@@ -427,6 +494,11 @@ export default function FoodTracker() {
   // Quick add food
   const handleQuickAdd = async (food) => {
     try {
+      if (food.is_product) {
+        await productsApi.log(food.product_id, 1, format(selectedDate, 'yyyy-MM-dd'));
+        fetchFoodItems();
+        return;
+      }
       await foodApi.addFood({
         name: food.name,
         calories: food.calories || 0,
@@ -567,11 +639,12 @@ export default function FoodTracker() {
                       className="flex items-center justify-between p-3 rounded-lg bg-gray-700/50 hover:bg-gray-700 transition-colors"
                     >
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium text-gray-100 truncate">
+                        <div className="font-medium text-gray-100 truncate flex items-center gap-2">
                           {food.name}
+                          {food.is_product && <Badge variant="purple" size="sm">Recipe</Badge>}
                         </div>
                         <div className="text-sm text-gray-400">
-                          {food.calories} kcal · P: {food.protein}g · C: {food.carbs}g · F: {food.fat}g
+                          {displayKcal(food.calories)} kcal · P: {displayMacro(food.protein)}g · C: {displayMacro(food.carbs)}g · F: {displayMacro(food.fat)}g
                         </div>
                         {food.count > 1 && (
                           <div className="text-xs text-gray-500">
@@ -580,14 +653,16 @@ export default function FoodTracker() {
                         )}
                       </div>
                       <div className="flex items-center gap-2 ml-4">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleDbEditAdd(food)}
-                        >
-                          <Edit2 className="w-4 h-4 mr-1" />
-                          Edit
-                        </Button>
+                        {!food.is_product && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleDbEditAdd(food)}
+                          >
+                            <Edit2 className="w-4 h-4 mr-1" />
+                            Edit
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           onClick={() => handleDbQuickAdd(food)}
@@ -775,43 +850,58 @@ export default function FoodTracker() {
 
             {/* Macro Pie Chart */}
             <Card title="Calorie Distribution">
-              <div className="h-48">
+              <div className="relative h-56">
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
                       data={macrosPieData}
                       cx="50%"
                       cy="50%"
-                      innerRadius={50}
-                      outerRadius={70}
+                      innerRadius={58}
+                      outerRadius={84}
                       dataKey="value"
                       strokeWidth={0}
+                      label={renderMacroPercent}
+                      labelLine={false}
                     >
                       {macrosPieData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Tooltip
-                      formatter={(value) => [`${Math.round(value)} kcal`, '']}
-                      contentStyle={{
-                        backgroundColor: '#1f2937',
-                        border: '1px solid #374151',
-                        borderRadius: '8px',
-                      }}
-                    />
+                    <Tooltip content={<MacroPieTooltip />} />
                   </PieChart>
                 </ResponsiveContainer>
+                {/* Center total */}
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-2xl font-bold text-white leading-none">
+                    {Math.round(totals.calories).toLocaleString()}
+                  </span>
+                  <span className="text-xs text-gray-400 mt-1">kcal</span>
+                </div>
               </div>
-              <div className="flex justify-center gap-4 mt-2">
-                {macrosPieData.map((entry) => (
-                  <div key={entry.name} className="flex items-center gap-1.5">
-                    <div
-                      className="w-3 h-3 rounded-full"
-                      style={{ backgroundColor: entry.color }}
-                    />
-                    <span className="text-xs text-gray-400">{entry.name}</span>
-                  </div>
-                ))}
+              {/* Rich legend: grams · kcal · % per macro */}
+              <div className="mt-3 space-y-1.5">
+                {macrosPieData.map((entry) => {
+                  const pct = macroCalTotal ? Math.round((entry.value / macroCalTotal) * 100) : 0;
+                  return (
+                    <div key={entry.name} className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <div
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: entry.color }}
+                        />
+                        <span className="text-gray-300">{entry.name}</span>
+                      </div>
+                      <span className="text-gray-400">
+                        {Math.round(entry.grams)} g
+                        <span className="text-gray-600"> · </span>
+                        {sliceKcal(entry).toLocaleString()} kcal
+                        <span className="text-gray-600"> · </span>
+                        <span className="text-gray-300 font-medium">{pct}%</span>
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </Card>
           </div>
@@ -922,9 +1012,10 @@ export default function FoodTracker() {
                     <div className="text-sm font-medium text-gray-100 group-hover:text-primary-400 truncate">
                       {food.name}
                     </div>
-                    <div className="text-xs text-gray-500 mt-1">{food.calories} kcal</div>
+                    {food.is_product && <Badge variant="purple" size="sm" className="mt-1">Recipe</Badge>}
+                    <div className="text-xs text-gray-500 mt-1">{displayKcal(food.calories)} kcal</div>
                     <div className="text-xs text-gray-600">
-                      P: {food.protein}g · C: {food.carbs}g · F: {food.fat}g
+                      P: {displayMacro(food.protein)}g · C: {displayMacro(food.carbs)}g · F: {displayMacro(food.fat)}g
                     </div>
                   </button>
                 ))}
@@ -1084,7 +1175,7 @@ export default function FoodTracker() {
                         >
                           <p className="text-gray-100">{food.name}</p>
                           {food.calories && (
-                            <p className="text-sm text-gray-500">{food.calories} kcal per 100g</p>
+                            <p className="text-sm text-gray-500">{displayKcal(food.calories)} kcal per 100g</p>
                           )}
                         </button>
                       ))}
@@ -1247,6 +1338,25 @@ export default function FoodTracker() {
                     )}
                     Analyze with AI
                   </Button>
+
+                  {aiError && (
+                    <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 mb-4 text-sm text-red-300">
+                      {aiError}
+                    </div>
+                  )}
+
+                  {aiResult?.warnings?.length > 0 && (
+                    <div className="mb-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/40">
+                      <p className="text-sm font-medium text-amber-400">
+                        Check these numbers before saving
+                      </p>
+                      <ul className="mt-1 space-y-1">
+                        {aiResult.warnings.map((warning) => (
+                          <li key={warning} className="text-xs text-amber-200/80">{warning}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
 
                   {aiResult && (
                     <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/30 mb-4">

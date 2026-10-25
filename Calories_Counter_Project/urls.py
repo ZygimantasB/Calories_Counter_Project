@@ -2,13 +2,17 @@ from django.contrib import admin
 from django.urls import path, include, re_path
 from django.conf import settings
 from django.conf.urls.static import static
-from django.views.generic import TemplateView
+from django.views.generic import TemplateView, RedirectView
+from django.templatetags.static import static as static_url
 from django.http import HttpResponse
+from django.views.decorators.csrf import ensure_csrf_cookie
 import os
 
 
+@ensure_csrf_cookie
 def serve_react_app(request):
-    """Serve the React app's index.html"""
+    """Serve the React app's index.html (also seeds the csrftoken cookie so the
+    SPA can send X-CSRFToken on CSRF-protected POSTs like the AI nutrition lookup)."""
     react_index_path = os.path.join(settings.BASE_DIR, 'static', 'react', 'index.html')
     try:
         with open(react_index_path, 'r', encoding='utf-8') as f:
@@ -28,6 +32,7 @@ def serve_react_app(request):
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('favicon.ico', RedirectView.as_view(url=static_url('favicon.ico'), permanent=False)),
     # React app routes - these will be handled by React Router
     path('app/', serve_react_app, name='react_app'),
     re_path(r'^app/.*$', serve_react_app),  # Catch-all for React routes

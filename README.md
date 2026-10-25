@@ -4,9 +4,9 @@
 
 ### Your Comprehensive Fitness & Nutrition Dashboard
 
-[![Python](https://img.shields.io/badge/Python-3.12-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
-[![Django](https://img.shields.io/badge/Django-5.2-092E20?style=for-the-badge&logo=django&logoColor=white)](https://www.djangoproject.com/)
-[![React](https://img.shields.io/badge/React-17-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://reactjs.org/)
+[![Python](https://img.shields.io/badge/Python-3.14-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
+[![Django](https://img.shields.io/badge/Django-6.0-092E20?style=for-the-badge&logo=django&logoColor=white)](https://www.djangoproject.com/)
+[![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://reactjs.org/)
 [![Bootstrap](https://img.shields.io/badge/Bootstrap-5-7952B3?style=for-the-badge&logo=bootstrap&logoColor=white)](https://getbootstrap.com/)
 [![Chart.js](https://img.shields.io/badge/Chart.js-4-FF6384?style=for-the-badge&logo=chartdotjs&logoColor=white)](https://www.chartjs.org/)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
@@ -47,6 +47,7 @@
 - **Food Diary** — Log meals with comprehensive nutritional data
 - **AI Food Assistant** — Instant macro lookup powered by Google Gemini AI
 - **Macronutrient Analysis** — Track calories, protein, carbohydrates, and fat
+- **Calorie Intake by Macro** — Calorie trend colored by protein / carbs / fat, plus a calorie-distribution donut with per-macro breakdown
 - **Quick-Add Items** — Save and reuse frequently eaten foods (ordered by frequency)
 - **Hide from Quick List** — Keep your quick-add list clean
 - **Copy Previous Day** — Duplicate all meals from any past date to today
@@ -93,10 +94,16 @@
 
 ### ⚖️ Weight & Body Stats
 - **Weight Journal** — Daily weight log with trend analysis
+- **Period Filter** — This Week/Month, 7/30/90 days, 6 months, 1 year, all-time, or a custom date range
+- **Cumulative Weight Change** — Net gain/loss area chart, colored green (loss) / red (gain)
 - **Calories vs Weight Correlation** — Chart showing how intake affects weight
 - **Stability Score** — Weight volatility analysis
 - **Body Measurements** — Track neck, chest, waist, hips, biceps, thighs, and more
-- **Measurement Charts** — Per-measurement trend charts
+- **Body Composition** — Estimated body-fat % (US Navy), waist-to-hip and waist-to-height ratios with trend
+- **Left/Right Symmetry** — Limb imbalance analysis for biceps, triceps, forearms, thighs, and calves
+- **Goal-aware Trends** — A smaller waist or a bigger muscle reads as progress (green), not just "up/down"
+- **Measurement Charts** — Per-measurement trends with Core/Arms/Legs grouping and a normalized (% change) view
+- **Measurement History** — Expandable summary cards with per-metric change, plus a full data table
 - **CSV Export** — Export all body measurement data
 
 </td>
@@ -176,12 +183,12 @@ Compare two or three food products from your personal log history.
 ### Backend
 | Technology | Version | Purpose |
 |---|---|---|
-| **Python** | 3.12 | Runtime |
-| **Django** | 5.2 | Web framework |
+| **Python** | 3.14 (pinned; requires ≥3.13) | Runtime |
+| **Django** | 6.0 | Web framework |
 | **SQLite** | — | Database |
-| **Google Gemini AI** | 0.8 | Nutrition lookup |
+| **Google Gemini AI** | google-genai 2.0 | Nutrition lookup |
 | **python-decouple** | 3.8 | `.env` config |
-| **asgiref** | 3.9 | ASGI support |
+| **uv** | — | Dependency management (`pyproject.toml` + `uv.lock`) |
 
 </td>
 <td width="50%">
@@ -192,7 +199,7 @@ Compare two or three food products from your personal log history.
 | **Bootstrap 5** | Responsive UI |
 | **Chart.js 4** | Django-template charts |
 | **Font Awesome** | Icons |
-| **React 17** | SPA frontend |
+| **React 18** | SPA frontend (HashRouter) |
 | **Vite** | React build tool |
 | **Tailwind CSS v4** | React component styling |
 | **Recharts** | React charts |
@@ -219,7 +226,7 @@ The React app builds to `static/react/` and is served via a catch-all view for `
 
 | File | Description |
 |---|---|
-| `count_calories_app/views.py` | All view logic (~5 500 lines) |
+| `count_calories_app/views.py` | All view logic (~6 400 lines) |
 | `count_calories_app/models.py` | 11 database models |
 | `count_calories_app/services.py` | `GeminiService` — AI nutrition lookup |
 | `count_calories_app/urls.py` | URL routing |
@@ -260,7 +267,8 @@ Protein and fat are per-kg bodyweight. Carbs fill the remaining calories.
 
 ## 📋 Prerequisites
 
-- **Python 3.12+** — [Download](https://www.python.org/downloads/)
+- **Python 3.13+** (pinned to 3.14 via `.python-version`) — [Download](https://www.python.org/downloads/)
+- **uv** — [Install](https://docs.astral.sh/uv/getting-started/installation/) *(dependency manager; `pip` also works via `requirements.txt`)*
 - **Node.js 18+** — [Download](https://nodejs.org/) *(React frontend only)*
 - **Git** — [Download](https://git-scm.com/downloads)
 
@@ -275,21 +283,22 @@ git clone https://github.com/ZygimantasB/Calories_Counter_Project.git
 cd Calories_Counter_Project
 ```
 
-### 2. Virtual environment
+### 2. Install dependencies
+
+```bash
+uv sync
+```
+
+This creates `.venv/` and installs everything pinned in `uv.lock`. Prefer plain `pip`? Use the auto-generated `requirements.txt` instead:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate          # macOS / Linux
 # .venv\Scripts\activate           # Windows
-```
-
-### 3. Install dependencies
-
-```bash
 pip install -r requirements.txt
 ```
 
-### 4. Configure environment
+### 3. Configure environment
 
 ```bash
 cp .env.exemple .env   # or copy on Windows
@@ -305,24 +314,24 @@ GEMINI_API_KEY=your-gemini-api-key-here   # optional — needed for AI food look
 Generate a secret key:
 
 ```bash
-python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+uv run python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
 ```
 
 Get a free Gemini API key at [aistudio.google.com](https://aistudio.google.com/app/apikey).
 
-### 5. Database
+### 4. Database
 
 ```bash
-python manage.py migrate
+uv run python manage.py migrate
 ```
 
-### 6. Run
+### 5. Run
 
 ```bash
-python manage.py runserver
+uv run python manage.py runserver
 ```
 
-Open **http://127.0.0.1:8000/**
+Open **http://127.0.0.1:8000/** (substitute `.venv/bin/python` for `uv run python` if you installed with `pip` instead)
 
 ---
 
@@ -349,17 +358,19 @@ npm test
 
 ### React Pages
 
+React Router runs in hash mode, so every in-app route is under `/app/#/`:
+
 | Route | Page |
 |---|---|
-| `/app/` | Dashboard |
-| `/app/food-tracker` | Food Tracker |
-| `/app/weight` | Weight Tracker |
-| `/app/running` | Running Tracker |
-| `/app/workout` | Workout Tracker |
-| `/app/body-measurements` | Body Measurements |
-| `/app/top-foods` | Top Foods |
-| `/app/analytics` | Analytics |
-| `/app/settings` | Settings |
+| `/app/#/` | Dashboard |
+| `/app/#/food` | Food Tracker |
+| `/app/#/weight` | Weight Tracker |
+| `/app/#/running` | Running Tracker |
+| `/app/#/workout` | Workout Tracker |
+| `/app/#/body-measurements` | Body Measurements |
+| `/app/#/top-foods` | Top Foods |
+| `/app/#/analytics` | Analytics (Overview / Month Compare / Trends / Product Compare tabs) |
+| `/app/#/settings` | Settings |
 
 ---
 
@@ -418,7 +429,7 @@ Calories_Counter_Project/
 │   ├── services.py          # GeminiService — AI nutrition lookup
 │   ├── urls.py              # URL routing
 │   ├── templates/           # Django HTML templates
-│   └── tests/               # 369 unit tests (10 modules)
+│   └── tests/               # 561 unit tests (16 modules)
 ├── frontend/
 │   ├── src/                 # React source (JSX, Tailwind v4)
 │   ├── vite.config.js       # Builds to ../static/react/
@@ -436,16 +447,16 @@ Calories_Counter_Project/
 ### Running Tests
 
 ```bash
-# All 369 Django tests
-python manage.py test count_calories_app
+# All 561 Django tests
+uv run python manage.py test count_calories_app
 
 # Single module
-python manage.py test count_calories_app.tests.test_views
+uv run python manage.py test count_calories_app.tests.test_views
 
 # With verbosity
-python manage.py test count_calories_app --verbosity=2
+uv run python manage.py test count_calories_app --verbosity=2
 
-# React tests
+# React tests (126 tests, Vitest)
 cd frontend && npm test
 ```
 
@@ -489,6 +500,6 @@ This project is licensed under the **MIT License** — see the [LICENSE](LICENSE
 
 Made with ❤️ for health enthusiasts
 
-<sub>Last updated: 2026-02-22</sub>
+<sub>Last updated: 2026-09-13</sub>
 
 </div>

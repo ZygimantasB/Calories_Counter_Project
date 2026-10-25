@@ -224,6 +224,18 @@
         </div>
       </div>
 
+      <!-- ══ My Products ══ -->
+      <div class="card shadow-sm rounded mb-3">
+        <div class="card-header bg-primary text-white d-flex align-items-center justify-content-between">
+          <h2 class="h6 mb-0"><i class="fas fa-layer-group me-1"></i>My Products</h2>
+          <a href="{% url 'products_page' %}" class="btn btn-sm btn-light py-0 px-2">Manage</a>
+        </div>
+        <div class="card-body py-2" id="productsQuickList"
+             data-log-date="{% if selected_date %}{{ selected_date|date:'Y-m-d' }}{% endif %}">
+          <span class="text-muted small">Loading…</span>
+        </div>
+      </div>
+
     </div>
 
 
@@ -1152,17 +1164,39 @@
           setupScrollableChart(chartInner, scrollHint, data.labels.length);
 
           const ctx = document.getElementById('caloriesTrendChart').getContext('2d');
+          // Grams per macro, for tooltips
+          const gramsByMacro = {
+            'Protein': data.protein_grams || [],
+            'Carbs': data.carbs_grams || [],
+            'Fat': data.fat_grams || []
+          };
           new Chart(ctx, {
             type: 'bar',
             data: {
               labels: data.labels,
-              datasets: [{
-                label: 'Calories (kcal)',
-                data: data.data,
-                backgroundColor: 'rgba(75, 192, 192, 0.7)',
-                borderColor: 'rgba(75, 192, 192, 1)',
-                borderWidth: 1
-              }]
+              datasets: [
+                {
+                  label: 'Protein',
+                  data: data.protein_calories,
+                  backgroundColor: 'rgba(255, 99, 132, 0.75)',
+                  borderColor: 'rgba(255, 99, 132, 1)',
+                  borderWidth: 1
+                },
+                {
+                  label: 'Carbs',
+                  data: data.carbs_calories,
+                  backgroundColor: 'rgba(54, 162, 235, 0.75)',
+                  borderColor: 'rgba(54, 162, 235, 1)',
+                  borderWidth: 1
+                },
+                {
+                  label: 'Fat',
+                  data: data.fat_calories,
+                  backgroundColor: 'rgba(255, 206, 86, 0.75)',
+                  borderColor: 'rgba(255, 206, 86, 1)',
+                  borderWidth: 1
+                }
+              ]
             },
             options: {
               responsive: true,
@@ -1170,12 +1204,14 @@
               scales: {
                 y: {
                   beginAtZero: true,
+                  stacked: true,
                   title: {
                     display: true,
                     text: 'Calories (kcal)'
                   }
                 },
                 x: {
+                  stacked: true,
                   title: {
                     display: true,
                     text: 'Date'
@@ -1188,11 +1224,12 @@
               },
               plugins: {
                 legend: {
-                  display: false
+                  display: true,
+                  position: 'top'
                 },
                 title: {
                   display: true,
-                  text: 'Daily Calorie Intake (' + data.labels.length + ' days)'
+                  text: 'Daily Calorie Intake by Macro (' + data.labels.length + ' days)'
                 },
                 tooltip: {
                   callbacks: {
@@ -1200,7 +1237,20 @@
                       return tooltipItems[0].label;
                     },
                     label: function(context) {
-                      return context.parsed.y + ' kcal';
+                      const grams = (gramsByMacro[context.dataset.label] || [])[context.dataIndex];
+                      const kcal = Math.round(context.parsed.y);
+                      let line = context.dataset.label + ': ' + kcal + ' kcal';
+                      if (grams !== undefined) {
+                        line += ' (' + grams + ' g)';
+                      }
+                      return line;
+                    },
+                    footer: function(tooltipItems) {
+                      let total = 0;
+                      tooltipItems.forEach(function(item) {
+                        total += item.parsed.y;
+                      });
+                      return 'Total: ' + Math.round(total) + ' kcal';
                     }
                   }
                 }
@@ -1513,4 +1563,49 @@
     if (data.success) { document.getElementById('templateNameInput').value = ''; loadTemplates(); }
   });
   </script>
+<script>
+(function () {
+  const box = document.getElementById('productsQuickList');
+  if (!box) return;
+  const token = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+  const logDate = box.dataset.logDate || null;
+
+  fetch('/api/react/products/').then(r => r.json()).then(({products}) => {
+    if (!products.length) {
+      box.innerHTML = '<span class="text-muted small">No products yet. Use "Manage" to build one.</span>';
+      return;
+    }
+    box.replaceChildren(...products.map(p => {
+      const row = document.createElement('div');
+      row.className = 'd-flex align-items-center gap-2 mb-1';
+      const label = document.createElement('span');
+      label.className = 'small flex-grow-1 text-truncate';
+      label.textContent = `${p.name} · ${Math.round(p.per_serving.calories)} kcal`;
+      const servings = document.createElement('input');
+      Object.assign(servings, {type: 'number', min: '0.5', max: '100', step: '0.5', value: '1'});
+      servings.className = 'form-control form-control-sm';
+      servings.style.maxWidth = '70px';
+      servings.setAttribute('aria-label', `Servings of ${p.name}`);
+      const btn = document.createElement('button');
+      btn.className = 'btn btn-sm btn-outline-primary py-0';
+      btn.textContent = 'Log';
+      btn.addEventListener('click', async () => {
+        btn.disabled = true;
+        const r = await fetch(`/api/react/products/${p.id}/log/`, {
+          method: 'POST',
+          headers: {'X-CSRFToken': token, 'Content-Type': 'application/json'},
+          body: JSON.stringify({servings: Number(servings.value), ...(logDate && {date: logDate})}),
+        });
+        const data = await r.json();
+        if (data.success) { location.reload(); return; }
+        btn.disabled = false;
+        label.textContent = data.error || 'Failed to log';
+        label.classList.add('text-danger');
+      });
+      row.append(label, servings, btn);
+      return row;
+    }));
+  }).catch(() => { box.innerHTML = '<span class="text-danger small">Could not load products.</span>'; });
+})();
+</script>
 {% endblock %}

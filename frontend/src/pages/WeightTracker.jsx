@@ -23,14 +23,75 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from 'recharts';
-import { format, subDays, parseISO } from 'date-fns';
+import {
+  format,
+  subDays,
+  parseISO,
+  startOfWeek,
+  startOfMonth,
+  differenceInCalendarDays,
+} from 'date-fns';
 import { Card, Button, Badge, ProgressBar } from '../components/ui';
 import CSVDownloadButton from '../components/CSVDownloadButton';
+import DateRangeFilter from '../components/DateRangeFilter';
 import WeightChangeAnalysis from '../components/WeightChangeAnalysis';
 import HealthMetrics from '../components/HealthMetrics';
 import WeightProjections from '../components/WeightProjections';
 import WeightCorrelationTable from '../components/WeightCorrelationTable';
 import { weightApi } from '../api';
+
+// Range presets for the weight page (no single-day 'Today'/'Date' options)
+const WEIGHT_PRESETS = [
+  { label: 'This Week', filter: { type: 'range_name', name: 'week' } },
+  { label: 'This Month', filter: { type: 'range_name', name: 'month' } },
+  { label: '7 Days', filter: { type: 'days', days: 7 } },
+  { label: '30 Days', filter: { type: 'days', days: 30 } },
+  { label: '90 Days', filter: { type: 'days', days: 90 } },
+  { label: '6 Months', filter: { type: 'days', days: 180 } },
+  { label: '1 Year', filter: { type: 'days', days: 365 } },
+  { label: 'All', filter: { type: 'days', days: 'all' } },
+];
+
+// Build weight API params from a DateRangeFilter value
+function buildWeightParams(f) {
+  const fmt = (d) => format(d, 'yyyy-MM-dd');
+  switch (f.type) {
+    case 'days':
+      return { days: f.days };
+    case 'range':
+      return { start_date: f.startDate, end_date: f.endDate };
+    case 'range_name': {
+      const now = new Date();
+      if (f.name === 'week') {
+        return { start_date: fmt(startOfWeek(now, { weekStartsOn: 1 })), end_date: fmt(now) };
+      }
+      if (f.name === 'month') {
+        return { start_date: fmt(startOfMonth(now)), end_date: fmt(now) };
+      }
+      return { days: 30 };
+    }
+    default:
+      return { days: 30 };
+  }
+}
+
+// Approximate day span for consumers that need a numeric window (correlation table)
+function weightDaysCount(f) {
+  switch (f.type) {
+    case 'days':
+      return f.days === 'all' ? 3650 : f.days;
+    case 'range':
+      return Math.max(1, differenceInCalendarDays(parseISO(f.endDate), parseISO(f.startDate)) + 1);
+    case 'range_name': {
+      const now = new Date();
+      if (f.name === 'week') return differenceInCalendarDays(now, startOfWeek(now, { weekStartsOn: 1 })) + 1;
+      if (f.name === 'month') return differenceInCalendarDays(now, startOfMonth(now)) + 1;
+      return 30;
+    }
+    default:
+      return 30;
+  }
+}
 
 export default function WeightTracker() {
   const [weightData, setWeightData] = useState([]);
@@ -44,7 +105,7 @@ export default function WeightTracker() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingWeight, setEditingWeight] = useState(null);
-  const [timeRange, setTimeRange] = useState('month');
+  const [dateFilter, setDateFilter] = useState({ type: 'days', days: 30 });
 
   // Form states
   const [newWeight, setNewWeight] = useState({
@@ -61,9 +122,7 @@ export default function WeightTracker() {
     try {
       setLoading(true);
       setError(null);
-      const daysMap = { week: 7, month: 30, '3months': 90, '6months': 180, year: 365, all: 'all' };
-      const days = daysMap[timeRange] || 30;
-      const response = await weightApi.getWeightItems({ days });
+      const response = await weightApi.getWeightItems(buildWeightParams(dateFilter));
 
       setWeightEntries(response.items || []);
       setStats(response.stats || null);
@@ -83,7 +142,7 @@ export default function WeightTracker() {
     } finally {
       setLoading(false);
     }
-  }, [timeRange]);
+  }, [dateFilter]);
 
   useEffect(() => {
     fetchWeightData();
@@ -182,6 +241,16 @@ export default function WeightTracker() {
         </div>
       </div>
 
+      {/* Period selector */}
+      <Card>
+        <DateRangeFilter
+          value={dateFilter}
+          onChange={setDateFilter}
+          presets={WEIGHT_PRESETS}
+          showDatePicker={false}
+        />
+      </Card>
+
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="w-8 h-8 text-primary-500 animate-spin" />
@@ -275,7 +344,7 @@ export default function WeightTracker() {
           <WeightProjections stats={stats} />
 
           {/* Weight vs Calorie Correlation */}
-          <WeightCorrelationTable days={({ week: 7, month: 30, '3months': 90, '6months': 180, year: 365, all: 'all' })[timeRange] || 30} />
+          <WeightCorrelationTable days={weightDaysCount(dateFilter)} />
 
           {/* Progress to Goal */}
           <Card>
@@ -304,36 +373,7 @@ export default function WeightTracker() {
           </Card>
 
           {/* Weight Chart */}
-          <Card
-            title="Weight Trend"
-            action={
-              <div className="flex gap-1 p-1 bg-gray-700 rounded-lg">
-                {['week', 'month', '3months', '6months', 'year', 'all'].map((range) => (
-                  <button
-                    key={range}
-                    onClick={() => setTimeRange(range)}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-                      timeRange === range
-                        ? 'bg-gray-600 text-gray-100 shadow-sm'
-                        : 'text-gray-400 hover:text-gray-200'
-                    }`}
-                  >
-                    {range === 'week'
-                      ? '1W'
-                      : range === 'month'
-                      ? '1M'
-                      : range === '3months'
-                      ? '3M'
-                      : range === '6months'
-                      ? '6M'
-                      : range === 'year'
-                      ? '1Y'
-                      : 'All'}
-                  </button>
-                ))}
-              </div>
-            }
-          >
+          <Card title="Weight Trend">
             {weightData.length > 0 ? (
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">

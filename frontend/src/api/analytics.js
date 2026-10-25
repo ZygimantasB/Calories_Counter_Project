@@ -1,23 +1,7 @@
-import apiClient from './client';
+const isOffline = import.meta.env.BASE_URL === './' || import.meta.env.VITE_OFFLINE === 'true' || import.meta.env.MODE === 'test';
 
-export const analyticsApi = {
-  // Get analytics data for React frontend
-  getAnalytics: async (params = {}) => {
-    const response = await apiClient.get('/api/react/analytics/', { params });
-    return response.data;
-  },
+import analyticsOffline from './analytics.offline';
+import analyticsOnline from './analytics.online';
 
-  getMonthCompare: async (monthA, monthB) => {
-    const response = await apiClient.get('/api/react/analytics/month-compare/', {
-      params: { month_a: monthA, month_b: monthB }
-    });
-    return response.data;
-  },
-
-  getYearlyTrends: async (year = 'last12') => {
-    const response = await apiClient.get('/api/react/analytics/yearly-trends/', { params: { year } });
-    return response.data;
-  },
-};
-
+export const analyticsApi = isOffline ? analyticsOffline : analyticsOnline;
 export default analyticsApi;

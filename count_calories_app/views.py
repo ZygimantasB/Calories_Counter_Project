@@ -3,7 +3,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from datetime import timedelta
 from decimal import Decimal
-from django.db.models import Sum, Count, Avg, Max, Min
+from django.db.models import Sum, Count, Avg, Max, Min, OuterRef, Subquery
 from django.http import JsonResponse, HttpResponse
 from django.contrib import messages
 from django.core.paginator import Paginator
@@ -12,6 +12,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from .models import FoodItem, Weight, Exercise, WorkoutSession, WorkoutExercise, RunningSession, WorkoutTable, BodyMeasurement, UserSettings, MealTemplate, MealTemplateItem
 from .forms import FoodItemForm, WeightForm, ExerciseForm, WorkoutSessionForm, WorkoutExerciseForm, RunningSessionForm, BodyMeasurementForm
 from .services import GeminiService
+from .views_products import product_quick_entries
 import logging
 import json
 import os
@@ -283,6 +284,47 @@ def get_nutrition_data(request):
 
     return JsonResponse(nutrition_data)
 
+# A lookup that disagrees with history by more than this is worth flagging.
+HISTORY_DISAGREEMENT_RATIO = 0.25
+HISTORY_FIELD_MAP = (
+    ('calories', 'calories', 'kcal'),
+    ('protein', 'protein', 'g protein'),
+    ('fat', 'fat', 'g fat'),
+    ('carbohydrates', 'carbohydrates', 'g carbs'),
+)
+
+
+def check_against_history(food_name, nutrition):
+    """Warn when an AI lookup contradicts what this food was last logged as.
+
+    A model can return internally consistent but factually wrong numbers -- a
+    banana at 15g protein balances against 168.5 kcal perfectly well. Comparing
+    against the user's own history is what catches that.
+    """
+    previous = FoodItem.objects.filter(
+        product_name=food_name
+    ).order_by('-consumed_at', '-id').first()
+    if previous is None:
+        return []
+
+    warnings = []
+    for ai_field, model_field, unit in HISTORY_FIELD_MAP:
+        was = getattr(previous, model_field)
+        if was is None:
+            continue
+        was = float(was)
+        now = float(nutrition[ai_field])
+        baseline = max(abs(was), abs(now))
+        if baseline == 0:
+            continue
+        if abs(now - was) / baseline > HISTORY_DISAGREEMENT_RATIO:
+            warnings.append(
+                f'{food_name} was previously logged at {was:g} {unit}, '
+                f'but the AI now says {now:g} - please double-check.'
+            )
+    return warnings
+
+
 def get_gemini_nutrition(request):
     """
     API endpoint to get nutritional information from Gemini AI
@@ -297,6 +339,12 @@ def get_gemini_nutrition(request):
         result = GeminiService.get_nutrition_info(food_name)
 
         if result['success']:
+            result['warnings'] = (
+                result.get('warnings', [])
+                + check_against_history(food_name, result['data'])
+            )
+            for warning in result['warnings']:
+                logger.warning(f"Suspicious AI nutrition for {food_name!r}: {warning}")
             return JsonResponse(result)
         else:
             response_data = {'error': result.get('error')}
@@ -309,12 +357,6 @@ def get_gemini_nutrition(request):
     except Exception as e:
         logger.error(f"Unexpected error in get_gemini_nutrition: {e}")
         return JsonResponse({'error': 'An unexpected error occurred'}, status=500)
-
-    except Exception as e:
-        logger.error(f"Error getting nutrition from Gemini: {e}")
-        return JsonResponse({
-            'error': 'Failed to get nutritional information'
-        }, status=500)
 
 def food_tracker(request):
     time_range = request.GET.get('range')
@@ -1018,7 +1060,10 @@ def get_calories_trend_data(request):
     selected_date_str = request.GET.get('date')
     time_range = request.GET.get('range', 'today')
 
-    end_date = timezone.now().replace(hour=23, minute=59, second=59, microsecond=999999)
+    # Use local time so day boundaries line up with TruncDate's local-day
+    # grouping below. Using UTC here truncates the earliest day for users
+    # ahead of UTC (their local-midnight rows are stored as the prior UTC day).
+    end_date = timezone.localtime().replace(hour=23, minute=59, second=59, microsecond=999999)
     start_date = end_date - timedelta(days=30)  # Default 30 days
 
     # Handle days parameter
@@ -1062,16 +1107,31 @@ def get_calories_trend_data(request):
     daily_calories = food_items.annotate(
         day=TruncDate('consumed_at')
     ).values('day').annotate(
-        total_calories=Sum('calories')
+        total_calories=Sum('calories'),
+        total_protein=Sum('protein'),
+        total_carbs=Sum('carbohydrates'),
+        total_fat=Sum('fat')
     ).order_by('day')
 
     # Build response with both formats for compatibility
     daily_list = list(daily_calories)
 
+    # Calories contributed by each macro (Atwater factors: 4/4/9 kcal per gram).
+    # Used to color the calorie bars by macronutrient (stacked bar chart).
+    def _kcal(value, factor):
+        return round(float(value or 0) * factor, 1)
+
     calories_data = {
         # Format for Django Chart.js templates (labels + data arrays)
         'labels': [item['day'].strftime('%Y-%m-%d') for item in daily_list],
         'data': [float(item['total_calories']) for item in daily_list],
+        # Per-macro calorie breakdown for stacked/colored bar chart
+        'protein_calories': [_kcal(item['total_protein'], 4) for item in daily_list],
+        'carbs_calories': [_kcal(item['total_carbs'], 4) for item in daily_list],
+        'fat_calories': [_kcal(item['total_fat'], 9) for item in daily_list],
+        'protein_grams': [round(float(item['total_protein'] or 0), 1) for item in daily_list],
+        'carbs_grams': [round(float(item['total_carbs'] or 0), 1) for item in daily_list],
+        'fat_grams': [round(float(item['total_fat'] or 0), 1) for item in daily_list],
         # Format for React frontend (array of objects)
         'trend': [
             {
@@ -1091,7 +1151,10 @@ def get_macros_trend_data(request):
     selected_date_str = request.GET.get('date')
     time_range = request.GET.get('range', 'today')
 
-    end_date = timezone.now().replace(hour=23, minute=59, second=59, microsecond=999999)
+    # Use local time so day boundaries line up with TruncDate's local-day
+    # grouping below. Using UTC here truncates the earliest day for users
+    # ahead of UTC (their local-midnight rows are stored as the prior UTC day).
+    end_date = timezone.localtime().replace(hour=23, minute=59, second=59, microsecond=999999)
     start_date = end_date - timedelta(days=30)  # Default 30 days
 
     # Handle days parameter
@@ -3711,29 +3774,61 @@ def api_delete_food(request, food_id):
         return JsonResponse({'success': False, 'error': 'Failed to delete food item. Please try again.'}, status=400)
 
 
+def _annotate_latest_nutrition(grouped, base_queryset):
+    """Attach the most recently logged nutrition values to a name-grouped queryset.
+
+    Averaging nutrition across every row sharing a product_name fabricates
+    values that were never logged (and, because quick-add re-saves what it
+    displays, the fabricated value then feeds the next average). The newest
+    actual entry for the name is the only value the user really recorded.
+    """
+    latest = base_queryset.filter(
+        product_name=OuterRef('product_name')
+    ).order_by('-consumed_at', '-id')
+
+    return grouped.annotate(
+        latest_calories=Subquery(latest.values('calories')[:1]),
+        latest_protein=Subquery(latest.values('protein')[:1]),
+        latest_carbs=Subquery(latest.values('carbohydrates')[:1]),
+        latest_fat=Subquery(latest.values('fat')[:1]),
+    )
+
+
+def _nutrition_payload(row):
+    """Exact numeric nutrition values from an annotated row (never Decimal/None).
+
+    Deliberately unrounded: the quick-add tile posts back the very values it
+    was given, so rounding here would write 25 kcal over a 24.6 kcal entry and
+    leave a permanently degraded second variant of the food. Rounding is the
+    display layer's job.
+    """
+    return {
+        'calories': float(row['latest_calories'] or 0),
+        'protein': float(row['latest_protein'] or 0),
+        'carbs': float(row['latest_carbs'] or 0),
+        'fat': float(row['latest_fat'] or 0),
+    }
+
+
 @require_http_methods(["GET"])
 def api_quick_add_foods(request):
-    """Get recent foods for quick-add feature"""
-    recent_foods = FoodItem.objects.filter(
-        hide_from_quick_list=False
-    ).values('product_name').annotate(
-        count=Count('id'),
-        avg_calories=Avg('calories'),
-        avg_protein=Avg('protein'),
-        avg_carbs=Avg('carbohydrates'),
-        avg_fat=Avg('fat'),
+    """Get most-logged foods for quick-add, with their latest known nutrition."""
+    base = FoodItem.objects.filter(hide_from_quick_list=False)
+    recent_foods = _annotate_latest_nutrition(
+        base.values('product_name').annotate(count=Count('id')),
+        base,
     ).order_by('-count')[:15]
 
-    # Transform to frontend-expected format
-    foods = []
-    for i, food in enumerate(recent_foods):
+    # Composite products first; history rows sharing a product's name are dropped
+    foods = product_quick_entries(limit=5)
+    product_names = {food['name'].lower() for food in foods}
+    for food in recent_foods:
+        if food['product_name'].lower() in product_names:
+            continue
         foods.append({
-            'id': i + 1,  # Generate an ID for display purposes
+            'id': len(foods) + 1,  # Generate an ID for display purposes
             'name': food['product_name'],
-            'calories': round(food['avg_calories'] or 0),
-            'protein': round(food['avg_protein'] or 0, 1),
-            'carbs': round(food['avg_carbs'] or 0, 1),
-            'fat': round(food['avg_fat'] or 0, 1),
+            **_nutrition_payload(food),
         })
 
     return JsonResponse({
@@ -3750,41 +3845,34 @@ def api_search_all_foods(request):
     except (ValueError, TypeError):
         limit = 20
 
-    if not query:
-        # Return most frequently logged foods if no query
-        foods = FoodItem.objects.values('product_name').annotate(
-            count=Count('id'),
-            avg_calories=Avg('calories'),
-            avg_protein=Avg('protein'),
-            avg_carbs=Avg('carbohydrates'),
-            avg_fat=Avg('fat'),
-            last_used=Max('consumed_at'),
-        ).order_by('-count')[:limit]
-    else:
+    base = FoodItem.objects.all()
+    if query:
         # Search by name (case-insensitive)
-        foods = FoodItem.objects.filter(
-            product_name__icontains=query
-        ).values('product_name').annotate(
-            count=Count('id'),
-            avg_calories=Avg('calories'),
-            avg_protein=Avg('protein'),
-            avg_carbs=Avg('carbohydrates'),
-            avg_fat=Avg('fat'),
-            last_used=Max('consumed_at'),
-        ).order_by('-count')[:limit]
+        base = base.filter(product_name__icontains=query)
 
-    # Transform to frontend-expected format
-    results = []
+    foods = _annotate_latest_nutrition(
+        base.values('product_name').annotate(
+            count=Count('id'),
+            last_used=Max('consumed_at'),
+        ),
+        base,
+    ).order_by('-count')[:limit]
+
+    # Matching composite products first, then history (deduplicated by name)
+    results = product_quick_entries(query, limit)
+    for entry in results:
+        entry.update({'count': 0, 'last_used': None})
+    product_names = {entry['name'].lower() for entry in results}
     for food in foods:
+        if food['product_name'].lower() in product_names:
+            continue
         results.append({
             'name': food['product_name'],
-            'calories': round(food['avg_calories'] or 0),
-            'protein': round(food['avg_protein'] or 0, 1),
-            'carbs': round(food['avg_carbs'] or 0, 1),
-            'fat': round(food['avg_fat'] or 0, 1),
+            **_nutrition_payload(food),
             'count': food['count'],
             'last_used': food['last_used'].isoformat() if food['last_used'] else None,
         })
+    results = results[:limit]
 
     return JsonResponse({
         'results': results,
@@ -3797,9 +3885,22 @@ def api_search_all_foods(request):
 def api_weight_items(request):
     """Get weight entries for React frontend"""
     days = request.GET.get('days', '365')
+    start_date_str = request.GET.get('start_date')
+    end_date_str = request.GET.get('end_date')
     now = timezone.now()
 
-    if days == 'all':
+    if start_date_str and end_date_str:
+        # Explicit date range (custom range / this week / this month)
+        from datetime import datetime
+        try:
+            start = timezone.make_aware(datetime.strptime(start_date_str, '%Y-%m-%d'))
+            end = timezone.make_aware(
+                datetime.strptime(end_date_str, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
+            )
+            weights = Weight.objects.filter(recorded_at__gte=start, recorded_at__lte=end)
+        except ValueError:
+            weights = Weight.objects.filter(recorded_at__gte=now - timedelta(days=365))
+    elif days == 'all':
         weights = Weight.objects.all()
     else:
         try:
@@ -6209,11 +6310,15 @@ def api_yearly_trends(request):
     now = timezone.now()
 
     if year_param == 'last12':
-        # Last 12 months
+        # Last 12 months (rolling window ending this month)
         months = []
-        for i in range(11, -1, -1):
-            dt = now - timedelta(days=i*30)
-            months.append((dt.year, dt.month))
+        y, m = now.year, now.month
+        for _ in range(12):
+            months.insert(0, (y, m))
+            m -= 1
+            if m == 0:
+                m = 12
+                y -= 1
     elif year_param == 'all':
         # Every month from the user's first FoodItem entry through the current month
         first_entry = FoodItem.objects.order_by('consumed_at').values_list('consumed_at', flat=True).first()

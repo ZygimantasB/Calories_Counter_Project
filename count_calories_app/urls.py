@@ -1,5 +1,5 @@
 ﻿from django.urls import path
-from . import views
+from . import views, views_products
 
 urlpatterns = [
     path('', views.home, name='home'),
@@ -49,6 +49,7 @@ urlpatterns = [
     path('meal-templates/save/', views.save_meal_template, name='save_meal_template'),
     path('meal-templates/<int:template_id>/log/', views.log_meal_template, name='log_meal_template'),
     path('meal-templates/<int:template_id>/delete/', views.delete_meal_template, name='delete_meal_template'),
+    path('products/', views_products.products_page, name='products_page'),
     path('analytics/', views.analytics, name='analytics'),
     path('analytics/month-compare/', views.month_compare, name='month_compare'),
     path('analytics/trends/', views.month_trends, name='month_trends'),
@@ -100,6 +101,11 @@ urlpatterns = [
     path('api/react/meal-templates/add/', views.api_add_meal_template, name='api_add_meal_template'),
     path('api/react/meal-templates/<int:template_id>/log/', views.api_apply_meal_template, name='api_apply_meal_template'),
     path('api/react/meal-templates/<int:template_id>/delete/', views.api_delete_meal_template, name='api_delete_meal_template'),
+    path('api/react/products/', views_products.api_products, name='api_products'),
+    path('api/react/products/add/', views_products.api_add_product, name='api_add_product'),
+    path('api/react/products/<int:product_id>/update/', views_products.api_update_product, name='api_update_product'),
+    path('api/react/products/<int:product_id>/delete/', views_products.api_delete_product, name='api_delete_product'),
+    path('api/react/products/<int:product_id>/log/', views_products.api_log_product, name='api_log_product'),
     path('api/react/food-items/hourly/', views.api_hourly_eating_pattern, name='api_hourly_pattern'),
     path('api/react/workout-tables/', views.api_workout_tables, name='api_workout_tables'),
     path('api/react/workout-tables/add/', views.api_save_workout_table, name='api_save_workout_table'),
