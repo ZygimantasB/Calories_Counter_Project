@@ -11,6 +11,7 @@ import {
   Analytics,
   TopFoods,
   Settings,
+  Products,
 } from './pages';
 
 function App() {
@@ -27,6 +28,7 @@ function App() {
           <Route path="body-measurements" element={<BodyMeasurements />} />
           <Route path="analytics" element={<Analytics />} />
           <Route path="top-foods" element={<TopFoods />} />
+          <Route path="products" element={<Products />} />
           <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>

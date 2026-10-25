@@ -7,3 +7,4 @@ export { default as BodyMeasurements } from './BodyMeasurements';
 export { default as Analytics } from './Analytics';
 export { default as TopFoods } from './TopFoods';
 export { default as Settings } from './Settings';
+export { default as Products } from './Products';

@@ -11,12 +11,15 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
+  Layers,
 } from 'lucide-react';
 import { useState } from 'react';
+import { productsAvailable } from '../api/products';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Food Tracker', href: '/food', icon: Utensils },
+  ...(productsAvailable ? [{ name: 'My Products', href: '/products', icon: Layers }] : []),
   { name: 'Weight Tracker', href: '/weight', icon: Scale },
   { name: 'Workout Tracker', href: '/workout', icon: Dumbbell },
   { name: 'Running Tracker', href: '/running', icon: Activity },
