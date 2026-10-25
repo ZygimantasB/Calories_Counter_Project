@@ -37,6 +37,7 @@ import CalorieTrendChart from '../components/CalorieTrendChart';
 import MacroTrendChart from '../components/MacroTrendChart';
 import EatingPatternChart from '../components/EatingPatternChart';
 import { foodApi, settingsApi } from '../api';
+import { productsApi } from '../api/products';
 
 const MACRO_COLORS = {
   protein: '#ef4444',
@@ -271,6 +272,11 @@ export default function FoodTracker() {
   // Quick add from database search
   const handleDbQuickAdd = async (food) => {
     try {
+      if (food.is_product) {
+        await productsApi.log(food.product_id, 1, format(selectedDate, 'yyyy-MM-dd'));
+        fetchFoodItems();
+        return;
+      }
       await foodApi.addFood({
         name: food.name,
         calories: food.calories || 0,
@@ -488,6 +494,11 @@ export default function FoodTracker() {
   // Quick add food
   const handleQuickAdd = async (food) => {
     try {
+      if (food.is_product) {
+        await productsApi.log(food.product_id, 1, format(selectedDate, 'yyyy-MM-dd'));
+        fetchFoodItems();
+        return;
+      }
       await foodApi.addFood({
         name: food.name,
         calories: food.calories || 0,
@@ -628,8 +639,9 @@ export default function FoodTracker() {
                       className="flex items-center justify-between p-3 rounded-lg bg-gray-700/50 hover:bg-gray-700 transition-colors"
                     >
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium text-gray-100 truncate">
+                        <div className="font-medium text-gray-100 truncate flex items-center gap-2">
                           {food.name}
+                          {food.is_product && <Badge variant="purple" size="sm">Recipe</Badge>}
                         </div>
                         <div className="text-sm text-gray-400">
                           {displayKcal(food.calories)} kcal · P: {displayMacro(food.protein)}g · C: {displayMacro(food.carbs)}g · F: {displayMacro(food.fat)}g
@@ -641,14 +653,16 @@ export default function FoodTracker() {
                         )}
                       </div>
                       <div className="flex items-center gap-2 ml-4">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleDbEditAdd(food)}
-                        >
-                          <Edit2 className="w-4 h-4 mr-1" />
-                          Edit
-                        </Button>
+                        {!food.is_product && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleDbEditAdd(food)}
+                          >
+                            <Edit2 className="w-4 h-4 mr-1" />
+                            Edit
+                          </Button>
+                        )}
                         <Button
                           size="sm"
                           onClick={() => handleDbQuickAdd(food)}
@@ -998,6 +1012,7 @@ export default function FoodTracker() {
                     <div className="text-sm font-medium text-gray-100 group-hover:text-primary-400 truncate">
                       {food.name}
                     </div>
+                    {food.is_product && <Badge variant="purple" size="sm" className="mt-1">Recipe</Badge>}
                     <div className="text-xs text-gray-500 mt-1">{displayKcal(food.calories)} kcal</div>
                     <div className="text-xs text-gray-600">
                       P: {displayMacro(food.protein)}g · C: {displayMacro(food.carbs)}g · F: {displayMacro(food.fat)}g
