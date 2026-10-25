@@ -226,3 +226,26 @@ def api_log_product(request, product_id):
             'consumed_at': food.consumed_at.isoformat(),
         },
     })
+
+
+def product_quick_entries(query='', limit=5):
+    """Products shaped like quick-add/search rows (per-serving macros, 'carbs' key)."""
+    products = Product.objects.prefetch_related('ingredients').order_by('-updated_at')
+    if query:
+        products = products.filter(name__icontains=query)
+    entries = []
+    for product in products[:limit]:
+        data = serialize_product(product)
+        serving = data['per_serving']
+        entries.append({
+            'id': f'product-{product.id}',
+            'name': product.name,
+            'calories': serving['calories'],
+            'protein': serving['protein'],
+            'carbs': serving['carbohydrates'],
+            'fat': serving['fat'],
+            'is_product': True,
+            'product_id': product.id,
+            'servings_yield': data['servings_yield'],
+        })
+    return entries

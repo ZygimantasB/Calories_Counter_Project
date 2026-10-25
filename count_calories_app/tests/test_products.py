@@ -276,3 +276,34 @@ class ProductApiTests(TestCase):
         food = FoodItem.objects.get()
         self.assertEqual(food.product_name, 'Chicken tortilla')
         self.assertEqual(food.calories, Decimal('365.00'))
+
+
+class ProductQuickAddIntegrationTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.product = make_product(servings_yield='2')
+        FoodItem.objects.create(product_name='Banana', calories=100, protein=1, fat=0, carbohydrates=25)
+        # A diary row logged from the product earlier must not duplicate the product tile.
+        FoodItem.objects.create(product_name='chicken tortilla', calories=182.5, protein=18.5, fat=4.25, carbohydrates=16.5)
+
+    def test_quick_add_lists_products_first_and_dedupes(self):
+        foods = self.client.get(reverse('api_quick_add_foods')).json()['foods']
+        self.assertEqual(foods[0]['name'], 'Chicken tortilla')
+        self.assertTrue(foods[0]['is_product'])
+        self.assertEqual(foods[0]['product_id'], self.product.id)
+        self.assertEqual(foods[0]['calories'], 182.5)
+        self.assertEqual(foods[0]['carbs'], 16.5)
+        names = [f['name'].lower() for f in foods]
+        self.assertEqual(names.count('chicken tortilla'), 1)
+        self.assertIn('banana', names)
+        self.assertEqual(len({f['id'] for f in foods}), len(foods))
+
+    def test_search_includes_matching_products(self):
+        results = self.client.get(reverse('api_search_all_foods'), {'q': 'tort'}).json()['results']
+        self.assertEqual(len(results), 1)
+        self.assertTrue(results[0]['is_product'])
+
+    def test_search_excludes_non_matching_products(self):
+        results = self.client.get(reverse('api_search_all_foods'), {'q': 'banana'}).json()['results']
+        self.assertEqual([r['name'] for r in results], ['Banana'])
+        self.assertFalse(results[0].get('is_product', False))

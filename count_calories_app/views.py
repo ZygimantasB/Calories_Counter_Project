@@ -12,6 +12,7 @@ from django.views.decorators.csrf import ensure_csrf_cookie
 from .models import FoodItem, Weight, Exercise, WorkoutSession, WorkoutExercise, RunningSession, WorkoutTable, BodyMeasurement, UserSettings, MealTemplate, MealTemplateItem
 from .forms import FoodItemForm, WeightForm, ExerciseForm, WorkoutSessionForm, WorkoutExerciseForm, RunningSessionForm, BodyMeasurementForm
 from .services import GeminiService
+from .views_products import product_quick_entries
 import logging
 import json
 import os
@@ -3818,11 +3819,14 @@ def api_quick_add_foods(request):
         base,
     ).order_by('-count')[:15]
 
-    # Transform to frontend-expected format
-    foods = []
-    for i, food in enumerate(recent_foods):
+    # Composite products first; history rows sharing a product's name are dropped
+    foods = product_quick_entries(limit=5)
+    product_names = {food['name'].lower() for food in foods}
+    for food in recent_foods:
+        if food['product_name'].lower() in product_names:
+            continue
         foods.append({
-            'id': i + 1,  # Generate an ID for display purposes
+            'id': len(foods) + 1,  # Generate an ID for display purposes
             'name': food['product_name'],
             **_nutrition_payload(food),
         })
@@ -3854,15 +3858,21 @@ def api_search_all_foods(request):
         base,
     ).order_by('-count')[:limit]
 
-    # Transform to frontend-expected format
-    results = []
+    # Matching composite products first, then history (deduplicated by name)
+    results = product_quick_entries(query, limit)
+    for entry in results:
+        entry.update({'count': 0, 'last_used': None})
+    product_names = {entry['name'].lower() for entry in results}
     for food in foods:
+        if food['product_name'].lower() in product_names:
+            continue
         results.append({
             'name': food['product_name'],
             **_nutrition_payload(food),
             'count': food['count'],
             'last_used': food['last_used'].isoformat() if food['last_used'] else None,
         })
+    results = results[:limit]
 
     return JsonResponse({
         'results': results,
