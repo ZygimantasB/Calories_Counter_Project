@@ -6,7 +6,9 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from django.db import transaction
 from django.http import JsonResponse
+from django.shortcuts import render
 from django.utils import timezone
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_http_methods
 
 from .models import FoodItem, Product, ProductIngredient
@@ -249,3 +251,9 @@ def product_quick_entries(query='', limit=5):
             'servings_yield': data['servings_yield'],
         })
     return entries
+
+
+@ensure_csrf_cookie
+def products_page(request):
+    """Django-template 'My Products' page; data is loaded from the JSON API."""
+    return render(request, 'count_calories_app/products.html')

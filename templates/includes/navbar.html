@@ -9,7 +9,7 @@
     <div class="collapse navbar-collapse" id="navbarSupportedContent">
       <ul class="navbar-nav me-auto mb-2 mb-lg-0">
         <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle {% if '/food_tracker' in request.path or '/meal-templates' in request.path %}active{% endif %}" href="#" role="button" data-bs-toggle="dropdown">
+          <a class="nav-link dropdown-toggle {% if '/food_tracker' in request.path or '/meal-templates' in request.path or '/products' in request.path %}active{% endif %}" href="#" role="button" data-bs-toggle="dropdown">
             <i class="fas fa-utensils me-1"></i>Food Tracker
           </a>
           <ul class="dropdown-menu">
@@ -18,6 +18,9 @@
             </a></li>
             <li><a class="dropdown-item {% if '/meal-templates' in request.path %}active{% endif %}" href="{% url 'meal_templates' %}">
               <i class="fas fa-bookmark me-1"></i>Meal Templates
+            </a></li>
+            <li><a class="dropdown-item {% if '/products' in request.path %}active{% endif %}" href="{% url 'products_page' %}">
+              <i class="fas fa-layer-group me-1"></i>My Products
             </a></li>
           </ul>
         </li>

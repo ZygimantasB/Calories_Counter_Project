@@ -49,6 +49,7 @@ urlpatterns = [
     path('meal-templates/save/', views.save_meal_template, name='save_meal_template'),
     path('meal-templates/<int:template_id>/log/', views.log_meal_template, name='log_meal_template'),
     path('meal-templates/<int:template_id>/delete/', views.delete_meal_template, name='delete_meal_template'),
+    path('products/', views_products.products_page, name='products_page'),
     path('analytics/', views.analytics, name='analytics'),
     path('analytics/month-compare/', views.month_compare, name='month_compare'),
     path('analytics/trends/', views.month_trends, name='month_trends'),

@@ -307,3 +307,16 @@ class ProductQuickAddIntegrationTests(TestCase):
         results = self.client.get(reverse('api_search_all_foods'), {'q': 'banana'}).json()['results']
         self.assertEqual([r['name'] for r in results], ['Banana'])
         self.assertFalse(results[0].get('is_product', False))
+
+
+class ProductPageTests(TestCase):
+    def test_products_page_renders_and_sets_csrf_cookie(self):
+        response = Client().get(reverse('products_page'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, 'My Products')
+        self.assertIn('csrftoken', response.cookies)
+
+    def test_navbar_links_to_products(self):
+        response = Client().get(reverse('food_tracker') + '?range=today')
+        self.assertContains(response, reverse('products_page'))
+        self.assertContains(response, 'id="productsQuickList"')
