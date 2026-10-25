@@ -407,3 +407,35 @@ class MealTemplateItem(models.Model):
 
     def __str__(self):
         return f"{self.product_name} ({self.template.name})"
+
+
+class Product(models.Model):
+    """A user-defined composite product (recipe) made of several ingredients."""
+    name = models.CharField(max_length=200, unique=True, help_text="Name logged to the food diary")
+    servings_yield = models.DecimalField(max_digits=5, decimal_places=2, default=1, help_text="How many servings the ingredients make")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
+class ProductIngredient(models.Model):
+    """One ingredient of a Product. Macros are per ONE serving of the ingredient."""
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='ingredients')
+    name = models.CharField(max_length=200)
+    calories = models.DecimalField(max_digits=7, decimal_places=2, default=0)
+    protein = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    fat = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    carbohydrates = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    quantity = models.DecimalField(max_digits=6, decimal_places=2, default=1, help_text="Servings of this ingredient used")
+    order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ['order', 'id']
+
+    def __str__(self):
+        return f"{self.quantity}× {self.name} ({self.product.name})"
